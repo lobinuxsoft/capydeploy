@@ -1,19 +1,27 @@
-# ImGui layout (auto-generated per user)
-imgui.ini
+# Build artifacts
+build/
+*.exe
+*.dll
+*.so
+*.dylib
 
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
+# Go
+go.sum
 
-# Logs
-*.log
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # OS files
 .DS_Store
 Thumbs.db
 ehthumbs.db
 
-# Compiled steam-shortcut-manager binaries (compile from submodule)
-windows-client/devkit-utils/bin/steam-shortcut-manager-linux
-windows-client/devkit-utils/bin/steam-shortcut-manager.exe
+# Logs
+*.log
+
+# Config files (user-specific)
+config.json
+devices.json

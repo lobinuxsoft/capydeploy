@@ -1,5 +1,0 @@
-The devkit client for Linux is provided as a zipapp python application packaged with shiv
-See https://gitlab.steamos.cloud/steam/steamos-devkit/ for details
-
-Use the package that matches the version of Python 3 installed on your OS
-(at the time of writing Python 3.9 or Python 3.10)
