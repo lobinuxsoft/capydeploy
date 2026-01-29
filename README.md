@@ -10,24 +10,7 @@ A cross-platform GUI tool for uploading and managing games on Bazzite/Linux devi
 - **Steam Shortcuts**: Automatically create Steam shortcuts for uploaded games
 - **Installed Games Management**: View, manage, and delete games installed on remote devices
 - **Persistent Configuration**: Save device and game setup configurations for reuse
-
-## Included Tools
-
-This project includes two main components:
-
-### 1. Bazzite Devkit (GUI)
-The main graphical application built with Go and Fyne. Provides a user-friendly interface for:
-- Managing device connections
-- Uploading games
-- Creating Steam shortcuts
-- Managing installed games
-
-### 2. Steam Shortcut Manager
-A command-line utility for managing Steam shortcuts. Supports both local and remote (SSH) operations:
-- `add` - Add a new Steam shortcut
-- `remove` - Remove a Steam shortcut
-- `list` - List all Steam shortcuts
-- `users` - List Steam user IDs
+- **Single Binary**: All functionality is built into a single executable (steam-shortcut-manager is integrated as a library)
 
 ## Requirements
 
@@ -53,24 +36,25 @@ build.bat
 
 This will create:
 - `build/windows/bazzite-devkit.exe`
-- `build/windows/steam-shortcut-manager.exe`
 
-### Manual Build
+### Linux
 
+Run the build script on a Linux machine:
 ```bash
-# Build GUI (requires CGO)
-CGO_ENABLED=1 go build -o build/windows/bazzite-devkit.exe ./cmd/bazzite-devkit
-
-# Build steam-shortcut-manager
-cd steam-shortcut-manager
-go build -o ../build/windows/steam-shortcut-manager.exe .
+chmod +x build.sh
+./build.sh
 ```
+
+This will create:
+- `build/linux/bazzite-devkit`
+
+**Note:** Fyne requires CGO, so you cannot cross-compile from Windows to Linux. You must build on the target platform.
 
 ## Usage
 
 ### Step 1: Launch the Application
 
-Run `bazzite-devkit.exe` from the `build/windows` folder. Make sure `steam-shortcut-manager.exe` is in the same folder.
+Run `bazzite-devkit.exe` from the `build/windows` folder.
 
 ### Step 2: Add a Device
 
@@ -139,8 +123,9 @@ bazzite-devkit/
 ├── internal/
 │   ├── ui/                 # Fyne GUI components
 │   ├── device/             # SSH/SFTP client
-│   └── config/             # Configuration management
-├── steam-shortcut-manager/ # Submodule for managing Steam shortcuts
+│   ├── config/             # Configuration management
+│   └── shortcuts/          # Steam shortcuts management (uses steam-shortcut-manager library)
+├── steam-shortcut-manager/ # Steam shortcut management library (integrated)
 ├── build/                  # Compiled binaries
 │   ├── windows/
 │   └── linux/
@@ -171,4 +156,4 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 ## Credits
 
 - Built with [Fyne](https://fyne.io/) - Cross-platform GUI toolkit for Go
-- [steam-shortcut-manager](https://github.com/lobinuxsoft/steam-shortcut-manager) - Steam shortcuts management
+- Based on [steam-shortcut-manager](https://github.com/shadowblip/steam-shortcut-manager) by ShadowBlip - Steam shortcuts management library

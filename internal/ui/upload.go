@@ -3,10 +3,8 @@ package ui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -16,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/lobinuxsoft/bazzite-devkit/internal/config"
+	"github.com/lobinuxsoft/bazzite-devkit/internal/shortcuts"
 )
 
 // GameSetup represents a saved game installation setup
@@ -450,51 +449,24 @@ func getFilesToUpload(root string) ([]string, error) {
 	return files, err
 }
 
-// createShortcut creates a Steam shortcut on the remote device using local steam-shortcut-manager with remote flags
+// createShortcut creates a Steam shortcut on the remote device
 func createShortcut(dev *Device, name, exe, startDir, launchOpts, tags string) error {
-	binaryName := "steam-shortcut-manager"
-	if runtime.GOOS == "windows" {
-		binaryName = "steam-shortcut-manager.exe"
+	cfg := &shortcuts.RemoteConfig{
+		Host:     dev.Host,
+		Port:     dev.Port,
+		User:     dev.User,
+		Password: dev.Password,
+		KeyFile:  dev.KeyFile,
 	}
 
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
-	}
-	execDir := filepath.Dir(execPath)
-	binaryPath := filepath.Join(execDir, binaryName)
+	tagsList := shortcuts.ParseTags(tags)
 
-	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		return fmt.Errorf("steam-shortcut-manager not found at %s", binaryPath)
+	if err := shortcuts.AddShortcut(cfg, name, exe, startDir, launchOpts, tagsList); err != nil {
+		return err
 	}
 
-	args := []string{
-		"--remote-host", dev.Host,
-		"--remote-port", fmt.Sprintf("%d", dev.Port),
-		"--remote-user", dev.User,
-	}
-
-	if dev.Password != "" {
-		args = append(args, "--remote-password", dev.Password)
-	}
-	if dev.KeyFile != "" {
-		args = append(args, "--remote-key", dev.KeyFile)
-	}
-
-	args = append(args, "add", name, exe, "--start-dir", startDir)
-
-	if launchOpts != "" {
-		args = append(args, "--launch-options", launchOpts)
-	}
-	if tags != "" {
-		args = append(args, "--tags", tags)
-	}
-
-	cmd := exec.Command(binaryPath, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("command failed: %w\nOutput: %s", err, strings.TrimSpace(string(output)))
-	}
+	// Refresh Steam library so the shortcut appears without restarting Steam
+	shortcuts.RefreshSteamLibrary(cfg)
 
 	return nil
 }

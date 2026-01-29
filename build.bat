@@ -23,17 +23,16 @@ exit /b 1
 
 :found_mingw
 echo Found MinGW at: %MINGW_PATH%
-set "PATH=%MINGW_PATH%;%PATH%"
+set "PATH=%MINGW_PATH%;C:\Program Files\Go\bin;%PATH%"
 set CGO_ENABLED=1
 
 cd /d "%~dp0"
 
-rem Create build directories if they don't exist
+rem Create build directory if it doesn't exist
 if not exist "build\windows" mkdir build\windows
-if not exist "build\linux" mkdir build\linux
 
-rem Build Windows versions
-echo Building Windows binaries...
+rem Build Windows version
+echo Building Windows binary...
 set GOOS=windows
 set GOARCH=amd64
 
@@ -43,37 +42,8 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-cd steam-shortcut-manager
-go build -o ..\build\windows\steam-shortcut-manager.exe .
-if %ERRORLEVEL% NEQ 0 (
-    echo Build failed: steam-shortcut-manager (windows)
-    exit /b 1
-)
-cd ..
-
-rem Build Linux versions
-echo Building Linux binaries...
-set GOOS=linux
-set GOARCH=amd64
-set CGO_ENABLED=0
-
-go build -o build\linux\bazzite-devkit ./cmd/bazzite-devkit
-if %ERRORLEVEL% NEQ 0 (
-    echo Build failed: bazzite-devkit (linux)
-    exit /b 1
-)
-
-cd steam-shortcut-manager
-go build -o ..\build\linux\steam-shortcut-manager .
-if %ERRORLEVEL% NEQ 0 (
-    echo Build failed: steam-shortcut-manager (linux)
-    exit /b 1
-)
-cd ..
-
 echo.
 echo Build successful!
 echo   build\windows\bazzite-devkit.exe
-echo   build\windows\steam-shortcut-manager.exe
-echo   build\linux\bazzite-devkit
-echo   build\linux\steam-shortcut-manager
+echo.
+echo Note: To build for Linux, run build.sh on a Linux machine.
