@@ -11,12 +11,17 @@ priority: critical
 - **Process:** PR `dev` -> `main`, Tag, Push. **NO Force Push.**
 
 ## GitHub CLI & Project
-- **Flow:** Issue -> Branch -> PR -> Close.
+- **Flow:** Issue -> Branch -> PR -> **STOP** -> (User merges) -> Next issue.
 - **Labels:** `priority:*`, `difficulty:*`, `next-session`.
 - **Ops:**
   - `gh issue develop <NUM> --base master --checkout`
   - `gh pr create --base master --title "Title" --body "Closes #XX"`
   - `gh issue edit <NUM> --add-label next-session`
+
+## PR Rules — CRITICAL
+- **After PR creation:** STOP and wait for user instructions. **DO NOT** continue to next issue.
+- **Merges:** User handles all PR merges. **NEVER merge** unless explicitly requested.
+- **Next issue:** Only start when user gives the go-ahead.
 
 ## Build
 
