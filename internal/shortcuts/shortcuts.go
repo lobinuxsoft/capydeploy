@@ -3,7 +3,10 @@
 package shortcuts
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -12,6 +15,7 @@ import (
 	"github.com/shadowblip/steam-shortcut-manager/pkg/remote"
 	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"
 	"github.com/shadowblip/steam-shortcut-manager/pkg/steam"
+	_ "golang.org/x/image/webp" // WebP decoder
 )
 
 // ArtworkConfig holds the artwork URLs to download
@@ -147,23 +151,33 @@ func AddShortcutWithArtwork(cfg *RemoteConfig, name, exe, startDir, launchOpts s
 			// - {appID}_icon.png = Square icon
 			if artwork.GridPortrait != "" {
 				fmt.Println("[DEBUG] Uploading GridPortrait (capsule) as appID_p...")
-				downloadAndUploadArtwork(client, artwork.GridPortrait, gridPath, fmt.Sprintf("%dp", appID))
+				if err := downloadAndUploadArtwork(client, artwork.GridPortrait, gridPath, fmt.Sprintf("%dp", appID)); err != nil {
+					fmt.Printf("[ERROR] Failed to upload GridPortrait: %v\n", err)
+				}
 			}
 			if artwork.GridLandscape != "" {
 				fmt.Println("[DEBUG] Uploading GridLandscape (wide) as appID...")
-				downloadAndUploadArtwork(client, artwork.GridLandscape, gridPath, fmt.Sprintf("%d", appID))
+				if err := downloadAndUploadArtwork(client, artwork.GridLandscape, gridPath, fmt.Sprintf("%d", appID)); err != nil {
+					fmt.Printf("[ERROR] Failed to upload GridLandscape: %v\n", err)
+				}
 			}
 			if artwork.HeroImage != "" {
 				fmt.Println("[DEBUG] Uploading HeroImage as appID_hero...")
-				downloadAndUploadArtwork(client, artwork.HeroImage, gridPath, fmt.Sprintf("%d_hero", appID))
+				if err := downloadAndUploadArtwork(client, artwork.HeroImage, gridPath, fmt.Sprintf("%d_hero", appID)); err != nil {
+					fmt.Printf("[ERROR] Failed to upload HeroImage: %v\n", err)
+				}
 			}
 			if artwork.LogoImage != "" {
 				fmt.Println("[DEBUG] Uploading LogoImage as appID_logo...")
-				downloadAndUploadArtwork(client, artwork.LogoImage, gridPath, fmt.Sprintf("%d_logo", appID))
+				if err := downloadAndUploadArtwork(client, artwork.LogoImage, gridPath, fmt.Sprintf("%d_logo", appID)); err != nil {
+					fmt.Printf("[ERROR] Failed to upload LogoImage: %v\n", err)
+				}
 			}
 			if artwork.IconImage != "" {
 				fmt.Println("[DEBUG] Uploading IconImage as appID_icon...")
-				downloadAndUploadArtwork(client, artwork.IconImage, gridPath, fmt.Sprintf("%d_icon", appID))
+				if err := downloadAndUploadArtwork(client, artwork.IconImage, gridPath, fmt.Sprintf("%d_icon", appID)); err != nil {
+					fmt.Printf("[ERROR] Failed to upload IconImage: %v\n", err)
+				}
 			}
 		}
 	}
@@ -172,6 +186,7 @@ func AddShortcutWithArtwork(cfg *RemoteConfig, name, exe, startDir, launchOpts s
 }
 
 // downloadAndUploadArtwork downloads an image from URL and uploads it to remote path
+// WebP images are automatically converted to PNG since Steam doesn't support WebP
 func downloadAndUploadArtwork(client *remote.Client, url, remotePath, baseName string) error {
 	fmt.Printf("[DEBUG] Downloading artwork: %s -> %s/%s\n", url, remotePath, baseName)
 
@@ -192,30 +207,49 @@ func downloadAndUploadArtwork(client *remote.Client, url, remotePath, baseName s
 		return fmt.Errorf("failed to read artwork data: %w", err)
 	}
 
-	fmt.Printf("[DEBUG] Downloaded %d bytes, Content-Type: %s\n", len(data), resp.Header.Get("Content-Type"))
-
-	// Determine file extension - ALWAYS prefer Content-Type over URL
-	// because URLs may have query parameters that confuse filepath.Ext
 	contentType := resp.Header.Get("Content-Type")
+	fmt.Printf("[DEBUG] Downloaded %d bytes, Content-Type: %s\n", len(data), contentType)
+
+	// Determine if we need to convert WebP to PNG (Steam doesn't support WebP)
+	isWebP := strings.Contains(contentType, "webp") ||
+		strings.HasSuffix(strings.ToLower(url), ".webp")
+
 	var ext string
-	switch {
-	case strings.Contains(contentType, "png"):
-		ext = ".png"
-	case strings.Contains(contentType, "jpeg"), strings.Contains(contentType, "jpg"):
-		ext = ".jpg"
-	case strings.Contains(contentType, "webp"):
-		ext = ".webp"
-	case strings.Contains(contentType, "gif"):
-		ext = ".gif"
-	default:
-		// Fallback: try to extract from URL path (without query params)
-		urlPath := url
-		if idx := strings.Index(url, "?"); idx != -1 {
-			urlPath = url[:idx]
+	if isWebP {
+		// Convert WebP to PNG
+		fmt.Println("[DEBUG] Converting WebP to PNG (Steam doesn't support WebP)...")
+		img, _, err := image.Decode(bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("failed to decode WebP image: %w", err)
 		}
-		ext = filepath.Ext(urlPath)
-		if ext == "" {
+
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, img); err != nil {
+			return fmt.Errorf("failed to encode PNG: %w", err)
+		}
+
+		data = buf.Bytes()
+		ext = ".png"
+		fmt.Printf("[DEBUG] Converted to PNG: %d bytes\n", len(data))
+	} else {
+		// Use original format
+		switch {
+		case strings.Contains(contentType, "png"):
 			ext = ".png"
+		case strings.Contains(contentType, "jpeg"), strings.Contains(contentType, "jpg"):
+			ext = ".jpg"
+		case strings.Contains(contentType, "gif"):
+			ext = ".gif"
+		default:
+			// Fallback: try to extract from URL path (without query params)
+			urlPath := url
+			if idx := strings.Index(url, "?"); idx != -1 {
+				urlPath = url[:idx]
+			}
+			ext = filepath.Ext(urlPath)
+			if ext == "" {
+				ext = ".png"
+			}
 		}
 	}
 
@@ -224,11 +258,14 @@ func downloadAndUploadArtwork(client *remote.Client, url, remotePath, baseName s
 	// Convert to forward slashes for Linux
 	remoteDest = strings.ReplaceAll(remoteDest, "\\", "/")
 
-	fmt.Printf("[DEBUG] Uploading to: %s\n", remoteDest)
+	fmt.Printf("[DEBUG] Uploading to: %s (extension: %s)\n", remoteDest, ext)
 
 	if err := client.WriteFile(remoteDest, data, 0644); err != nil {
 		return fmt.Errorf("failed to upload artwork: %w", err)
 	}
+
+	// Verify the file was uploaded
+	fmt.Printf("[DEBUG] Successfully uploaded artwork: %s (%d bytes)\n", remoteDest, len(data))
 
 	return nil
 }
