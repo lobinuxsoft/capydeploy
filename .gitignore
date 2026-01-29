@@ -4,9 +4,15 @@ build/
 *.dll
 *.so
 *.dylib
+bazzite-devkit
 
 # Go
 go.sum
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.svelte-kit/
 
 # IDE
 .idea/

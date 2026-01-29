@@ -69,6 +69,7 @@ func AddShortcutWithArtwork(cfg *RemoteConfig, name, exe, startDir, launchOpts s
 
 	// Calculate appID for artwork naming
 	appID := shortcut.CalculateAppID(exe, name)
+	fmt.Printf("[DEBUG] Calculated AppID for '%s' (exe: %s): %d\n", name, exe, appID)
 
 	// Add shortcut for all users
 	for _, user := range users {
@@ -121,23 +122,47 @@ func AddShortcutWithArtwork(cfg *RemoteConfig, name, exe, startDir, launchOpts s
 			// Convert to forward slashes for Linux
 			gridPath = strings.ReplaceAll(gridPath, "\\", "/")
 
+			fmt.Printf("[DEBUG] Artwork config received:\n")
+			fmt.Printf("  GridPortrait (capsule 600x900): %s\n", artwork.GridPortrait)
+			fmt.Printf("  GridLandscape (wide 920x430): %s\n", artwork.GridLandscape)
+			fmt.Printf("  HeroImage: %s\n", artwork.HeroImage)
+			fmt.Printf("  LogoImage: %s\n", artwork.LogoImage)
+			fmt.Printf("  IconImage: %s\n", artwork.IconImage)
+			fmt.Printf("[DEBUG] AppID: %d, Grid path: %s\n", appID, gridPath)
+
 			// Ensure grid directory exists
 			client.RunCommand(fmt.Sprintf("mkdir -p %q", gridPath))
 
+			// Delete any existing artwork for this appID to avoid caching issues
+			fmt.Printf("[DEBUG] Cleaning existing artwork for appID %d...\n", appID)
+			client.RunCommand(fmt.Sprintf("rm -f %q/%dp.* %q/%d.* %q/%d_hero.* %q/%d_logo.* %q/%d_icon.*",
+				gridPath, appID, gridPath, appID, gridPath, appID, gridPath, appID, gridPath, appID))
+
 			// Download and upload each artwork type
+			// Steam artwork naming convention:
+			// - {appID}p.png = Portrait capsule (600x900) - shown in library grid
+			// - {appID}.png = Horizontal/Wide capsule (920x430 or 460x215)
+			// - {appID}_hero.png = Hero banner (1920x620)
+			// - {appID}_logo.png = Logo with transparency
+			// - {appID}_icon.png = Square icon
 			if artwork.GridPortrait != "" {
+				fmt.Println("[DEBUG] Uploading GridPortrait (capsule) as appID_p...")
 				downloadAndUploadArtwork(client, artwork.GridPortrait, gridPath, fmt.Sprintf("%dp", appID))
 			}
 			if artwork.GridLandscape != "" {
+				fmt.Println("[DEBUG] Uploading GridLandscape (wide) as appID...")
 				downloadAndUploadArtwork(client, artwork.GridLandscape, gridPath, fmt.Sprintf("%d", appID))
 			}
 			if artwork.HeroImage != "" {
+				fmt.Println("[DEBUG] Uploading HeroImage as appID_hero...")
 				downloadAndUploadArtwork(client, artwork.HeroImage, gridPath, fmt.Sprintf("%d_hero", appID))
 			}
 			if artwork.LogoImage != "" {
+				fmt.Println("[DEBUG] Uploading LogoImage as appID_logo...")
 				downloadAndUploadArtwork(client, artwork.LogoImage, gridPath, fmt.Sprintf("%d_logo", appID))
 			}
 			if artwork.IconImage != "" {
+				fmt.Println("[DEBUG] Uploading IconImage as appID_icon...")
 				downloadAndUploadArtwork(client, artwork.IconImage, gridPath, fmt.Sprintf("%d_icon", appID))
 			}
 		}
@@ -148,6 +173,8 @@ func AddShortcutWithArtwork(cfg *RemoteConfig, name, exe, startDir, launchOpts s
 
 // downloadAndUploadArtwork downloads an image from URL and uploads it to remote path
 func downloadAndUploadArtwork(client *remote.Client, url, remotePath, baseName string) error {
+	fmt.Printf("[DEBUG] Downloading artwork: %s -> %s/%s\n", url, remotePath, baseName)
+
 	// Download the image
 	resp, err := http.Get(url)
 	if err != nil {
@@ -165,18 +192,29 @@ func downloadAndUploadArtwork(client *remote.Client, url, remotePath, baseName s
 		return fmt.Errorf("failed to read artwork data: %w", err)
 	}
 
-	// Determine file extension from URL or content type
-	ext := filepath.Ext(url)
-	if ext == "" {
-		contentType := resp.Header.Get("Content-Type")
-		switch {
-		case strings.Contains(contentType, "png"):
-			ext = ".png"
-		case strings.Contains(contentType, "jpeg"), strings.Contains(contentType, "jpg"):
-			ext = ".jpg"
-		case strings.Contains(contentType, "webp"):
-			ext = ".webp"
-		default:
+	fmt.Printf("[DEBUG] Downloaded %d bytes, Content-Type: %s\n", len(data), resp.Header.Get("Content-Type"))
+
+	// Determine file extension - ALWAYS prefer Content-Type over URL
+	// because URLs may have query parameters that confuse filepath.Ext
+	contentType := resp.Header.Get("Content-Type")
+	var ext string
+	switch {
+	case strings.Contains(contentType, "png"):
+		ext = ".png"
+	case strings.Contains(contentType, "jpeg"), strings.Contains(contentType, "jpg"):
+		ext = ".jpg"
+	case strings.Contains(contentType, "webp"):
+		ext = ".webp"
+	case strings.Contains(contentType, "gif"):
+		ext = ".gif"
+	default:
+		// Fallback: try to extract from URL path (without query params)
+		urlPath := url
+		if idx := strings.Index(url, "?"); idx != -1 {
+			urlPath = url[:idx]
+		}
+		ext = filepath.Ext(urlPath)
+		if ext == "" {
 			ext = ".png"
 		}
 	}
@@ -185,6 +223,8 @@ func downloadAndUploadArtwork(client *remote.Client, url, remotePath, baseName s
 	remoteDest := filepath.Join(remotePath, baseName+ext)
 	// Convert to forward slashes for Linux
 	remoteDest = strings.ReplaceAll(remoteDest, "\\", "/")
+
+	fmt.Printf("[DEBUG] Uploading to: %s\n", remoteDest)
 
 	if err := client.WriteFile(remoteDest, data, 0644); err != nil {
 		return fmt.Errorf("failed to upload artwork: %w", err)
