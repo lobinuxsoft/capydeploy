@@ -75,11 +75,12 @@ var setupRowCache = make(map[fyne.CanvasObject]*setupRowData)
 
 // createUploadTab creates the game upload tab
 func createUploadTab() fyne.CanvasObject {
-	// Setup list with inline buttons
+	// Setup list with inline buttons - horizontal layout
 	setupListWidget = widget.NewList(
 		func() int { return len(gameSetups) },
 		func() fyne.CanvasObject {
 			nameLabel := widget.NewLabel("Game Name")
+			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 			pathLabel := widget.NewLabel("Path")
 			pathLabel.TextStyle = fyne.TextStyle{Italic: true}
 
@@ -89,11 +90,15 @@ func createUploadTab() fyne.CanvasObject {
 
 			buttons := container.NewHBox(uploadBtn, editBtn, deleteBtn)
 
+			// Horizontal layout: icon | name | " - " | path | buttons
+			separator := widget.NewLabel(" - ")
+			textContent := container.NewHBox(nameLabel, separator, pathLabel)
+
 			c := container.NewBorder(
 				nil, nil,
 				widget.NewIcon(theme.FolderIcon()),
 				buttons,
-				container.NewVBox(nameLabel, pathLabel),
+				textContent,
 			)
 
 			// Store widget references
@@ -120,7 +125,7 @@ func createUploadTab() fyne.CanvasObject {
 			}
 
 			row.nameLabel.SetText(setup.Name)
-			row.pathLabel.SetText(truncatePath(setup.LocalPath, 50))
+			row.pathLabel.SetText(truncatePath(setup.LocalPath, 40))
 
 			row.uploadBtn.OnTapped = func() {
 				if State.SelectedDevice == nil || !State.SelectedDevice.Connected {

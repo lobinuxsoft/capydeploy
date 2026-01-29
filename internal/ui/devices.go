@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"net"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
@@ -90,10 +92,27 @@ func updateDeviceConfig(oldHost string, dev *Device) {
 }
 
 
+// badgeLayout positions a small badge in the bottom-right corner
+type badgeLayout struct{}
+
+func (b *badgeLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	return fyne.NewSize(24, 24)
+}
+
+func (b *badgeLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	for _, obj := range objects {
+		// Position badge in bottom-right corner
+		badgeSize := fyne.NewSize(8, 8)
+		obj.Resize(badgeSize)
+		obj.Move(fyne.NewPos(size.Width-badgeSize.Width, size.Height-badgeSize.Height))
+	}
+}
+
 // deviceRowData stores widget references for a device list row
 type deviceRowData struct {
 	nameLabel   *widget.Label
 	statusLabel *widget.Label
+	statusDot   *canvas.Circle
 	connectBtn  *widget.Button
 	editBtn     *widget.Button
 	deleteBtn   *widget.Button
@@ -109,15 +128,28 @@ func createDevicesTab() fyne.CanvasObject {
 		func() int { return len(devices) },
 		func() fyne.CanvasObject {
 			nameLabel := widget.NewLabel("Device Name")
-			statusLabel := widget.NewLabel("Status")
+			statusLabel := widget.NewLabel("Disconnected")
 			statusLabel.TextStyle = fyne.TextStyle{Italic: true}
+
+			// Status badge (small dot) overlaid on icon corner
+			statusDot := canvas.NewCircle(color.RGBA{128, 128, 128, 255})
+			statusDot.StrokeWidth = 1
+			statusDot.StrokeColor = color.RGBA{40, 40, 40, 255}
+
+			// Icon with status badge overlay
+			icon := widget.NewIcon(theme.ComputerIcon())
+			iconWithBadge := container.NewStack(
+				icon,
+				container.NewPadded(container.New(&badgeLayout{}, statusDot)),
+			)
+
 			connectBtn := widget.NewButtonWithIcon("", theme.LoginIcon(), nil)
 			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), nil)
 			deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), nil)
 
 			buttons := container.NewHBox(connectBtn, editBtn, deleteBtn)
 			infoRow := container.NewHBox(
-				widget.NewIcon(theme.ComputerIcon()),
+				iconWithBadge,
 				nameLabel,
 				widget.NewLabel("   "),
 				statusLabel,
@@ -129,6 +161,7 @@ func createDevicesTab() fyne.CanvasObject {
 			deviceRowCache[c] = &deviceRowData{
 				nameLabel:   nameLabel,
 				statusLabel: statusLabel,
+				statusDot:   statusDot,
 				connectBtn:  connectBtn,
 				editBtn:     editBtn,
 				deleteBtn:   deleteBtn,
@@ -151,14 +184,17 @@ func createDevicesTab() fyne.CanvasObject {
 			// Update labels
 			row.nameLabel.SetText(fmt.Sprintf("%s (%s@%s)", dev.Name, dev.User, dev.Host))
 			if dev.Connected {
-				row.statusLabel.SetText("● Connected")
+				row.statusLabel.SetText("Connected")
+				row.statusDot.FillColor = color.RGBA{0, 200, 0, 255} // Green
 				row.connectBtn.SetIcon(theme.LogoutIcon())
 				row.connectBtn.Importance = widget.DangerImportance
 			} else {
-				row.statusLabel.SetText("○ Disconnected")
+				row.statusLabel.SetText("Disconnected")
+				row.statusDot.FillColor = color.RGBA{128, 128, 128, 255} // Gray
 				row.connectBtn.SetIcon(theme.LoginIcon())
 				row.connectBtn.Importance = widget.HighImportance
 			}
+			row.statusDot.Refresh()
 			row.connectBtn.Refresh()
 
 			// Set button actions
@@ -578,6 +614,7 @@ func connectToDevice(dev *Device) {
 	dev.Connected = true
 	State.SelectedDevice = dev
 	deviceList.Refresh()
+	UpdateConnectionStatus()
 
 	dialog.ShowInformation("Connected", fmt.Sprintf("Connected to %s", dev.Name), State.Window)
 }
@@ -588,7 +625,11 @@ func disconnectDevice(dev *Device) {
 		dev.Client = nil
 	}
 	dev.Connected = false
+	if State.SelectedDevice == dev {
+		State.SelectedDevice = nil
+	}
 	deviceList.Refresh()
+	UpdateConnectionStatus()
 }
 
 func removeDevice(dev *Device) {
