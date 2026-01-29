@@ -133,17 +133,36 @@ else
 fi
 
 # ============================================
+# Build embedded binary (steam-shortcut-manager for Linux)
+# ============================================
+
+echo -e "${YELLOW}[3/5]${NC} Building embedded steam-shortcut-manager (Linux)..."
+echo
+
+pushd steam-shortcut-manager > /dev/null
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[ERROR]${NC} Failed to build steam-shortcut-manager."
+    popd > /dev/null
+    exit 1
+fi
+popd > /dev/null
+
+echo "  steam-shortcut-manager built successfully."
+echo
+
+# ============================================
 # Build
 # ============================================
 
 if [ "$MODE" = "dev" ]; then
-    echo -e "${YELLOW}[3/4]${NC} Starting development server..."
+    echo -e "${YELLOW}[4/5]${NC} Starting development server..."
     echo
     echo "  Press Ctrl+C to stop."
     echo
     wails dev
 else
-    echo -e "${YELLOW}[3/4]${NC} Building production binary..."
+    echo -e "${YELLOW}[4/5]${NC} Building production binary..."
     echo
 
     if ! wails build -clean; then
@@ -161,7 +180,7 @@ else
     echo
 
     # Show result
-    echo -e "${YELLOW}[4/4]${NC} Build output:"
+    echo -e "${YELLOW}[5/5]${NC} Build output:"
     echo
 
     BINARY="build/bin/bazzite-devkit"

@@ -98,17 +98,45 @@ if %SKIP_DEPS%==0 (
 )
 
 :: ============================================
+:: Build embedded binary (steam-shortcut-manager for Linux)
+:: ============================================
+
+echo [3/5] Building embedded steam-shortcut-manager (Linux)...
+echo.
+
+:: Cross-compile steam-shortcut-manager for Linux
+pushd steam-shortcut-manager
+set GOOS=linux
+set GOARCH=amd64
+set CGO_ENABLED=0
+go build -o ..\internal\embedded\steam-shortcut-manager .
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to build steam-shortcut-manager.
+    popd
+    exit /b 1
+)
+popd
+
+:: Reset environment variables
+set GOOS=
+set GOARCH=
+set CGO_ENABLED=
+
+echo   steam-shortcut-manager built successfully.
+echo.
+
+:: ============================================
 :: Build
 :: ============================================
 
 if "%MODE%"=="dev" (
-    echo [3/4] Starting development server...
+    echo [4/5] Starting development server...
     echo.
     echo   Press Ctrl+C to stop.
     echo.
     wails dev
 ) else (
-    echo [3/4] Building production binary...
+    echo [4/5] Building production binary...
     echo.
 
     wails build -clean
@@ -127,7 +155,7 @@ if "%MODE%"=="dev" (
     echo.
 
     :: Show result
-    echo [4/4] Build output:
+    echo [5/5] Build output:
     echo.
 
     if exist "build\bin\bazzite-devkit.exe" (
