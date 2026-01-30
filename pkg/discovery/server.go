@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/hashicorp/mdns"
@@ -139,7 +140,16 @@ func GetPlatform() string {
 
 // detectPlatform attempts to detect the running platform.
 func detectPlatform() string {
-	// Check for common handheld devices
+	// Check OS first
+	if runtime.GOOS == "windows" {
+		return "windows"
+	}
+
+	if runtime.GOOS != "linux" {
+		return runtime.GOOS
+	}
+
+	// Check for common handheld devices (Linux only)
 	if fileExists("/home/deck") {
 		return "steamdeck"
 	}
