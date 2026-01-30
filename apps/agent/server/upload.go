@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
+	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
 )
 
@@ -202,8 +204,26 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Create shortcut if requested
 	if req.CreateShortcut && req.Shortcut != nil {
-		// TODO: Integrate with shortcuts.Manager to create shortcut
-		log.Printf("Shortcut creation requested for: %s", req.Shortcut.Name)
+		mgr, err := shortcuts.NewManager()
+		if err != nil {
+			log.Printf("Warning: failed to create shortcut manager: %v", err)
+		} else {
+			users, err := steam.GetUsers()
+			if err != nil || len(users) == 0 {
+				log.Printf("Warning: no Steam users found for shortcut creation")
+			} else {
+				appID, artResult, err := mgr.CreateWithArtwork(users[0].ID, *req.Shortcut)
+				if err != nil {
+					log.Printf("Warning: failed to create shortcut: %v", err)
+				} else {
+					resp.AppID = appID
+					log.Printf("Created shortcut '%s' with AppID %d", req.Shortcut.Name, appID)
+					if artResult != nil && len(artResult.Applied) > 0 {
+						log.Printf("Applied artwork: %v", artResult.Applied)
+					}
+				}
+			}
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)

@@ -398,3 +398,80 @@ func (c *Client) DeleteShortcut(ctx context.Context, userID string, appID uint32
 
 	return nil
 }
+
+// ApplyArtworkResult contains the result of applying artwork.
+type ApplyArtworkResult struct {
+	Applied []string `json:"applied"`
+	Failed  []struct {
+		Type  string `json:"type"`
+		Error string `json:"error,omitempty"`
+	} `json:"failed,omitempty"`
+}
+
+// ApplyArtwork applies artwork to a shortcut.
+func (c *Client) ApplyArtwork(ctx context.Context, userID string, appID uint32, cfg *protocol.ArtworkConfig) (*ApplyArtworkResult, error) {
+	url := fmt.Sprintf("%s/shortcuts/%s/%d/artwork", c.baseURL, userID, appID)
+
+	body, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("apply artwork failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		json.NewDecoder(resp.Body).Decode(&errResp)
+		return nil, fmt.Errorf("apply artwork returned status %d: %s", resp.StatusCode, errResp.Error)
+	}
+
+	var result ApplyArtworkResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RestartSteamResult contains the result of a Steam restart.
+type RestartSteamResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// RestartSteam restarts Steam on the agent.
+func (c *Client) RestartSteam(ctx context.Context) (*RestartSteamResult, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/steam/restart", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("restart steam failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("restart steam returned status %d", resp.StatusCode)
+	}
+
+	var result RestartSteamResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
