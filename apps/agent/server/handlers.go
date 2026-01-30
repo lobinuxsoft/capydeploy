@@ -162,8 +162,22 @@ func (s *Server) handleCreateShortcut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Created shortcut '%s' with AppID %d for user %s", cfg.Name, appID, userID)
+
+	// Restart Steam if requested
+	restartSteam := r.URL.Query().Get("restart") == "true"
+	var steamRestarted bool
+	if restartSteam {
+		controller := agentSteam.NewController()
+		result := controller.Restart()
+		steamRestarted = result.Success
+		log.Printf("Steam restart after create: %v", result.Message)
+	}
+
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(ShortcutsResponse{AppID: appID})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"appId":          appID,
+		"steamRestarted": steamRestarted,
+	})
 }
 
 // handleDeleteShortcut deletes a shortcut.
@@ -198,8 +212,22 @@ func (s *Server) handleDeleteShortcut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Deleted shortcut with AppID %d for user %s", appID, userID)
+
+	// Restart Steam if requested
+	restartSteam := r.URL.Query().Get("restart") == "true"
+	var steamRestarted bool
+	if restartSteam {
+		controller := agentSteam.NewController()
+		result := controller.Restart()
+		steamRestarted = result.Success
+		log.Printf("Steam restart after delete: %v", result.Message)
+	}
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "deleted",
+		"steamRestarted": steamRestarted,
+	})
 }
 
 // handleApplyArtwork applies artwork to a shortcut.
