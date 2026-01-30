@@ -28,6 +28,7 @@ apps/hub/frontend/.svelte-kit/
 .DS_Store
 Thumbs.db
 ehthumbs.db
+.fuse_hidden*
 
 # Logs
 *.log
