@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/lobinuxsoft/capydeploy/apps/agent/artwork"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agent/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
@@ -24,6 +26,10 @@ func (s *Server) registerHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("GET /shortcuts/{userID}", s.handleListShortcuts)
 	mux.HandleFunc("POST /shortcuts/{userID}", s.handleCreateShortcut)
 	mux.HandleFunc("DELETE /shortcuts/{userID}/{appID}", s.handleDeleteShortcut)
+	mux.HandleFunc("POST /shortcuts/{userID}/{appID}/artwork", s.handleApplyArtwork)
+
+	// Steam control
+	mux.HandleFunc("POST /steam/restart", s.handleSteamRestart)
 
 	// Uploads
 	mux.HandleFunc("POST /uploads", s.handleInitUpload)
@@ -156,8 +162,22 @@ func (s *Server) handleCreateShortcut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Created shortcut '%s' with AppID %d for user %s", cfg.Name, appID, userID)
+
+	// Restart Steam if requested
+	restartSteam := r.URL.Query().Get("restart") == "true"
+	var steamRestarted bool
+	if restartSteam {
+		controller := agentSteam.NewController()
+		result := controller.Restart()
+		steamRestarted = result.Success
+		log.Printf("Steam restart after create: %v", result.Message)
+	}
+
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(ShortcutsResponse{AppID: appID})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"appId":          appID,
+		"steamRestarted": steamRestarted,
+	})
 }
 
 // handleDeleteShortcut deletes a shortcut.
@@ -192,6 +212,73 @@ func (s *Server) handleDeleteShortcut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Deleted shortcut with AppID %d for user %s", appID, userID)
+
+	// Restart Steam if requested
+	restartSteam := r.URL.Query().Get("restart") == "true"
+	var steamRestarted bool
+	if restartSteam {
+		controller := agentSteam.NewController()
+		result := controller.Restart()
+		steamRestarted = result.Success
+		log.Printf("Steam restart after delete: %v", result.Message)
+	}
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "deleted",
+		"steamRestarted": steamRestarted,
+	})
+}
+
+// handleApplyArtwork applies artwork to a shortcut.
+func (s *Server) handleApplyArtwork(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("userID")
+	appIDStr := r.PathValue("appID")
+	if s.cfg.Verbose {
+		log.Printf("Apply artwork request for user %s, appID %s from %s", userID, appIDStr, r.RemoteAddr)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	appIDInt, err := strconv.ParseUint(appIDStr, 10, 32)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid appID"})
+		return
+	}
+	appID := uint32(appIDInt)
+
+	var cfg protocol.ArtworkConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request body"})
+		return
+	}
+
+	result, err := artwork.Apply(userID, appID, &cfg)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	log.Printf("Applied artwork for AppID %d: %v", appID, result.Applied)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
+}
+
+// handleSteamRestart restarts Steam.
+func (s *Server) handleSteamRestart(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Verbose {
+		log.Printf("Steam restart request from %s", r.RemoteAddr)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	controller := agentSteam.NewController()
+	result := controller.Restart()
+
+	log.Printf("Steam restart: success=%v, message=%s", result.Success, result.Message)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
 }

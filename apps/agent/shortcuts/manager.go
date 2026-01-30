@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/lobinuxsoft/capydeploy/apps/agent/artwork"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"
@@ -108,6 +109,21 @@ func (m *Manager) Create(userID string, cfg protocol.ShortcutConfig) (uint32, er
 	}
 
 	return uint32(appID), nil
+}
+
+// CreateWithArtwork creates a shortcut and applies artwork if provided.
+func (m *Manager) CreateWithArtwork(userID string, cfg protocol.ShortcutConfig) (uint32, *artwork.ApplyResult, error) {
+	appID, err := m.Create(userID, cfg)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	var artResult *artwork.ApplyResult
+	if cfg.Artwork != nil {
+		artResult, _ = artwork.Apply(userID, appID, cfg.Artwork)
+	}
+
+	return appID, artResult, nil
 }
 
 // Delete removes a shortcut by AppID or name.
