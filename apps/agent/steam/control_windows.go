@@ -3,43 +3,66 @@
 package steam
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
 
 // Restart performs a soft restart of Steam.
-// On Windows, it uses taskkill to close Steam and then relaunches it.
+// On Windows, it uses Steam's -shutdown flag and then relaunches.
 func (c *Controller) Restart() *RestartResult {
-	// First, gracefully close Steam
-	exec.Command("taskkill", "/IM", "steam.exe").Run()
-
-	// Wait a moment for Steam to close
-	time.Sleep(2 * time.Second)
-
-	// Relaunch Steam
-	// Steam typically installs to Program Files (x86)
+	// Find Steam executable
 	steamPaths := []string{
 		`C:\Program Files (x86)\Steam\steam.exe`,
 		`C:\Program Files\Steam\steam.exe`,
 	}
 
+	var steamExe string
 	for _, path := range steamPaths {
-		cmd := exec.Command(path)
-		if err := cmd.Start(); err == nil {
-			return &RestartResult{
-				Success: true,
-				Message: "Steam restart initiated",
-			}
+		if _, err := os.Stat(path); err == nil {
+			steamExe = path
+			break
 		}
 	}
 
-	// Try using start command as fallback
-	exec.Command("cmd", "/C", "start", "steam://").Run()
+	if steamExe == "" {
+		// Fallback: try to shutdown via protocol
+		exec.Command("cmd", "/C", "start", "steam://exit").Run()
+		time.Sleep(5 * time.Second)
+		exec.Command("cmd", "/C", "start", "steam://open/main").Run()
+		return &RestartResult{
+			Success: true,
+			Message: "Steam restart initiated via protocol",
+		}
+	}
+
+	// Gracefully shutdown Steam
+	exec.Command(steamExe, "-shutdown").Run()
+
+	// Wait for Steam to fully close (up to 10 seconds)
+	for i := 0; i < 20; i++ {
+		time.Sleep(500 * time.Millisecond)
+		if !c.IsRunning() {
+			break
+		}
+	}
+
+	// Extra delay to ensure Steam is fully closed
+	time.Sleep(1 * time.Second)
+
+	// Relaunch Steam
+	cmd := exec.Command(steamExe)
+	if err := cmd.Start(); err != nil {
+		return &RestartResult{
+			Success: false,
+			Message: "Failed to relaunch Steam: " + err.Error(),
+		}
+	}
 
 	return &RestartResult{
 		Success: true,
-		Message: "Steam restart initiated",
+		Message: "Steam restart completed",
 	}
 }
 
