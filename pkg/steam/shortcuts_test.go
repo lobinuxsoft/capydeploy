@@ -9,7 +9,8 @@ import (
 )
 
 func TestNewShortcutManagerWithPaths(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 	mgr := NewShortcutManagerWithPaths(paths)
 
 	if mgr == nil {
@@ -18,20 +19,22 @@ func TestNewShortcutManagerWithPaths(t *testing.T) {
 }
 
 func TestShortcutManager_GetShortcutsPath(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 	mgr := NewShortcutManagerWithPaths(paths)
 
-	want := "/test/steam/userdata/12345/config/shortcuts.vdf"
+	want := filepath.Join("test", "steam", "userdata", "12345", "config", "shortcuts.vdf")
 	if got := mgr.GetShortcutsPath("12345"); got != want {
 		t.Errorf("GetShortcutsPath() = %q, want %q", got, want)
 	}
 }
 
 func TestShortcutManager_GetGridDir(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 	mgr := NewShortcutManagerWithPaths(paths)
 
-	want := "/test/steam/userdata/12345/config/grid"
+	want := filepath.Join("test", "steam", "userdata", "12345", "config", "grid")
 	if got := mgr.GetGridDir("12345"); got != want {
 		t.Errorf("GetGridDir() = %q, want %q", got, want)
 	}
@@ -122,7 +125,8 @@ func TestConvertToShortcutInfo(t *testing.T) {
 }
 
 func TestShortcutManager_ArtworkPaths(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 	mgr := NewShortcutManagerWithPaths(paths)
 
 	userID := "12345"

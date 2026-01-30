@@ -7,53 +7,59 @@ import (
 )
 
 func TestNewPathsWithBase(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
-	if paths.BaseDir() != "/test/steam" {
-		t.Errorf("BaseDir() = %q, want %q", paths.BaseDir(), "/test/steam")
+	if paths.BaseDir() != baseDir {
+		t.Errorf("BaseDir() = %q, want %q", paths.BaseDir(), baseDir)
 	}
 }
 
 func TestPaths_UserDataDir(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
-	want := "/test/steam/userdata"
+	want := filepath.Join("test", "steam", "userdata")
 	if got := paths.UserDataDir(); got != want {
 		t.Errorf("UserDataDir() = %q, want %q", got, want)
 	}
 }
 
 func TestPaths_UserDir(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
-	want := "/test/steam/userdata/12345"
+	want := filepath.Join("test", "steam", "userdata", "12345")
 	if got := paths.UserDir("12345"); got != want {
 		t.Errorf("UserDir() = %q, want %q", got, want)
 	}
 }
 
 func TestPaths_ConfigDir(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
-	want := "/test/steam/userdata/12345/config"
+	want := filepath.Join("test", "steam", "userdata", "12345", "config")
 	if got := paths.ConfigDir("12345"); got != want {
 		t.Errorf("ConfigDir() = %q, want %q", got, want)
 	}
 }
 
 func TestPaths_ShortcutsPath(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
-	want := "/test/steam/userdata/12345/config/shortcuts.vdf"
+	want := filepath.Join("test", "steam", "userdata", "12345", "config", "shortcuts.vdf")
 	if got := paths.ShortcutsPath("12345"); got != want {
 		t.Errorf("ShortcutsPath() = %q, want %q", got, want)
 	}
 }
 
 func TestPaths_GridDir(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
-	want := "/test/steam/userdata/12345/config/grid"
+	want := filepath.Join("test", "steam", "userdata", "12345", "config", "grid")
 	if got := paths.GridDir("12345"); got != want {
 		t.Errorf("GridDir() = %q, want %q", got, want)
 	}
@@ -105,7 +111,8 @@ func TestPaths_EnsureGridDir(t *testing.T) {
 }
 
 func TestPaths_ArtworkPath(t *testing.T) {
-	paths := NewPathsWithBase("/test/steam")
+	baseDir := filepath.Join("test", "steam")
+	paths := NewPathsWithBase(baseDir)
 
 	tests := []struct {
 		name    string
@@ -119,35 +126,35 @@ func TestPaths_ArtworkPath(t *testing.T) {
 			appID:   12345,
 			artType: ArtworkGrid,
 			ext:     "png",
-			want:    "/test/steam/userdata/99999/config/grid/12345.png",
+			want:    filepath.Join("test", "steam", "userdata", "99999", "config", "grid", "12345.png"),
 		},
 		{
 			name:    "hero artwork",
 			appID:   12345,
 			artType: ArtworkHero,
 			ext:     "jpg",
-			want:    "/test/steam/userdata/99999/config/grid/12345_hero.jpg",
+			want:    filepath.Join("test", "steam", "userdata", "99999", "config", "grid", "12345_hero.jpg"),
 		},
 		{
 			name:    "logo artwork",
 			appID:   12345,
 			artType: ArtworkLogo,
 			ext:     "png",
-			want:    "/test/steam/userdata/99999/config/grid/12345_logo.png",
+			want:    filepath.Join("test", "steam", "userdata", "99999", "config", "grid", "12345_logo.png"),
 		},
 		{
 			name:    "icon artwork",
 			appID:   12345,
 			artType: ArtworkIcon,
 			ext:     "ico",
-			want:    "/test/steam/userdata/99999/config/grid/12345_icon.ico",
+			want:    filepath.Join("test", "steam", "userdata", "99999", "config", "grid", "12345_icon.ico"),
 		},
 		{
 			name:    "portrait artwork",
 			appID:   12345,
 			artType: ArtworkPortrait,
 			ext:     "png",
-			want:    "/test/steam/userdata/99999/config/grid/12345p.png",
+			want:    filepath.Join("test", "steam", "userdata", "99999", "config", "grid", "12345p.png"),
 		},
 	}
 

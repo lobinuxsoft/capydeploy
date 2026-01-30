@@ -75,8 +75,8 @@ func TestGetPlatform(t *testing.T) {
 		t.Error("GetPlatform() should not return empty string")
 	}
 
-	// Should be one of known platforms or "linux"
-	knownPlatforms := []string{"steamdeck", "legiongologo", "rogally", "chimeraos", "linux"}
+	// Should be one of known platforms
+	knownPlatforms := []string{"steamdeck", "legiongologo", "rogally", "chimeraos", "linux", "windows"}
 	found := false
 	for _, p := range knownPlatforms {
 		if platform == p {
