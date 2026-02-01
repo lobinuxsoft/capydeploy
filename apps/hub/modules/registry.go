@@ -42,11 +42,24 @@ func (r *Registry) Get(platform string) PlatformModule {
 // GetClient creates a client for the specified platform.
 // Returns an error if the platform is not supported.
 func (r *Registry) GetClient(platform, host string, port int) (PlatformClient, error) {
-	module := r.Get(platform)
+	// Normalize platform aliases
+	normalizedPlatform := normalizePlatform(platform)
+
+	module := r.Get(normalizedPlatform)
 	if module == nil {
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
 	return module.NewClient(host, port), nil
+}
+
+// normalizePlatform maps platform aliases to supported platforms.
+func normalizePlatform(platform string) string {
+	switch platform {
+	case "steamdeck", "steamos", "bazzite", "chimera":
+		return PlatformLinux
+	default:
+		return platform
+	}
 }
 
 // Platforms returns a list of all registered platform names.
