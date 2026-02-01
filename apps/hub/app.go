@@ -5,10 +5,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,46 +14,61 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/lobinuxsoft/capydeploy/internal/device"
-	"github.com/lobinuxsoft/capydeploy/internal/embedded"
-	"github.com/lobinuxsoft/capydeploy/internal/shortcuts"
+	"github.com/lobinuxsoft/capydeploy/apps/hub/modules"
 	"github.com/lobinuxsoft/capydeploy/pkg/config"
+	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
+	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steamgriddb"
+	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
 )
 
 // App struct holds the application state
 type App struct {
 	ctx             context.Context
-	connectedDevice *ConnectedDevice
+	connectedAgent  *ConnectedAgent
+	discoveryClient *discovery.Client
+	discoveredMu    sync.RWMutex
+	discoveredCache map[string]*discovery.DiscoveredAgent
 	mu              sync.RWMutex
 }
 
-// ConnectedDevice represents a connected device with its client
-type ConnectedDevice struct {
-	Config config.DeviceConfig
-	Client *device.Client
+// ConnectedAgent represents a connected agent with its client
+type ConnectedAgent struct {
+	Agent  *discovery.DiscoveredAgent
+	Client modules.PlatformClient
 }
 
 // ConnectionStatus represents the current connection status
 type ConnectionStatus struct {
-	Connected  bool   `json:"connected"`
-	DeviceName string `json:"deviceName"`
-	Host       string `json:"host"`
-	Port       int    `json:"port"`
+	Connected bool     `json:"connected"`
+	AgentID   string   `json:"agentId"`
+	AgentName string   `json:"agentName"`
+	Platform  string   `json:"platform"`
+	Host      string   `json:"host"`
+	Port      int      `json:"port"`
+	IPs       []string `json:"ips"`
 }
 
-// NetworkDevice represents a device found on the network
-type NetworkDevice struct {
-	IP       string `json:"ip"`
-	Hostname string `json:"hostname"`
-	HasSSH   bool   `json:"hasSSH"`
+// DiscoveredAgentInfo represents agent info for the frontend
+type DiscoveredAgentInfo struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Platform     string   `json:"platform"`
+	Version      string   `json:"version"`
+	Host         string   `json:"host"`
+	Port         int      `json:"port"`
+	IPs          []string `json:"ips"`
+	DiscoveredAt string   `json:"discoveredAt"`
+	LastSeen     string   `json:"lastSeen"`
+	Online       bool     `json:"online"`
 }
 
 // InstalledGame represents a game installed on the remote device
 type InstalledGame struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Size string `json:"size"`
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Size   string `json:"size"`
+	AppID  uint32 `json:"appId,omitempty"`
 }
 
 // UploadProgress represents upload progress data
@@ -68,96 +81,141 @@ type UploadProgress struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		discoveryClient: discovery.NewClient(),
+		discoveredCache: make(map[string]*discovery.DiscoveredAgent),
+	}
 }
 
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Start continuous discovery in background
+	go a.runDiscovery()
 }
 
 // shutdown is called when the app is closing
 func (a *App) shutdown(ctx context.Context) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.connectedDevice != nil && a.connectedDevice.Client != nil {
-		a.connectedDevice.Client.Close()
+	if a.discoveryClient != nil {
+		a.discoveryClient.Close()
 	}
 }
 
-// =============================================================================
-// Device Management
-// =============================================================================
+// runDiscovery handles mDNS discovery and emits events
+func (a *App) runDiscovery() {
+	ctx := context.Background()
 
-// GetDevices returns all saved devices
-func (a *App) GetDevices() ([]config.DeviceConfig, error) {
-	return config.GetDevices()
-}
+	// Start continuous discovery
+	go a.discoveryClient.StartContinuousDiscovery(ctx, 5*time.Second)
 
-// AddDevice adds a new device
-func (a *App) AddDevice(dev config.DeviceConfig) error {
-	return config.AddDevice(dev)
-}
-
-// UpdateDevice updates an existing device
-func (a *App) UpdateDevice(oldHost string, dev config.DeviceConfig) error {
-	return config.UpdateDevice(oldHost, dev)
-}
-
-// RemoveDevice removes a device
-func (a *App) RemoveDevice(host string) error {
-	// Disconnect if this is the connected device
-	a.mu.RLock()
-	if a.connectedDevice != nil && a.connectedDevice.Config.Host == host {
-		a.mu.RUnlock()
-		a.DisconnectDevice()
-	} else {
-		a.mu.RUnlock()
-	}
-	return config.RemoveDevice(host)
-}
-
-// ConnectDevice connects to a device by host
-func (a *App) ConnectDevice(host string) error {
-	// Get device config
-	devices, err := config.GetDevices()
-	if err != nil {
-		return fmt.Errorf("failed to get devices: %w", err)
-	}
-
-	var deviceCfg *config.DeviceConfig
-	for _, d := range devices {
-		if d.Host == host {
-			deviceCfg = &d
-			break
+	// Process events
+	for event := range a.discoveryClient.Events() {
+		a.discoveredMu.Lock()
+		switch event.Type {
+		case discovery.EventDiscovered:
+			a.discoveredCache[event.Agent.Info.ID] = event.Agent
+			runtime.EventsEmit(a.ctx, "discovery:agent-found", a.agentToInfo(event.Agent))
+		case discovery.EventUpdated:
+			a.discoveredCache[event.Agent.Info.ID] = event.Agent
+			runtime.EventsEmit(a.ctx, "discovery:agent-updated", a.agentToInfo(event.Agent))
+		case discovery.EventLost:
+			delete(a.discoveredCache, event.Agent.Info.ID)
+			runtime.EventsEmit(a.ctx, "discovery:agent-lost", event.Agent.Info.ID)
 		}
+		a.discoveredMu.Unlock()
+	}
+}
+
+// agentToInfo converts a DiscoveredAgent to frontend-friendly info
+func (a *App) agentToInfo(agent *discovery.DiscoveredAgent) DiscoveredAgentInfo {
+	ips := make([]string, 0, len(agent.IPs))
+	for _, ip := range agent.IPs {
+		ips = append(ips, ip.String())
 	}
 
-	if deviceCfg == nil {
-		return fmt.Errorf("device not found: %s", host)
+	return DiscoveredAgentInfo{
+		ID:           agent.Info.ID,
+		Name:         agent.Info.Name,
+		Platform:     agent.Info.Platform,
+		Version:      agent.Info.Version,
+		Host:         agent.Host,
+		Port:         agent.Port,
+		IPs:          ips,
+		DiscoveredAt: agent.DiscoveredAt.Format(time.RFC3339),
+		LastSeen:     agent.LastSeen.Format(time.RFC3339),
+		Online:       !agent.IsStale(30 * time.Second),
+	}
+}
+
+// =============================================================================
+// Agent Discovery & Connection
+// =============================================================================
+
+// GetDiscoveredAgents returns all discovered agents
+func (a *App) GetDiscoveredAgents() []DiscoveredAgentInfo {
+	a.discoveredMu.RLock()
+	defer a.discoveredMu.RUnlock()
+
+	agents := make([]DiscoveredAgentInfo, 0, len(a.discoveredCache))
+	for _, agent := range a.discoveredCache {
+		agents = append(agents, a.agentToInfo(agent))
+	}
+	return agents
+}
+
+// RefreshDiscovery triggers a manual discovery scan
+func (a *App) RefreshDiscovery() ([]DiscoveredAgentInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	agents, err := a.discoveryClient.Discover(ctx, 3*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("discovery failed: %w", err)
+	}
+
+	// Update cache
+	a.discoveredMu.Lock()
+	for _, agent := range agents {
+		a.discoveredCache[agent.Info.ID] = agent
+	}
+	a.discoveredMu.Unlock()
+
+	return a.GetDiscoveredAgents(), nil
+}
+
+// ConnectAgent connects to an agent by ID
+func (a *App) ConnectAgent(agentID string) error {
+	// Find agent in cache
+	a.discoveredMu.RLock()
+	agent, ok := a.discoveredCache[agentID]
+	a.discoveredMu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("agent not found: %s", agentID)
 	}
 
 	// Disconnect existing connection
 	a.mu.Lock()
-	if a.connectedDevice != nil && a.connectedDevice.Client != nil {
-		a.connectedDevice.Client.Close()
-		a.connectedDevice = nil
-	}
+	a.connectedAgent = nil
 	a.mu.Unlock()
 
-	// Create and connect client
-	client, err := device.NewClient(deviceCfg.Host, deviceCfg.Port, deviceCfg.User, deviceCfg.Password, deviceCfg.KeyFile)
+	// Create client using modules
+	client, err := modules.ClientFromAgent(agent)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	if err := client.Connect(); err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+	// Verify connection with health check
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := client.Health(ctx); err != nil {
+		return fmt.Errorf("agent not responding: %w", err)
 	}
 
 	a.mu.Lock()
-	a.connectedDevice = &ConnectedDevice{
-		Config: *deviceCfg,
+	a.connectedAgent = &ConnectedAgent{
+		Agent:  agent,
 		Client: client,
 	}
 	a.mu.Unlock()
@@ -168,13 +226,10 @@ func (a *App) ConnectDevice(host string) error {
 	return nil
 }
 
-// DisconnectDevice disconnects from the current device
-func (a *App) DisconnectDevice() {
+// DisconnectAgent disconnects from the current agent
+func (a *App) DisconnectAgent() {
 	a.mu.Lock()
-	if a.connectedDevice != nil && a.connectedDevice.Client != nil {
-		a.connectedDevice.Client.Close()
-	}
-	a.connectedDevice = nil
+	a.connectedAgent = nil
 	a.mu.Unlock()
 
 	// Emit connection status change
@@ -186,59 +241,25 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	if a.connectedDevice == nil {
+	if a.connectedAgent == nil {
 		return ConnectionStatus{Connected: false}
 	}
 
+	agent := a.connectedAgent.Agent
+	ips := make([]string, 0, len(agent.IPs))
+	for _, ip := range agent.IPs {
+		ips = append(ips, ip.String())
+	}
+
 	return ConnectionStatus{
-		Connected:  true,
-		DeviceName: a.connectedDevice.Config.Name,
-		Host:       a.connectedDevice.Config.Host,
-		Port:       a.connectedDevice.Config.Port,
+		Connected: true,
+		AgentID:   agent.Info.ID,
+		AgentName: agent.Info.Name,
+		Platform:  agent.Info.Platform,
+		Host:      agent.Host,
+		Port:      agent.Port,
+		IPs:       ips,
 	}
-}
-
-// ScanNetwork scans the local network for devices with SSH
-func (a *App) ScanNetwork() ([]NetworkDevice, error) {
-	var found []NetworkDevice
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	localIP := getLocalIP()
-	if localIP == "" {
-		return nil, fmt.Errorf("could not determine local IP address")
-	}
-
-	parts := strings.Split(localIP, ".")
-	if len(parts) != 4 {
-		return nil, fmt.Errorf("invalid local IP format")
-	}
-	baseIP := strings.Join(parts[:3], ".")
-
-	semaphore := make(chan struct{}, 50)
-
-	for i := 1; i <= 254; i++ {
-		wg.Add(1)
-		go func(ip string) {
-			defer wg.Done()
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			if hasSSH(ip) {
-				hostname := getHostname(ip)
-				mu.Lock()
-				found = append(found, NetworkDevice{
-					IP:       ip,
-					Hostname: hostname,
-					HasSSH:   true,
-				})
-				mu.Unlock()
-			}
-		}(fmt.Sprintf("%s.%d", baseIP, i))
-	}
-
-	wg.Wait()
-	return found, nil
 }
 
 // =============================================================================
@@ -272,15 +293,15 @@ func (a *App) SelectFolder() (string, error) {
 	})
 }
 
-// UploadGame uploads a game to the remote device
+// UploadGame uploads a game to the connected agent
 func (a *App) UploadGame(setupID string) error {
 	a.mu.RLock()
-	if a.connectedDevice == nil || a.connectedDevice.Client == nil {
+	if a.connectedAgent == nil {
 		a.mu.RUnlock()
-		return fmt.Errorf("no device connected")
+		return fmt.Errorf("no agent connected")
 	}
-	client := a.connectedDevice.Client
-	deviceCfg := a.connectedDevice.Config
+	client := a.connectedAgent.Client
+	agentInfo := a.connectedAgent.Agent
 	a.mu.RUnlock()
 
 	// Get the game setup
@@ -302,134 +323,166 @@ func (a *App) UploadGame(setupID string) error {
 	}
 
 	// Start upload in goroutine
-	go a.performUpload(client, &deviceCfg, setup)
+	go a.performUpload(client, agentInfo, setup)
 
 	return nil
 }
 
-func (a *App) performUpload(client *device.Client, deviceCfg *config.DeviceConfig, setup *config.GameSetup) {
-	emitProgress := func(progress float64, status string, err string, done bool) {
+func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.DiscoveredAgent, setup *config.GameSetup) {
+	ctx := context.Background()
+
+	emitProgress := func(progress float64, status string, errMsg string, done bool) {
 		runtime.EventsEmit(a.ctx, "upload:progress", UploadProgress{
 			Progress: progress,
 			Status:   status,
-			Error:    err,
+			Error:    errMsg,
 			Done:     done,
 		})
 	}
 
-	emitProgress(0, "Preparing upload...", "", false)
-
-	// Expand remote path
-	remotePath := setup.RemotePath
-	if strings.HasPrefix(remotePath, "~") {
-		homeDir, err := client.GetHomeDir()
-		if err != nil {
-			emitProgress(0, "", fmt.Sprintf("Failed to expand remote path: %v", err), true)
-			return
-		}
-		remotePath = strings.Replace(remotePath, "~", homeDir, 1)
-	}
-
-	remoteGamePath := path.Join(remotePath, setup.Name)
-
-	// Create remote directory
-	emitProgress(0.05, "Creating remote directory...", "", false)
-	if err := client.MkdirAll(remoteGamePath); err != nil {
-		emitProgress(0, "", fmt.Sprintf("Failed to create directory: %v", err), true)
+	// Check if client supports uploads
+	uploader, ok := modules.AsFileUploader(client)
+	if !ok {
+		emitProgress(0, "", "Agent does not support file uploads", true)
 		return
 	}
 
-	// Get list of files
-	emitProgress(0.1, "Scanning files...", "", false)
-	files, err := getFilesToUpload(setup.LocalPath)
+	emitProgress(0, "Scanning files...", "", false)
+
+	// Scan local files
+	files, totalSize, err := scanFilesForUpload(setup.LocalPath)
 	if err != nil {
 		emitProgress(0, "", fmt.Sprintf("Failed to scan files: %v", err), true)
 		return
 	}
 
-	// Upload files
-	totalFiles := len(files)
-	for i, file := range files {
-		relPath, _ := filepath.Rel(setup.LocalPath, file)
-		relPath = strings.ReplaceAll(relPath, "\\", "/")
-		remoteDest := path.Join(remoteGamePath, relPath)
+	emitProgress(0.05, "Initializing upload...", "", false)
 
-		remoteDir := path.Dir(remoteDest)
-		client.MkdirAll(remoteDir)
-
-		progress := 0.1 + (float64(i)/float64(totalFiles))*0.75
-		emitProgress(progress, fmt.Sprintf("Uploading: %s", relPath), "", false)
-
-		if err := client.UploadFile(file, remoteDest); err != nil {
-			emitProgress(0, "", fmt.Sprintf("Failed to upload %s: %v", relPath, err), true)
-			return
-		}
+	// Prepare upload config
+	uploadConfig := protocol.UploadConfig{
+		GameName:      setup.Name,
+		RemotePath:    setup.RemotePath,
+		Executable:    setup.Executable,
+		LaunchOptions: setup.LaunchOptions,
+		Tags:          setup.Tags,
 	}
 
-	emitProgress(0.85, "Setting executable permissions...", "", false)
-
-	exePath := path.Join(remoteGamePath, setup.Executable)
-	chmodCmd := fmt.Sprintf("chmod +x %q", exePath)
-	if _, err := client.RunCommand(chmodCmd); err != nil {
-		emitProgress(0, "", fmt.Sprintf("Failed to set permissions: %v", err), true)
+	// Initialize upload
+	initResp, err := uploader.InitUpload(ctx, uploadConfig, totalSize, files)
+	if err != nil {
+		emitProgress(0, "", fmt.Sprintf("Failed to initialize upload: %v", err), true)
 		return
 	}
 
-	// Set executable permissions on common executable files
-	chmodAllCmd := fmt.Sprintf("find %q -type f \\( -name '*.sh' -o -name '*.x86_64' -o -name '*.x86' \\) -exec chmod +x {} \\;", remoteGamePath)
-	client.RunCommand(chmodAllCmd)
-
-	// Ensure steam-shortcut-manager binary exists on remote device
-	emitProgress(0.87, "Checking steam-shortcut-manager binary...", "", false)
-
-	binaryRemotePath := path.Join(remotePath, embedded.SteamShortcutManagerName)
-	if !shortcuts.EnsureBinaryExists(client, binaryRemotePath) {
-		emitProgress(0.88, "Uploading steam-shortcut-manager binary...", "", false)
-		if err := shortcuts.UploadBinary(client, embedded.SteamShortcutManager, binaryRemotePath); err != nil {
-			emitProgress(0, "", fmt.Sprintf("Failed to upload binary: %v", err), true)
-			return
-		}
+	uploadID := initResp.UploadID
+	chunkSize := initResp.ChunkSize
+	if chunkSize == 0 {
+		chunkSize = 1024 * 1024 // 1MB default
 	}
 
-	emitProgress(0.9, "Creating Steam shortcut...", "", false)
+	emitProgress(0.1, "Uploading files...", "", false)
 
-	// Prepare artwork config
-	var artworkCfg *shortcuts.ArtworkConfig
+	// Upload files in chunks
+	var uploaded int64
+	for _, fileEntry := range files {
+		localPath := filepath.Join(setup.LocalPath, fileEntry.RelativePath)
+
+		file, err := os.Open(localPath)
+		if err != nil {
+			emitProgress(0, "", fmt.Sprintf("Failed to open %s: %v", fileEntry.RelativePath, err), true)
+			uploader.CancelUpload(ctx, uploadID)
+			return
+		}
+
+		var offset int64
+		// Check for resume point
+		if resumeOffset, hasResume := initResp.ResumeFrom[fileEntry.RelativePath]; hasResume {
+			offset = resumeOffset
+			file.Seek(offset, 0)
+			uploaded += offset
+		}
+
+		buf := make([]byte, chunkSize)
+		for {
+			n, readErr := file.Read(buf)
+			if n > 0 {
+				chunk := &transfer.Chunk{
+					FilePath: fileEntry.RelativePath,
+					Offset:   offset,
+					Size:     n,
+					Data:     buf[:n],
+				}
+
+				if err := uploader.UploadChunk(ctx, uploadID, chunk); err != nil {
+					file.Close()
+					emitProgress(0, "", fmt.Sprintf("Failed to upload chunk: %v", err), true)
+					uploader.CancelUpload(ctx, uploadID)
+					return
+				}
+
+				offset += int64(n)
+				uploaded += int64(n)
+
+				// Update progress (10% to 85% for file transfer)
+				progress := 0.1 + (float64(uploaded)/float64(totalSize))*0.75
+				emitProgress(progress, fmt.Sprintf("Uploading: %s", fileEntry.RelativePath), "", false)
+			}
+
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				file.Close()
+				emitProgress(0, "", fmt.Sprintf("Failed to read %s: %v", fileEntry.RelativePath, readErr), true)
+				uploader.CancelUpload(ctx, uploadID)
+				return
+			}
+		}
+		file.Close()
+	}
+
+	emitProgress(0.85, "Creating shortcut...", "", false)
+
+	// Prepare shortcut config
+	var artworkCfg *protocol.ArtworkConfig
 	if setup.GridPortrait != "" || setup.GridLandscape != "" || setup.HeroImage != "" ||
 		setup.LogoImage != "" || setup.IconImage != "" {
-		artworkCfg = &shortcuts.ArtworkConfig{
-			GridPortrait:  setup.GridPortrait,
-			GridLandscape: setup.GridLandscape,
-			HeroImage:     setup.HeroImage,
-			LogoImage:     setup.LogoImage,
-			IconImage:     setup.IconImage,
+		artworkCfg = &protocol.ArtworkConfig{
+			Grid:   setup.GridPortrait,
+			Hero:   setup.HeroImage,
+			Logo:   setup.LogoImage,
+			Icon:   setup.IconImage,
+			Banner: setup.GridLandscape,
 		}
-		// Debug: log artwork URLs being used
-		fmt.Printf("[DEBUG] Setup artwork config from GameSetup:\n")
-		fmt.Printf("  Name: %s\n", setup.Name)
-		fmt.Printf("  GridDBGameID: %d\n", setup.GridDBGameID)
-		fmt.Printf("  GridPortrait: %s\n", setup.GridPortrait)
-		fmt.Printf("  GridLandscape: %s\n", setup.GridLandscape)
-		fmt.Printf("  HeroImage: %s\n", setup.HeroImage)
-		fmt.Printf("  LogoImage: %s\n", setup.LogoImage)
-		fmt.Printf("  IconImage: %s\n", setup.IconImage)
 	}
 
-	remoteCfg := &shortcuts.RemoteConfig{
-		Host:     deviceCfg.Host,
-		Port:     deviceCfg.Port,
-		User:     deviceCfg.User,
-		Password: deviceCfg.Password,
-		KeyFile:  deviceCfg.KeyFile,
+	shortcutCfg := &protocol.ShortcutConfig{
+		Name:          setup.Name,
+		Exe:           setup.Executable,
+		StartDir:      setup.RemotePath,
+		LaunchOptions: setup.LaunchOptions,
+		Tags:          parseTags(setup.Tags),
+		Artwork:       artworkCfg,
 	}
 
-	tags := shortcuts.ParseTags(setup.Tags)
-	if err := shortcuts.AddShortcutWithArtwork(remoteCfg, setup.Name, exePath, remoteGamePath, setup.LaunchOptions, tags, artworkCfg, binaryRemotePath); err != nil {
-		emitProgress(0, "", fmt.Sprintf("Failed to create shortcut: %v", err), true)
+	// Complete upload with shortcut creation
+	completeResp, err := uploader.CompleteUpload(ctx, uploadID, true, shortcutCfg)
+	if err != nil {
+		emitProgress(0, "", fmt.Sprintf("Failed to complete upload: %v", err), true)
 		return
 	}
 
-	shortcuts.RefreshSteamLibrary(remoteCfg)
+	if !completeResp.Success {
+		emitProgress(0, "", fmt.Sprintf("Upload failed: %s", completeResp.Error), true)
+		return
+	}
+
+	emitProgress(0.95, "Restarting Steam...", "", false)
+
+	// Restart Steam to apply changes
+	if steamCtrl, ok := modules.AsSteamController(client); ok {
+		steamCtrl.RestartSteam(ctx)
+	}
 
 	emitProgress(1.0, "Upload complete!", "", true)
 }
@@ -438,88 +491,99 @@ func (a *App) performUpload(client *device.Client, deviceCfg *config.DeviceConfi
 // Installed Games Management
 // =============================================================================
 
-// GetInstalledGames returns games installed on the remote device
+// GetInstalledGames returns shortcuts from the connected agent
 func (a *App) GetInstalledGames(remotePath string) ([]InstalledGame, error) {
 	a.mu.RLock()
-	if a.connectedDevice == nil || a.connectedDevice.Client == nil {
+	if a.connectedAgent == nil {
 		a.mu.RUnlock()
-		return nil, fmt.Errorf("no device connected")
+		return nil, fmt.Errorf("no agent connected")
 	}
-	client := a.connectedDevice.Client
+	client := a.connectedAgent.Client
 	a.mu.RUnlock()
 
-	// Expand remote path
-	if strings.HasPrefix(remotePath, "~") {
-		homeDir, err := client.GetHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to expand path: %w", err)
-		}
-		remotePath = strings.Replace(remotePath, "~", homeDir, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get Steam users first
+	userProvider, ok := modules.AsSteamUserProvider(client)
+	if !ok {
+		return nil, fmt.Errorf("agent does not support Steam user listing")
 	}
 
-	// List directories
-	cmd := fmt.Sprintf("ls -1 %s 2>/dev/null || echo ''", remotePath)
-	output, err := client.RunCommand(cmd)
+	users, err := userProvider.GetSteamUsers(ctx)
 	if err != nil {
+		return nil, fmt.Errorf("failed to get Steam users: %w", err)
+	}
+
+	if len(users) == 0 {
 		return []InstalledGame{}, nil
 	}
 
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	var games []InstalledGame
+	// Get shortcuts for first user
+	shortcutMgr, ok := modules.AsShortcutManager(client)
+	if !ok {
+		return nil, fmt.Errorf("agent does not support shortcuts")
+	}
 
-	for _, line := range lines {
-		name := strings.TrimSpace(line)
-		if name == "" {
-			continue
-		}
+	shortcuts, err := shortcutMgr.ListShortcuts(ctx, users[0].ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list shortcuts: %w", err)
+	}
 
-		gamePath := path.Join(remotePath, name)
-
-		sizeCmd := fmt.Sprintf("du -sh %q 2>/dev/null | cut -f1", gamePath)
-		sizeOutput, _ := client.RunCommand(sizeCmd)
-		size := strings.TrimSpace(sizeOutput)
-		if size == "" {
-			size = "Unknown"
-		}
-
+	games := make([]InstalledGame, 0, len(shortcuts))
+	for _, sc := range shortcuts {
 		games = append(games, InstalledGame{
-			Name: name,
-			Path: gamePath,
-			Size: size,
+			Name:  sc.Name,
+			Path:  sc.StartDir,
+			Size:  "N/A", // Agent doesn't provide size info
+			AppID: sc.AppID,
 		})
 	}
 
 	return games, nil
 }
 
-// DeleteGame deletes a game from the remote device
-func (a *App) DeleteGame(name, gamePath string) error {
+// DeleteGame deletes a shortcut from the connected agent
+func (a *App) DeleteGame(name string, appID uint32) error {
 	a.mu.RLock()
-	if a.connectedDevice == nil || a.connectedDevice.Client == nil {
+	if a.connectedAgent == nil {
 		a.mu.RUnlock()
-		return fmt.Errorf("no device connected")
+		return fmt.Errorf("no agent connected")
 	}
-	client := a.connectedDevice.Client
-	deviceCfg := a.connectedDevice.Config
+	client := a.connectedAgent.Client
 	a.mu.RUnlock()
 
-	// Remove Steam shortcut
-	remoteCfg := &shortcuts.RemoteConfig{
-		Host:     deviceCfg.Host,
-		Port:     deviceCfg.Port,
-		User:     deviceCfg.User,
-		Password: deviceCfg.Password,
-		KeyFile:  deviceCfg.KeyFile,
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get Steam users
+	userProvider, ok := modules.AsSteamUserProvider(client)
+	if !ok {
+		return fmt.Errorf("agent does not support Steam user listing")
 	}
 
-	shortcuts.RemoveShortcut(remoteCfg, name)
-	shortcuts.RefreshSteamLibrary(remoteCfg)
-
-	// Delete game files
-	cmd := fmt.Sprintf("rm -rf %q", gamePath)
-	_, err := client.RunCommand(cmd)
+	users, err := userProvider.GetSteamUsers(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete game files: %w", err)
+		return fmt.Errorf("failed to get Steam users: %w", err)
+	}
+
+	if len(users) == 0 {
+		return fmt.Errorf("no Steam users found")
+	}
+
+	// Delete shortcut
+	shortcutMgr, ok := modules.AsShortcutManager(client)
+	if !ok {
+		return fmt.Errorf("agent does not support shortcuts")
+	}
+
+	if err := shortcutMgr.DeleteShortcut(ctx, users[0].ID, appID); err != nil {
+		return fmt.Errorf("failed to delete shortcut: %w", err)
+	}
+
+	// Restart Steam
+	if steamCtrl, ok := modules.AsSteamController(client); ok {
+		steamCtrl.RestartSteam(ctx)
 	}
 
 	return nil
@@ -619,13 +683,11 @@ func (a *App) GetIcons(gameID int, filters steamgriddb.ImageFilters, page int) (
 }
 
 // ProxyImage fetches an image from URL and returns it as a base64 data URL
-// This is needed because WebView2 may block external images
 func (a *App) ProxyImage(imageURL string) (string, error) {
 	if imageURL == "" {
 		return "", fmt.Errorf("empty URL")
 	}
 
-	// Fetch the image
 	resp, err := http.Get(imageURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch image: %w", err)
@@ -636,16 +698,13 @@ func (a *App) ProxyImage(imageURL string) (string, error) {
 		return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
 	}
 
-	// Read image data
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read image: %w", err)
 	}
 
-	// Determine MIME type
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
-		// Try to detect from URL
 		if strings.HasSuffix(strings.ToLower(imageURL), ".png") {
 			contentType = "image/png"
 		} else if strings.HasSuffix(strings.ToLower(imageURL), ".webp") {
@@ -657,7 +716,6 @@ func (a *App) ProxyImage(imageURL string) (string, error) {
 		}
 	}
 
-	// Create data URL
 	base64Data := base64.StdEncoding.EncodeToString(data)
 	dataURL := fmt.Sprintf("data:%s;base64,%s", contentType, base64Data)
 
@@ -668,50 +726,69 @@ func (a *App) ProxyImage(imageURL string) (string, error) {
 // Helper functions
 // =============================================================================
 
-func getLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
+// scanFilesForUpload scans a directory and returns file entries for upload
+func scanFilesForUpload(rootPath string) ([]transfer.FileEntry, int64, error) {
+	var files []transfer.FileEntry
+	var totalSize int64
 
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return ""
-}
-
-func hasSSH(ip string) bool {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:22", ip), 500*time.Millisecond)
-	if err != nil {
-		return false
-	}
-	conn.Close()
-	return true
-}
-
-func getHostname(ip string) string {
-	names, err := net.LookupAddr(ip)
-	if err != nil || len(names) == 0 {
-		return ""
-	}
-	hostname := strings.TrimSuffix(names[0], ".")
-	return hostname
-}
-
-func getFilesToUpload(root string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
-			files = append(files, path)
+		if info.IsDir() {
+			return nil
 		}
+
+		relPath, err := filepath.Rel(rootPath, path)
+		if err != nil {
+			return err
+		}
+		// Normalize path separators
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+		files = append(files, transfer.FileEntry{
+			RelativePath: relPath,
+			Size:         info.Size(),
+		})
+		totalSize += info.Size()
+
 		return nil
 	})
-	return files, err
+
+	return files, totalSize, err
+}
+
+// parseTags parses a comma-separated tag string into a slice
+func parseTags(tagsStr string) []string {
+	if tagsStr == "" {
+		return nil
+	}
+	tags := strings.Split(tagsStr, ",")
+	result := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			result = append(result, tag)
+		}
+	}
+	return result
+}
+
+// =============================================================================
+// Legacy compatibility - these methods are deprecated
+// =============================================================================
+
+// GetDevices is deprecated - use GetDiscoveredAgents instead
+func (a *App) GetDevices() ([]config.DeviceConfig, error) {
+	return config.GetDevices()
+}
+
+// ConnectDevice is deprecated - use ConnectAgent instead
+func (a *App) ConnectDevice(host string) error {
+	return fmt.Errorf("ConnectDevice is deprecated, use ConnectAgent with agent ID")
+}
+
+// DisconnectDevice is deprecated - use DisconnectAgent instead
+func (a *App) DisconnectDevice() {
+	a.DisconnectAgent()
 }

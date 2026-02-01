@@ -1,32 +1,45 @@
 // Wails bindings wrapper
 // These functions call the Go backend through Wails
 
+import type { DiscoveredAgent, ConnectionStatus } from './types';
+
 declare global {
 	interface Window {
 		go: {
 			main: {
 				App: {
+					// Agent discovery (new)
+					GetDiscoveredAgents(): Promise<DiscoveredAgent[]>;
+					RefreshDiscovery(): Promise<DiscoveredAgent[]>;
+					ConnectAgent(agentID: string): Promise<void>;
+					DisconnectAgent(): Promise<void>;
+					GetConnectionStatus(): Promise<ConnectionStatus>;
+
+					// Legacy device functions (deprecated)
 					GetDevices(): Promise<any[]>;
-					AddDevice(dev: any): Promise<void>;
-					UpdateDevice(oldHost: string, dev: any): Promise<void>;
-					RemoveDevice(host: string): Promise<void>;
 					ConnectDevice(host: string): Promise<void>;
 					DisconnectDevice(): Promise<void>;
-					GetConnectionStatus(): Promise<any>;
-					ScanNetwork(): Promise<any[]>;
+
+					// Game setup functions
 					GetGameSetups(): Promise<any[]>;
 					AddGameSetup(setup: any): Promise<void>;
 					UpdateGameSetup(id: string, setup: any): Promise<void>;
 					RemoveGameSetup(id: string): Promise<void>;
 					SelectFolder(): Promise<string>;
 					UploadGame(setupID: string): Promise<void>;
+
+					// Installed games functions
 					GetInstalledGames(remotePath: string): Promise<any[]>;
-					DeleteGame(name: string, path: string): Promise<void>;
+					DeleteGame(name: string, appID: number): Promise<void>;
+
+					// Settings functions
 					GetSteamGridDBAPIKey(): Promise<string>;
 					SetSteamGridDBAPIKey(key: string): Promise<void>;
 					GetCacheSize(): Promise<number>;
 					ClearImageCache(): Promise<void>;
 					OpenCacheFolder(): Promise<void>;
+
+					// SteamGridDB functions
 					SearchGames(query: string): Promise<any[]>;
 					GetGrids(gameID: number, filters: any, page: number): Promise<any[]>;
 					GetHeroes(gameID: number, filters: any, page: number): Promise<any[]>;
@@ -43,15 +56,17 @@ declare global {
 	}
 }
 
-// Device functions
-export const GetDevices = () => window.go.main.App.GetDevices();
-export const AddDevice = (dev: any) => window.go.main.App.AddDevice(dev);
-export const UpdateDevice = (oldHost: string, dev: any) => window.go.main.App.UpdateDevice(oldHost, dev);
-export const RemoveDevice = (host: string) => window.go.main.App.RemoveDevice(host);
-export const ConnectDevice = (host: string) => window.go.main.App.ConnectDevice(host);
-export const DisconnectDevice = () => window.go.main.App.DisconnectDevice();
+// Agent discovery functions (new)
+export const GetDiscoveredAgents = () => window.go.main.App.GetDiscoveredAgents();
+export const RefreshDiscovery = () => window.go.main.App.RefreshDiscovery();
+export const ConnectAgent = (agentID: string) => window.go.main.App.ConnectAgent(agentID);
+export const DisconnectAgent = () => window.go.main.App.DisconnectAgent();
 export const GetConnectionStatus = () => window.go.main.App.GetConnectionStatus();
-export const ScanNetwork = () => window.go.main.App.ScanNetwork();
+
+// Legacy device functions (deprecated - use Agent functions instead)
+export const GetDevices = () => window.go.main.App.GetDevices();
+export const ConnectDevice = (host: string) => window.go.main.App.ConnectDevice(host);
+export const DisconnectDevice = () => window.go.main.App.DisconnectAgent();
 
 // Game setup functions
 export const GetGameSetups = () => window.go.main.App.GetGameSetups();
@@ -63,7 +78,7 @@ export const UploadGame = (setupID: string) => window.go.main.App.UploadGame(set
 
 // Installed games functions
 export const GetInstalledGames = (remotePath: string) => window.go.main.App.GetInstalledGames(remotePath);
-export const DeleteGame = (name: string, path: string) => window.go.main.App.DeleteGame(name, path);
+export const DeleteGame = (name: string, appID: number) => window.go.main.App.DeleteGame(name, appID);
 
 // Settings functions
 export const GetSteamGridDBAPIKey = () => window.go.main.App.GetSteamGridDBAPIKey();

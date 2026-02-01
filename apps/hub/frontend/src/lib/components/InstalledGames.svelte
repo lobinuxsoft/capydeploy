@@ -48,7 +48,7 @@
 		deleting = game.name;
 		statusMessage = `Deleting ${game.name}...`;
 		try {
-			await DeleteGame(game.name, game.path);
+			await DeleteGame(game.name, game.appId || 0);
 			await refreshGames();
 			selectedGame = null;
 			statusMessage = `Deleted ${game.name}`;
