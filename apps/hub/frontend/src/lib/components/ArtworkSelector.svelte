@@ -12,6 +12,7 @@
 	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check, ImageOff } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
 	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, ProxyImage } from '$lib/wailsjs';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		gameName: string;
@@ -448,6 +449,7 @@
 
 	// Auto-search on mount if gameName is provided
 	$effect(() => {
+		if (!browser) return;
 		if (gameName && !currentSelection?.gridDBGameID) {
 			searchGames();
 		}

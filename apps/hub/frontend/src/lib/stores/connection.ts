@@ -4,9 +4,12 @@ import type { ConnectionStatus } from '$lib/types';
 function createConnectionStore() {
 	const { subscribe, set, update } = writable<ConnectionStatus>({
 		connected: false,
-		deviceName: '',
+		agentId: '',
+		agentName: '',
+		platform: '',
 		host: '',
-		port: 0
+		port: 0,
+		ips: []
 	});
 
 	return {
@@ -15,9 +18,12 @@ function createConnectionStore() {
 		update,
 		reset: () => set({
 			connected: false,
-			deviceName: '',
+			agentId: '',
+			agentName: '',
+			platform: '',
 			host: '',
-			port: 0
+			port: 0,
+			ips: []
 		})
 	};
 }

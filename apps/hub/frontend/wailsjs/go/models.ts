@@ -65,9 +65,12 @@ export namespace main {
 	
 	export class ConnectionStatus {
 	    connected: boolean;
-	    deviceName: string;
+	    agentId: string;
+	    agentName: string;
+	    platform: string;
 	    host: string;
 	    port: number;
+	    ips: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionStatus(source);
@@ -76,15 +79,49 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.connected = source["connected"];
-	        this.deviceName = source["deviceName"];
+	        this.agentId = source["agentId"];
+	        this.agentName = source["agentName"];
+	        this.platform = source["platform"];
 	        this.host = source["host"];
 	        this.port = source["port"];
+	        this.ips = source["ips"];
+	    }
+	}
+	export class DiscoveredAgentInfo {
+	    id: string;
+	    name: string;
+	    platform: string;
+	    version: string;
+	    host: string;
+	    port: number;
+	    ips: string[];
+	    discoveredAt: string;
+	    lastSeen: string;
+	    online: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiscoveredAgentInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.platform = source["platform"];
+	        this.version = source["version"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.ips = source["ips"];
+	        this.discoveredAt = source["discoveredAt"];
+	        this.lastSeen = source["lastSeen"];
+	        this.online = source["online"];
 	    }
 	}
 	export class InstalledGame {
 	    name: string;
 	    path: string;
 	    size: string;
+	    appId?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new InstalledGame(source);
@@ -95,22 +132,7 @@ export namespace main {
 	        this.name = source["name"];
 	        this.path = source["path"];
 	        this.size = source["size"];
-	    }
-	}
-	export class NetworkDevice {
-	    ip: string;
-	    hostname: string;
-	    hasSSH: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new NetworkDevice(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.ip = source["ip"];
-	        this.hostname = source["hostname"];
-	        this.hasSSH = source["hasSSH"];
+	        this.appId = source["appId"];
 	    }
 	}
 

@@ -10,6 +10,7 @@
 		GetGameSetups, AddGameSetup, UpdateGameSetup, RemoveGameSetup,
 		SelectFolder, UploadGame, EventsOn, EventsOff
 	} from '$lib/wailsjs';
+	import { browser } from '$app/environment';
 
 	let showSetupForm = $state(false);
 	let showArtworkSelector = $state(false);
@@ -26,6 +27,7 @@
 	let formArtwork = $state<ArtworkSelection | null>(null);
 
 	async function loadSetups() {
+		if (!browser) return;
 		try {
 			const list = await GetGameSetups();
 			gameSetups.set(list || []);
@@ -35,6 +37,8 @@
 	}
 
 	$effect(() => {
+		if (!browser) return;
+
 		loadSetups();
 
 		// Listen for upload progress events

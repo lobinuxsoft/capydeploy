@@ -3,6 +3,14 @@
 	import { cn } from '$lib/utils';
 
 	let status = $derived($connectionStatus);
+
+	function getPlatformIcon(platform: string): string {
+		switch (platform?.toLowerCase()) {
+			case 'linux': return '🐧';
+			case 'windows': return '🪟';
+			default: return '💻';
+		}
+	}
 </script>
 
 <div class="flex items-center gap-2 text-sm">
@@ -14,7 +22,8 @@
 	></div>
 	<span class="text-muted-foreground italic">
 		{#if status.connected}
-			{status.deviceName} ({status.host}:{status.port})
+			{getPlatformIcon(status.platform)} {status.agentName}
+			<span class="text-xs">({status.ips?.[0] || status.host}:{status.port})</span>
 		{:else}
 			Not connected
 		{/if}

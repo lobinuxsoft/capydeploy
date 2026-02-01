@@ -1,4 +1,28 @@
-// Device types
+// Agent types (replaces Device types)
+export interface DiscoveredAgent {
+	id: string;
+	name: string;
+	platform: string;
+	version: string;
+	host: string;
+	port: number;
+	ips: string[];
+	discoveredAt: string;
+	lastSeen: string;
+	online: boolean;
+}
+
+export interface ConnectionStatus {
+	connected: boolean;
+	agentId: string;
+	agentName: string;
+	platform: string;
+	host: string;
+	port: number;
+	ips: string[];
+}
+
+// Legacy types (deprecated, kept for compatibility)
 export interface DeviceConfig {
 	name: string;
 	host: string;
@@ -6,19 +30,6 @@ export interface DeviceConfig {
 	user: string;
 	key_file?: string;
 	password?: string;
-}
-
-export interface ConnectionStatus {
-	connected: boolean;
-	deviceName: string;
-	host: string;
-	port: number;
-}
-
-export interface NetworkDevice {
-	ip: string;
-	hostname: string;
-	hasSSH: boolean;
 }
 
 // Game setup types
@@ -42,6 +53,7 @@ export interface InstalledGame {
 	name: string;
 	path: string;
 	size: string;
+	appId?: number;
 }
 
 export interface UploadProgress {

@@ -3,6 +3,7 @@
 	import { ConnectionStatus, DeviceList, GameSetupList, InstalledGames, Settings } from '$lib/components';
 	import { connectionStatus } from '$lib/stores/connection';
 	import { EventsOn, EventsOff } from '$lib/wailsjs';
+	import { browser } from '$app/environment';
 
 	const tabs = [
 		{ id: 'devices', label: 'Devices' },
@@ -13,6 +14,8 @@
 
 	// Listen for connection status changes
 	$effect(() => {
+		if (!browser) return;
+
 		EventsOn('connection:changed', (status) => {
 			connectionStatus.set(status);
 		});
