@@ -8,13 +8,14 @@
 		GetDiscoveredAgents, RefreshDiscovery, ConnectAgent, DisconnectAgent,
 		GetConnectionStatus, EventsOn, EventsOff
 	} from '$lib/wailsjs';
-	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 
 	let agents = $state<DiscoveredAgent[]>([]);
 	let connecting = $state<string | null>(null);
 	let refreshing = $state(false);
 
 	async function loadAgents() {
+		if (!browser) return;
 		try {
 			const list = await GetDiscoveredAgents();
 			agents = list || [];
@@ -24,6 +25,7 @@
 	}
 
 	async function loadConnectionStatus() {
+		if (!browser) return;
 		try {
 			const status = await GetConnectionStatus();
 			connectionStatus.set(status);
@@ -33,6 +35,7 @@
 	}
 
 	async function refresh() {
+		if (!browser) return;
 		refreshing = true;
 		try {
 			const list = await RefreshDiscovery();
@@ -45,6 +48,7 @@
 	}
 
 	async function connect(agentID: string) {
+		if (!browser) return;
 		connecting = agentID;
 		try {
 			await ConnectAgent(agentID);
@@ -58,6 +62,7 @@
 	}
 
 	async function disconnect() {
+		if (!browser) return;
 		try {
 			await DisconnectAgent();
 			await loadConnectionStatus();
@@ -82,7 +87,10 @@
 		}
 	}
 
-	onMount(() => {
+	// Initialize and setup event listeners
+	$effect(() => {
+		if (!browser) return;
+
 		loadAgents();
 		loadConnectionStatus();
 
@@ -102,13 +110,14 @@
 		EventsOn('connection:changed', (status: any) => {
 			connectionStatus.set(status);
 		});
-	});
 
-	onDestroy(() => {
-		EventsOff('discovery:agent-found');
-		EventsOff('discovery:agent-updated');
-		EventsOff('discovery:agent-lost');
-		EventsOff('connection:changed');
+		// Cleanup on destroy
+		return () => {
+			EventsOff('discovery:agent-found');
+			EventsOff('discovery:agent-updated');
+			EventsOff('discovery:agent-lost');
+			EventsOff('connection:changed');
+		};
 	});
 </script>
 

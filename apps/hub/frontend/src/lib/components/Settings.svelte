@@ -6,6 +6,8 @@
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
 		GetCacheSize, ClearImageCache, OpenCacheFolder
 	} from '$lib/wailsjs';
+	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
+	import { browser } from '$app/environment';
 
 	let apiKey = $state('');
 	let cacheSize = $state('Calculating...');
@@ -13,6 +15,7 @@
 	let clearing = $state(false);
 
 	async function loadSettings() {
+		if (!browser) return;
 		try {
 			const key = await GetSteamGridDBAPIKey();
 			apiKey = key || '';
@@ -24,6 +27,7 @@
 	}
 
 	async function updateCacheSize() {
+		if (!browser) return;
 		try {
 			const size = await GetCacheSize();
 			cacheSize = formatBytes(size);
@@ -69,7 +73,12 @@
 		}
 	}
 
+	function openSteamGridDBApiPage() {
+		BrowserOpenURL('https://www.steamgriddb.com/profile/preferences/api');
+	}
+
 	$effect(() => {
+		if (!browser) return;
 		loadSettings();
 	});
 </script>
@@ -82,15 +91,13 @@
 		</p>
 		<p class="text-sm mb-4">
 			Get your API key from
-			<a
-				href="https://www.steamgriddb.com/profile/preferences/api"
-				target="_blank"
-				rel="noopener noreferrer"
+			<button
+				onclick={openSteamGridDBApiPage}
 				class="text-blue-400 hover:underline inline-flex items-center gap-1"
 			>
 				steamgriddb.com/profile/preferences/api
 				<ExternalLink class="w-3 h-3" />
-			</a>
+			</button>
 		</p>
 
 		<div class="space-y-2">

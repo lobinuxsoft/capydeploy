@@ -4,15 +4,17 @@ import {config} from '../models';
 import {main} from '../models';
 import {steamgriddb} from '../models';
 
-export function AddDevice(arg1:config.DeviceConfig):Promise<void>;
-
 export function AddGameSetup(arg1:config.GameSetup):Promise<void>;
 
 export function ClearImageCache():Promise<void>;
 
+export function ConnectAgent(arg1:string):Promise<void>;
+
 export function ConnectDevice(arg1:string):Promise<void>;
 
-export function DeleteGame(arg1:string,arg2:string):Promise<void>;
+export function DeleteGame(arg1:string,arg2:number):Promise<void>;
+
+export function DisconnectAgent():Promise<void>;
 
 export function DisconnectDevice():Promise<void>;
 
@@ -21,6 +23,8 @@ export function GetCacheSize():Promise<number>;
 export function GetConnectionStatus():Promise<main.ConnectionStatus>;
 
 export function GetDevices():Promise<Array<config.DeviceConfig>>;
+
+export function GetDiscoveredAgents():Promise<Array<main.DiscoveredAgentInfo>>;
 
 export function GetGameSetups():Promise<Array<config.GameSetup>>;
 
@@ -40,19 +44,15 @@ export function OpenCacheFolder():Promise<void>;
 
 export function ProxyImage(arg1:string):Promise<string>;
 
-export function RemoveDevice(arg1:string):Promise<void>;
+export function RefreshDiscovery():Promise<Array<main.DiscoveredAgentInfo>>;
 
 export function RemoveGameSetup(arg1:string):Promise<void>;
-
-export function ScanNetwork():Promise<Array<main.NetworkDevice>>;
 
 export function SearchGames(arg1:string):Promise<Array<steamgriddb.SearchResult>>;
 
 export function SelectFolder():Promise<string>;
 
 export function SetSteamGridDBAPIKey(arg1:string):Promise<void>;
-
-export function UpdateDevice(arg1:string,arg2:config.DeviceConfig):Promise<void>;
 
 export function UpdateGameSetup(arg1:string,arg2:config.GameSetup):Promise<void>;
 
