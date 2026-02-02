@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v3.json",
+  "name": "capydeploy-agent",
+  "outputfilename": "capydeploy-agent",
+  "frontend:install": "bun install",
+  "frontend:build": "bun run build",
+  "frontend:dev:watcher": "bun run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "lobinuxsoft",
+    "email": ""
+  }
+}

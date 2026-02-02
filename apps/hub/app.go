@@ -262,6 +262,27 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 	}
 }
 
+// GetAgentInstallPath returns the install path from the connected agent
+func (a *App) GetAgentInstallPath() (string, error) {
+	a.mu.RLock()
+	if a.connectedAgent == nil {
+		a.mu.RUnlock()
+		return "", fmt.Errorf("no agent connected")
+	}
+	client := a.connectedAgent.Client
+	a.mu.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	config, err := client.GetConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get agent config: %w", err)
+	}
+
+	return config.InstallPath, nil
+}
+
 // =============================================================================
 // Game Setup Management
 // =============================================================================
@@ -361,7 +382,7 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 	// Prepare upload config
 	uploadConfig := protocol.UploadConfig{
 		GameName:      setup.Name,
-		RemotePath:    setup.RemotePath,
+		InstallPath:   setup.InstallPath,
 		Executable:    setup.Executable,
 		LaunchOptions: setup.LaunchOptions,
 		Tags:          setup.Tags,
@@ -456,10 +477,16 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		}
 	}
 
+	// Build full paths for the shortcut
+	// InstallPath is the parent dir (e.g. ~/Games)
+	// Game files are uploaded to InstallPath/GameName/ (e.g. ~/Games/stellar_delivery/)
+	gameDir := filepath.Join(setup.InstallPath, setup.Name)
+	exePath := filepath.Join(gameDir, setup.Executable)
+
 	shortcutCfg := &protocol.ShortcutConfig{
 		Name:          setup.Name,
-		Exe:           setup.Executable,
-		StartDir:      setup.RemotePath,
+		Exe:           exePath,
+		StartDir:      gameDir,
 		LaunchOptions: setup.LaunchOptions,
 		Tags:          parseTags(setup.Tags),
 		Artwork:       artworkCfg,

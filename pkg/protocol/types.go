@@ -5,17 +5,18 @@ import "time"
 
 // AgentInfo contains information about a discovered agent.
 type AgentInfo struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Platform     string `json:"platform"`
-	Version      string `json:"version"`
-	SteamRunning bool   `json:"steamRunning"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	Platform          string `json:"platform"`
+	Version           string `json:"version"`
+	SteamRunning      bool   `json:"steamRunning"`
+	AcceptConnections bool   `json:"acceptConnections"`
 }
 
 // UploadConfig defines the configuration for uploading a game.
 type UploadConfig struct {
 	GameName      string `json:"gameName"`
-	RemotePath    string `json:"remotePath"`
+	InstallPath   string `json:"installPath"`
 	Executable    string `json:"executable"`
 	LaunchOptions string `json:"launchOptions,omitempty"`
 	Tags          string `json:"tags,omitempty"`

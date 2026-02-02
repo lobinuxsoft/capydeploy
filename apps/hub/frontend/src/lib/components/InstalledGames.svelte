@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { Button, Card, Input } from '$lib/components/ui';
+	import { Button, Card } from '$lib/components/ui';
 	import { connectionStatus } from '$lib/stores/connection';
 	import type { InstalledGame } from '$lib/types';
 	import { Folder, RefreshCw, Trash2, Loader2 } from 'lucide-svelte';
-	import { GetInstalledGames, DeleteGame } from '$lib/wailsjs';
+	import { GetInstalledGames, DeleteGame, GetAgentInstallPath } from '$lib/wailsjs';
 	import { cn } from '$lib/utils';
 
-	let remotePath = $state('~/devkit-games');
+	let installPath = $state('');
 	let games = $state<InstalledGame[]>([]);
 	let selectedGame = $state<InstalledGame | null>(null);
 	let loading = $state(false);
@@ -22,7 +22,9 @@
 		loading = true;
 		statusMessage = 'Fetching games...';
 		try {
-			games = await GetInstalledGames(remotePath);
+			// Get install path from agent
+			installPath = await GetAgentInstallPath();
+			games = await GetInstalledGames('');
 			statusMessage = `Found ${games.length} games`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -65,10 +67,11 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex items-center gap-2">
-		<label class="text-sm font-medium">Games Path:</label>
-		<Input bind:value={remotePath} class="flex-1" />
-	</div>
+	{#if installPath}
+		<p class="text-sm text-muted-foreground">
+			Install path: <span class="font-mono">{installPath}</span>
+		</p>
+	{/if}
 
 	<div class="flex gap-2">
 		<Button onclick={refreshGames} disabled={loading || !$connectionStatus.connected}>

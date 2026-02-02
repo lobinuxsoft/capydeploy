@@ -29,6 +29,9 @@ type PlatformClient interface {
 
 	// GetInfo returns information about the agent.
 	GetInfo(ctx context.Context) (*protocol.AgentInfo, error)
+
+	// GetConfig returns the agent configuration.
+	GetConfig(ctx context.Context) (*agent.AgentConfig, error)
 }
 
 // SteamUserProvider provides Steam user information.

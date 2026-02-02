@@ -23,7 +23,6 @@
 	let formExecutable = $state('');
 	let formLaunchOptions = $state('');
 	let formTags = $state('');
-	let formRemotePath = $state('~/devkit-games');
 	let formArtwork = $state<ArtworkSelection | null>(null);
 
 	async function loadSetups() {
@@ -65,7 +64,6 @@
 		formExecutable = '';
 		formLaunchOptions = '';
 		formTags = '';
-		formRemotePath = '~/devkit-games';
 		formArtwork = null;
 		editingSetup = null;
 	}
@@ -82,7 +80,6 @@
 		formExecutable = setup.executable;
 		formLaunchOptions = setup.launch_options || '';
 		formTags = setup.tags || '';
-		formRemotePath = setup.remote_path;
 		if (setup.griddb_game_id || setup.grid_portrait || setup.grid_landscape ||
 			setup.hero_image || setup.logo_image || setup.icon_image) {
 			formArtwork = {
@@ -126,7 +123,7 @@
 			executable: formExecutable,
 			launch_options: formLaunchOptions,
 			tags: formTags,
-			remote_path: formRemotePath,
+			install_path: '', // Agent decides the install path
 			griddb_game_id: formArtwork?.gridDBGameID,
 			grid_portrait: formArtwork?.gridPortrait,
 			grid_landscape: formArtwork?.gridLandscape,
@@ -303,11 +300,6 @@
 		<div class="space-y-2">
 			<label class="text-sm font-medium">Tags</label>
 			<Input bind:value={formTags} placeholder="tag1, tag2 (optional)" />
-		</div>
-
-		<div class="space-y-2">
-			<label class="text-sm font-medium">Remote Path</label>
-			<Input bind:value={formRemotePath} placeholder="~/devkit-games" />
 		</div>
 
 		<div class="space-y-2">

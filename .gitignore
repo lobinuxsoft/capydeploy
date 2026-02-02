@@ -13,10 +13,16 @@ internal/embedded/steam-shortcut-manager
 # Go
 go.sum
 
-# Frontend
+# Frontend - Hub
 apps/hub/frontend/node_modules/
 apps/hub/frontend/dist/
 apps/hub/frontend/.svelte-kit/
+
+# Frontend - Agent
+apps/agent/frontend/node_modules/
+apps/agent/frontend/dist/
+apps/agent/frontend/.svelte-kit/
+apps/agent/frontend/wailsjs/
 
 # IDE
 .idea/
@@ -32,6 +38,9 @@ ehthumbs.db
 
 # Logs
 *.log
+
+# Wails temp files
+*.md5
 
 # Config files (user-specific)
 config.json
