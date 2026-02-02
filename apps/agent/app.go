@@ -109,6 +109,11 @@ func (a *App) startServer() {
 		Platform:   discovery.GetPlatform(),
 		Verbose:    false,
 		UploadPath: a.uploadPath,
+		AcceptConnections: func() bool {
+			a.connectionMu.RLock()
+			defer a.connectionMu.RUnlock()
+			return a.acceptConnections
+		},
 	}
 
 	srv, err := server.New(cfg)

@@ -15,28 +15,45 @@ import (
 
 // registerHandlers sets up all HTTP endpoints.
 func (s *Server) registerHandlers(mux *http.ServeMux) {
-	// Health and info
+	// Health and info - always accessible (needed for discovery)
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("GET /info", s.handleInfo)
 
+	// Protected endpoints - require connections to be accepted
 	// Steam
-	mux.HandleFunc("GET /steam/users", s.handleSteamUsers)
+	mux.HandleFunc("GET /steam/users", s.requireConnections(s.handleSteamUsers))
 
 	// Shortcuts
-	mux.HandleFunc("GET /shortcuts/{userID}", s.handleListShortcuts)
-	mux.HandleFunc("POST /shortcuts/{userID}", s.handleCreateShortcut)
-	mux.HandleFunc("DELETE /shortcuts/{userID}/{appID}", s.handleDeleteShortcut)
-	mux.HandleFunc("POST /shortcuts/{userID}/{appID}/artwork", s.handleApplyArtwork)
+	mux.HandleFunc("GET /shortcuts/{userID}", s.requireConnections(s.handleListShortcuts))
+	mux.HandleFunc("POST /shortcuts/{userID}", s.requireConnections(s.handleCreateShortcut))
+	mux.HandleFunc("DELETE /shortcuts/{userID}/{appID}", s.requireConnections(s.handleDeleteShortcut))
+	mux.HandleFunc("POST /shortcuts/{userID}/{appID}/artwork", s.requireConnections(s.handleApplyArtwork))
 
 	// Steam control
-	mux.HandleFunc("POST /steam/restart", s.handleSteamRestart)
+	mux.HandleFunc("POST /steam/restart", s.requireConnections(s.handleSteamRestart))
 
 	// Uploads
-	mux.HandleFunc("POST /uploads", s.handleInitUpload)
-	mux.HandleFunc("POST /uploads/{id}/chunks", s.handleUploadChunk)
-	mux.HandleFunc("POST /uploads/{id}/complete", s.handleCompleteUpload)
-	mux.HandleFunc("DELETE /uploads/{id}", s.handleCancelUpload)
-	mux.HandleFunc("GET /uploads/{id}", s.handleGetUploadStatus)
+	mux.HandleFunc("POST /uploads", s.requireConnections(s.handleInitUpload))
+	mux.HandleFunc("POST /uploads/{id}/chunks", s.requireConnections(s.handleUploadChunk))
+	mux.HandleFunc("POST /uploads/{id}/complete", s.requireConnections(s.handleCompleteUpload))
+	mux.HandleFunc("DELETE /uploads/{id}", s.requireConnections(s.handleCancelUpload))
+	mux.HandleFunc("GET /uploads/{id}", s.requireConnections(s.handleGetUploadStatus))
+}
+
+// requireConnections wraps a handler to check if connections are accepted.
+func (s *Server) requireConnections(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.cfg.AcceptConnections != nil && !s.cfg.AcceptConnections() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "connections are currently blocked",
+			})
+			log.Printf("Blocked request from %s: connections disabled", r.RemoteAddr)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // handleHealth returns a simple health check response.

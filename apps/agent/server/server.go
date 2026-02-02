@@ -3,6 +3,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,12 +21,13 @@ import (
 
 // Config holds the agent server configuration.
 type Config struct {
-	Port        int
-	Name        string
-	Version     string
-	Platform    string
-	Verbose     bool
-	UploadPath  string // Base path for uploaded files
+	Port              int
+	Name              string
+	Version           string
+	Platform          string
+	Verbose           bool
+	UploadPath        string      // Base path for uploaded files
+	AcceptConnections func() bool // Callback to check if connections are accepted
 }
 
 // Server is the main agent server that handles HTTP requests and mDNS discovery.
@@ -43,7 +46,9 @@ type Server struct {
 
 // New creates a new agent server.
 func New(cfg Config) (*Server, error) {
-	id := uuid.New().String()[:8]
+	// Generate stable ID based on name + platform (survives restarts)
+	hash := sha256.Sum256([]byte(cfg.Name + "-" + cfg.Platform))
+	id := hex.EncodeToString(hash[:])[:8]
 
 	// Set default upload path if not specified
 	if cfg.UploadPath == "" {
