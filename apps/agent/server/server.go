@@ -20,6 +20,15 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
 )
 
+// OperationEvent represents an operation notification for the UI.
+type OperationEvent struct {
+	Type     string  `json:"type"`     // "install", "delete"
+	Status   string  `json:"status"`   // "start", "progress", "complete", "error"
+	GameName string  `json:"gameName"`
+	Progress float64 `json:"progress"` // 0-100
+	Message  string  `json:"message,omitempty"`
+}
+
 // Config holds the agent server configuration.
 type Config struct {
 	Port              int
@@ -27,8 +36,11 @@ type Config struct {
 	Version           string
 	Platform          string
 	Verbose           bool
-	UploadPath        string      // Base path for uploaded files
-	AcceptConnections func() bool // Callback to check if connections are accepted
+	UploadPath        string                   // Base path for uploaded files (deprecated, use GetInstallPath)
+	AcceptConnections func() bool              // Callback to check if connections are accepted
+	GetInstallPath    func() string            // Callback to get the install path from config
+	OnShortcutChange  func()                   // Callback when shortcuts are created/deleted
+	OnOperation       func(event OperationEvent) // Callback for operation progress
 }
 
 // Server is the main agent server that handles HTTP requests and mDNS discovery.
@@ -203,18 +215,61 @@ func (s *Server) DeleteUpload(id string) {
 }
 
 // GetUploadPath returns the full path for an upload.
-// If installPath is specified, it's used as base; otherwise uses default UploadPath.
+// Uses the install path from config callback, or falls back to UploadPath.
 func (s *Server) GetUploadPath(gameName, installPath string) string {
-	basePath := s.cfg.UploadPath
-	if installPath != "" {
-		// Expand ~ to home directory
-		if strings.HasPrefix(installPath, "~/") {
-			home, err := os.UserHomeDir()
-			if err == nil {
-				installPath = filepath.Join(home, installPath[2:])
-			}
-		}
-		basePath = installPath
+	var basePath string
+
+	// Priority: 1. GetInstallPath callback, 2. UploadPath config
+	if s.cfg.GetInstallPath != nil {
+		basePath = s.cfg.GetInstallPath()
+	} else {
+		basePath = s.cfg.UploadPath
 	}
+
+	// Expand ~ to home directory
+	basePath = expandPath(basePath)
+
 	return filepath.Join(basePath, gameName)
+}
+
+// GetInstallPath returns the current install path (expanded).
+func (s *Server) GetInstallPath() string {
+	var path string
+	if s.cfg.GetInstallPath != nil {
+		path = s.cfg.GetInstallPath()
+	} else {
+		path = s.cfg.UploadPath
+	}
+	return expandPath(path)
+}
+
+// expandPath expands ~ to the user's home directory.
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
+// NotifyShortcutChange calls the OnShortcutChange callback if set.
+func (s *Server) NotifyShortcutChange() {
+	if s.cfg.OnShortcutChange != nil {
+		s.cfg.OnShortcutChange()
+	}
+}
+
+// NotifyOperation emits an operation event to the UI.
+func (s *Server) NotifyOperation(opType, status, gameName string, progress float64, message string) {
+	if s.cfg.OnOperation != nil {
+		s.cfg.OnOperation(OperationEvent{
+			Type:     opType,
+			Status:   status,
+			GameName: gameName,
+			Progress: progress,
+			Message:  message,
+		})
+	}
 }

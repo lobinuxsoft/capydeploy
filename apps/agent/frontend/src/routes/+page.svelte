@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { StatusPanel, SteamInfo } from '$lib/components';
+	import { StatusPanel, SteamInfo, ProgressOverlay } from '$lib/components';
 </script>
+
+<ProgressOverlay />
 
 <div class="min-h-screen p-4">
 	<header class="mb-6">

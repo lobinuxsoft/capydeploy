@@ -160,12 +160,12 @@ if [ "$MODE" = "dev" ]; then
     echo
     echo "  Press Ctrl+C to stop."
     echo
-    wails dev
+    wails dev -tags webkit2_41
 else
     echo -e "${YELLOW}[4/5]${NC} Building production binary..."
     echo
 
-    if ! wails build -clean; then
+    if ! wails build -clean -tags webkit2_41; then
         echo
         echo "============================================"
         echo -e "  ${RED}BUILD FAILED${NC}"

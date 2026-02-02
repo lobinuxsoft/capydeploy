@@ -10,6 +10,7 @@ export const RefreshDiscovery = App.RefreshDiscovery;
 export const ConnectAgent = App.ConnectAgent;
 export const DisconnectAgent = App.DisconnectAgent;
 export const GetConnectionStatus = App.GetConnectionStatus;
+export const GetAgentInstallPath = App.GetAgentInstallPath;
 
 // Legacy device functions (deprecated - use Agent functions instead)
 export const GetDevices = App.GetDevices;

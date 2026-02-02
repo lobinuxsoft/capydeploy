@@ -8,6 +8,9 @@ export const GetShortcuts = App.GetShortcuts;
 export const SetAcceptConnections = App.SetAcceptConnections;
 export const DisconnectHub = App.DisconnectHub;
 export const SetName = App.SetName;
+export const GetInstallPath = App.GetInstallPath;
+export const SetInstallPath = App.SetInstallPath;
+export const SelectInstallPath = App.SelectInstallPath;
 
 // Runtime
 export const EventsOn = runtime.EventsOn;

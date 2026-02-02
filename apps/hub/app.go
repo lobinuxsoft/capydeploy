@@ -262,6 +262,27 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 	}
 }
 
+// GetAgentInstallPath returns the install path from the connected agent
+func (a *App) GetAgentInstallPath() (string, error) {
+	a.mu.RLock()
+	if a.connectedAgent == nil {
+		a.mu.RUnlock()
+		return "", fmt.Errorf("no agent connected")
+	}
+	client := a.connectedAgent.Client
+	a.mu.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	config, err := client.GetConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get agent config: %w", err)
+	}
+
+	return config.InstallPath, nil
+}
+
 // =============================================================================
 // Game Setup Management
 // =============================================================================

@@ -29,7 +29,7 @@ export namespace config {
 	    executable: string;
 	    launch_options?: string;
 	    tags?: string;
-	    remote_path: string;
+	    install_path: string;
 	    griddb_game_id?: number;
 	    grid_portrait?: string;
 	    grid_landscape?: string;
@@ -49,7 +49,7 @@ export namespace config {
 	        this.executable = source["executable"];
 	        this.launch_options = source["launch_options"];
 	        this.tags = source["tags"];
-	        this.remote_path = source["remote_path"];
+	        this.install_path = source["install_path"];
 	        this.griddb_game_id = source["griddb_game_id"];
 	        this.grid_portrait = source["grid_portrait"];
 	        this.grid_landscape = source["grid_landscape"];

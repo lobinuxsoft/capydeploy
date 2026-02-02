@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, SetAcceptConnections, DisconnectHub, SetName, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { GetStatus, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let loading = $state(true);
@@ -11,15 +11,28 @@
 	let editingName = $state(false);
 	let newName = $state('');
 	let savingName = $state(false);
+	let installPath = $state('');
 
 	async function loadStatus() {
 		try {
 			status = await GetStatus();
+			installPath = await GetInstallPath();
 			error = null;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error loading status';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function selectFolder() {
+		try {
+			const path = await SelectInstallPath();
+			if (path) {
+				installPath = path;
+			}
+		} catch (e) {
+			console.error('Error selecting folder:', e);
 		}
 	}
 
@@ -164,6 +177,27 @@
 			<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
 				<span class="text-sm">Version</span>
 				<span class="text-sm font-mono">{status.version}</span>
+			</div>
+
+			<!-- Install Path -->
+			<div class="p-3 rounded-lg bg-secondary/50">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<Folder class="w-4 h-4" />
+						<span class="text-sm">Ruta de instalación</span>
+					</div>
+					<button
+						type="button"
+						class="p-1 hover:bg-secondary rounded transition-colors"
+						onclick={selectFolder}
+						title="Cambiar carpeta"
+					>
+						<FolderOpen class="w-4 h-4 text-muted-foreground hover:text-primary" />
+					</button>
+				</div>
+				<p class="text-xs font-mono text-muted-foreground mt-2 pl-6 break-all">
+					{installPath || '~/Games'}
+				</p>
 			</div>
 
 			<!-- Network Info -->

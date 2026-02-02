@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge } from '$lib/components/ui';
-	import { GetSteamUsers, GetShortcuts } from '$lib/wailsjs';
+	import { GetSteamUsers, GetShortcuts, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { SteamUserInfo, ShortcutInfo } from '$lib/types';
 	import { Users, Gamepad2, ChevronDown, ChevronRight } from 'lucide-svelte';
 
@@ -20,6 +20,19 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function refreshShortcuts() {
+		// Reload shortcuts for all expanded users
+		for (const userId of expandedUsers) {
+			try {
+				const userShortcuts = await GetShortcuts(userId);
+				shortcuts.set(userId, userShortcuts);
+			} catch (e) {
+				console.error('Error refreshing shortcuts:', e);
+			}
+		}
+		shortcuts = new Map(shortcuts);
 	}
 
 	async function toggleUser(userId: string) {
@@ -46,6 +59,15 @@
 	$effect(() => {
 		if (!browser) return;
 		loadUsers();
+
+		// Listen for shortcut changes
+		EventsOn('shortcuts:changed', () => {
+			refreshShortcuts();
+		});
+
+		return () => {
+			EventsOff('shortcuts:changed');
+		};
 	});
 </script>
 

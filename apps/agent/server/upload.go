@@ -5,6 +5,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
@@ -83,6 +86,9 @@ func (s *Server) handleInitUpload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Upload session created: %s for game '%s' (%d bytes, %d files)",
 		session.ID, req.Config.GameName, req.TotalSize, len(req.Files))
 
+	// Notify UI about install start
+	s.NotifyOperation("install", "start", req.Config.GameName, 0, "Iniciando instalación...")
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(InitUploadResponse{
 		UploadID:  session.ID,
@@ -157,9 +163,12 @@ func (s *Server) handleUploadChunk(w http.ResponseWriter, r *http.Request) {
 
 	// Update session progress
 	session.AddProgress(int64(len(data)), filePath, offset)
+	progress := session.Progress()
+
+	// Notify UI about progress
+	s.NotifyOperation("install", "progress", session.Config.GameName, progress.Percentage(), "")
 
 	if s.cfg.Verbose {
-		progress := session.Progress()
 		log.Printf("Chunk received: %s/%s offset=%d size=%d (%.1f%%)",
 			uploadID, filePath, offset, len(data), progress.Percentage())
 	}
@@ -197,6 +206,19 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Upload completed: %s -> %s", uploadID, gamePath)
 
+	// Notify UI about completion
+	s.NotifyOperation("install", "complete", session.Config.GameName, 100, "Instalación completada")
+
+	// Make executable on Linux
+	if runtime.GOOS == "linux" && session.Config.Executable != "" {
+		exePath := filepath.Join(gamePath, session.Config.Executable)
+		if err := os.Chmod(exePath, 0755); err != nil {
+			log.Printf("Warning: failed to make executable: %v", err)
+		} else {
+			log.Printf("Made executable: %s", exePath)
+		}
+	}
+
 	resp := CompleteUploadResponse{
 		Success: true,
 		Path:    gamePath,
@@ -212,15 +234,30 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 			if err != nil || len(users) == 0 {
 				log.Printf("Warning: no Steam users found for shortcut creation")
 			} else {
-				appID, artResult, err := mgr.CreateWithArtwork(users[0].ID, *req.Shortcut)
+				// Build correct paths using gamePath (where files were actually installed)
+				// Extract just the executable name from whatever path was sent
+				exeName := filepath.Base(req.Shortcut.Exe)
+				if exeName == "" || exeName == "." {
+					exeName = session.Config.Executable
+				}
+
+				// Create shortcut config with correct absolute paths
+				shortcutCfg := *req.Shortcut
+				shortcutCfg.Exe = filepath.Join(gamePath, exeName)
+				shortcutCfg.StartDir = gamePath
+
+				log.Printf("Creating shortcut: Exe=%s, StartDir=%s", shortcutCfg.Exe, shortcutCfg.StartDir)
+
+				appID, artResult, err := mgr.CreateWithArtwork(users[0].ID, shortcutCfg)
 				if err != nil {
 					log.Printf("Warning: failed to create shortcut: %v", err)
 				} else {
 					resp.AppID = appID
-					log.Printf("Created shortcut '%s' with AppID %d", req.Shortcut.Name, appID)
+					log.Printf("Created shortcut '%s' with AppID %d", shortcutCfg.Name, appID)
 					if artResult != nil && len(artResult.Applied) > 0 {
 						log.Printf("Applied artwork: %v", artResult.Applied)
 					}
+					s.NotifyShortcutChange()
 				}
 			}
 		}

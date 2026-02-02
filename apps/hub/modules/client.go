@@ -37,6 +37,10 @@ func (c *baseClient) GetInfo(ctx context.Context) (*protocol.AgentInfo, error) {
 	return c.client.GetInfo(ctx)
 }
 
+func (c *baseClient) GetConfig(ctx context.Context) (*agent.AgentConfig, error) {
+	return c.client.GetConfig(ctx)
+}
+
 // SteamUserProvider implementation
 
 func (c *baseClient) GetSteamUsers(ctx context.Context) ([]steam.User, error) {

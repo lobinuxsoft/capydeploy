@@ -18,6 +18,8 @@ export function DisconnectAgent():Promise<void>;
 
 export function DisconnectDevice():Promise<void>;
 
+export function GetAgentInstallPath():Promise<string>;
+
 export function GetCacheSize():Promise<number>;
 
 export function GetConnectionStatus():Promise<main.ConnectionStatus>;

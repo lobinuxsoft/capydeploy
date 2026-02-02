@@ -91,6 +91,36 @@ func (c *Client) GetInfo(ctx context.Context) (*protocol.AgentInfo, error) {
 	return &info, nil
 }
 
+// AgentConfig represents the agent configuration.
+type AgentConfig struct {
+	InstallPath string `json:"installPath"`
+}
+
+// GetConfig returns the agent configuration.
+func (c *Client) GetConfig(ctx context.Context) (*AgentConfig, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/config", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("get config failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("get config returned status %d", resp.StatusCode)
+	}
+
+	var config AgentConfig
+	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
+		return nil, fmt.Errorf("failed to decode config: %w", err)
+	}
+
+	return &config, nil
+}
+
 // GetSteamUsers returns the list of Steam users on the agent.
 func (c *Client) GetSteamUsers(ctx context.Context) ([]steam.User, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/steam/users", nil)

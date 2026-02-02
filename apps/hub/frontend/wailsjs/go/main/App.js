@@ -30,6 +30,10 @@ export function DisconnectDevice() {
   return window['go']['main']['App']['DisconnectDevice']();
 }
 
+export function GetAgentInstallPath() {
+  return window['go']['main']['App']['GetAgentInstallPath']();
+}
+
 export function GetCacheSize() {
   return window['go']['main']['App']['GetCacheSize']();
 }

@@ -18,6 +18,7 @@ func (s *Server) registerHandlers(mux *http.ServeMux) {
 	// Health and info - always accessible (needed for discovery)
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("GET /info", s.handleInfo)
+	mux.HandleFunc("GET /config", s.handleGetConfig)
 
 	// Protected endpoints - require connections to be accepted
 	// Steam
@@ -80,6 +81,24 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(info)
+}
+
+// AgentConfigResponse is the response for GET /config.
+type AgentConfigResponse struct {
+	InstallPath string `json:"installPath"`
+}
+
+// handleGetConfig returns the agent configuration.
+func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Verbose {
+		log.Printf("Config request from %s", r.RemoteAddr)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(AgentConfigResponse{
+		InstallPath: s.GetInstallPath(),
+	})
 }
 
 // SteamUsersResponse is the response for GET /steam/users.
@@ -179,6 +198,7 @@ func (s *Server) handleCreateShortcut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Created shortcut '%s' with AppID %d for user %s", cfg.Name, appID, userID)
+	s.NotifyShortcutChange()
 
 	// Restart Steam if requested
 	restartSteam := r.URL.Query().Get("restart") == "true"
@@ -222,13 +242,31 @@ func (s *Server) handleDeleteShortcut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get shortcut info before deleting (for notification)
+	list, _ := mgr.List(userID)
+	var gameName string
+	for _, sc := range list {
+		if sc.AppID == appID {
+			gameName = sc.Name
+			break
+		}
+	}
+
+	// Notify UI about delete start
+	s.NotifyOperation("delete", "start", gameName, 0, "Eliminando...")
+
 	if err := mgr.Delete(userID, appID, ""); err != nil {
+		s.NotifyOperation("delete", "error", gameName, 0, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ShortcutsResponse{Error: err.Error()})
 		return
 	}
 
 	log.Printf("Deleted shortcut with AppID %d for user %s", appID, userID)
+	s.NotifyShortcutChange()
+
+	// Notify UI about delete complete
+	s.NotifyOperation("delete", "complete", gameName, 100, "Eliminado")
 
 	// Restart Steam if requested
 	restartSteam := r.URL.Query().Get("restart") == "true"

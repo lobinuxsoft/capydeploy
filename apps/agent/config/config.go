@@ -12,7 +12,8 @@ import (
 
 // Config holds the agent configuration.
 type Config struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	InstallPath string `json:"installPath"`
 }
 
 // Manager handles loading and saving configuration.
@@ -37,7 +38,8 @@ func NewManager() (*Manager, error) {
 	m := &Manager{
 		filePath: filepath.Join(dir, "config.json"),
 		config: Config{
-			Name: discovery.GetHostname(), // Default to hostname
+			Name:        discovery.GetHostname(), // Default to hostname
+			InstallPath: "~/Games",               // Default install path
 		},
 	}
 
@@ -62,6 +64,9 @@ func (m *Manager) load() {
 	// Only use loaded values if they're not empty
 	if cfg.Name != "" {
 		m.config.Name = cfg.Name
+	}
+	if cfg.InstallPath != "" {
+		m.config.InstallPath = cfg.InstallPath
 	}
 }
 
@@ -99,4 +104,20 @@ func (m *Manager) GetConfig() Config {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.config
+}
+
+// GetInstallPath returns the install path.
+func (m *Manager) GetInstallPath() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.config.InstallPath
+}
+
+// SetInstallPath sets the install path and saves config.
+func (m *Manager) SetInstallPath(path string) error {
+	m.mu.Lock()
+	m.config.InstallPath = path
+	m.mu.Unlock()
+
+	return m.Save()
 }

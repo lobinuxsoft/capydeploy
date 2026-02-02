@@ -128,6 +128,18 @@ func (a *App) startServer() {
 			defer a.connectionMu.RUnlock()
 			return a.acceptConnections
 		},
+		GetInstallPath: func() string {
+			if a.configMgr != nil {
+				return a.configMgr.GetInstallPath()
+			}
+			return "~/Games"
+		},
+		OnShortcutChange: func() {
+			runtime.EventsEmit(a.ctx, "shortcuts:changed", nil)
+		},
+		OnOperation: func(event server.OperationEvent) {
+			runtime.EventsEmit(a.ctx, "operation", event)
+		},
 	}
 
 	srv, err := server.New(cfg)
@@ -260,6 +272,54 @@ func (a *App) SetName(name string) error {
 	a.restartServer()
 
 	return nil
+}
+
+// GetInstallPath returns the current install path
+func (a *App) GetInstallPath() string {
+	if a.configMgr != nil {
+		return a.configMgr.GetInstallPath()
+	}
+	return "~/Games"
+}
+
+// SetInstallPath changes the install path
+func (a *App) SetInstallPath(path string) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if path == "" {
+		return fmt.Errorf("path cannot be empty")
+	}
+
+	if err := a.configMgr.SetInstallPath(path); err != nil {
+		return fmt.Errorf("failed to save install path: %w", err)
+	}
+
+	log.Printf("Install path changed to: %s", path)
+	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+
+	return nil
+}
+
+// SelectInstallPath opens a folder selection dialog and returns the selected path
+func (a *App) SelectInstallPath() (string, error) {
+	path, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Install Path",
+	})
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", nil // User cancelled
+	}
+
+	// Save the selected path
+	if err := a.SetInstallPath(path); err != nil {
+		return "", err
+	}
+
+	return path, nil
 }
 
 // restartServer stops and starts the server with current config
