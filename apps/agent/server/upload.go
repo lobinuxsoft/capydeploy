@@ -144,7 +144,7 @@ func (s *Server) handleUploadChunk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write chunk to disk
-	gamePath := s.GetUploadPath(session.Config.GameName)
+	gamePath := s.GetUploadPath(session.Config.GameName, session.Config.RemotePath)
 	writer := transfer.NewChunkWriter(gamePath, transfer.DefaultChunkSize)
 
 	if err := writer.WriteChunk(chunk); err != nil {
@@ -193,7 +193,7 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req) // Ignore error, fields are optional
 
 	session.Complete()
-	gamePath := s.GetUploadPath(session.Config.GameName)
+	gamePath := s.GetUploadPath(session.Config.GameName, session.Config.RemotePath)
 
 	log.Printf("Upload completed: %s -> %s", uploadID, gamePath)
 

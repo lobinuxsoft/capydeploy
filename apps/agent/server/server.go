@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -202,6 +203,18 @@ func (s *Server) DeleteUpload(id string) {
 }
 
 // GetUploadPath returns the full path for an upload.
-func (s *Server) GetUploadPath(gameName string) string {
-	return filepath.Join(s.cfg.UploadPath, gameName)
+// If remotePath is specified, it's used as base; otherwise uses default UploadPath.
+func (s *Server) GetUploadPath(gameName, remotePath string) string {
+	basePath := s.cfg.UploadPath
+	if remotePath != "" {
+		// Expand ~ to home directory
+		if strings.HasPrefix(remotePath, "~/") {
+			home, err := os.UserHomeDir()
+			if err == nil {
+				remotePath = filepath.Join(home, remotePath[2:])
+			}
+		}
+		basePath = remotePath
+	}
+	return filepath.Join(basePath, gameName)
 }
