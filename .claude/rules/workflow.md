@@ -44,10 +44,21 @@ priority: critical
   - Linux: webkit2gtk-4.0 or webkit2gtk-4.1 (use `-tags webkit2_41` for 4.1)
 - **Cross-compile:** NOT supported. Build on target OS.
 
-### Agent (Go daemon)
+### Agent (Wails App)
 - **Location:** `apps/agent/`
-- **Policy:** Use standard Go build. Cross-compile supported.
+- **Policy:** Use Wails CLI for builds. **NEVER manual go build.**
 - **Commands:**
-  - `cd apps/agent && go build -o capydeploy-agent .` - Build for current platform
-  - `GOOS=linux GOARCH=amd64 go build -o capydeploy-agent .` - Linux build
-  - `GOOS=windows GOARCH=amd64 go build -o capydeploy-agent.exe .` - Windows build
+  - `cd apps/agent && wails dev` - Development mode with hot reload
+  - `cd apps/agent && wails build` - Production build (current platform)
+  - `cd apps/agent && wails build -tags webkit2_41` - Build for systems with webkit2gtk-4.1 (Fedora 41+)
+  - `cd apps/agent && wails generate module` - Regenerate frontend bindings after Go changes
+- **Frontend:**
+  - `cd apps/agent/frontend && bun install` - Install frontend deps
+  - `cd apps/agent/frontend && bun run dev` - Frontend dev server (auto with wails dev)
+- **Requirements:**
+  - Go 1.23+
+  - Bun (or Node.js 18+)
+  - Windows: WebView2 (included in Win10+)
+  - Linux: webkit2gtk-4.0 or webkit2gtk-4.1 (use `-tags webkit2_41` for 4.1)
+- **Cross-compile:** NOT supported. Build on target OS.
+- **Note:** Agent also runs HTTP server in background for Hub connections.

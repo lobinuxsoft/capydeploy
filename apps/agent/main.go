@@ -1,77 +1,48 @@
-// Package main provides the entry point for CapyDeploy Agent.
-// Agent runs on remote devices (handhelds) and exposes HTTP/WebSocket endpoints
-// for the Hub to discover and communicate with.
 package main
 
 import (
-	"context"
-	"flag"
-	"fmt"
+	"embed"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
-	"github.com/lobinuxsoft/capydeploy/apps/agent/server"
-	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
-// Version is set at build time.
-var Version = "dev"
+//go:embed all:frontend/dist
+var assets embed.FS
 
 func main() {
-	var (
-		port       int
-		name       string
-		uploadPath string
-		verbose    bool
-	)
+	app := NewApp()
 
-	flag.IntVar(&port, "port", discovery.DefaultPort, "HTTP server port")
-	flag.StringVar(&name, "name", "", "Agent name (default: hostname)")
-	flag.StringVar(&uploadPath, "upload-path", "", "Base path for uploaded games (default: ~/Games)")
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
-	flag.Parse()
+	err := wails.Run(&options.App{
+		Title:     "CapyDeploy Agent",
+		Width:     500,
+		Height:    700,
+		MinWidth:  400,
+		MinHeight: 500,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 26, G: 26, B: 46, A: 1},
+		OnStartup:        app.startup,
+		OnShutdown:       app.shutdown,
+		Bind: []interface{}{
+			app,
+		},
+		Windows: &windows.Options{
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
+			DisableWindowIcon:    false,
+		},
+		Linux: &linux.Options{
+			WindowIsTranslucent: false,
+		},
+	})
 
-	if name == "" {
-		name = discovery.GetHostname()
-	}
-
-	// Setup context with signal handling
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigCh
-		log.Println("Shutting down...")
-		cancel()
-	}()
-
-	// Create and configure agent server
-	cfg := server.Config{
-		Port:       port,
-		Name:       name,
-		Version:    Version,
-		Platform:   discovery.GetPlatform(),
-		Verbose:    verbose,
-		UploadPath: uploadPath,
-	}
-
-	agent, err := server.New(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating agent: %v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
-
-	log.Printf("CapyDeploy Agent v%s starting on port %d", Version, port)
-	log.Printf("Platform: %s, Name: %s", cfg.Platform, cfg.Name)
-
-	if err := agent.Run(ctx); err != nil && err != context.Canceled {
-		fmt.Fprintf(os.Stderr, "Error running agent: %v\n", err)
-		os.Exit(1)
-	}
-
-	log.Println("Agent stopped")
 }
