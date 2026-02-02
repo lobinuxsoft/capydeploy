@@ -3,7 +3,7 @@
   "name": "capydeploy-hub",
   "outputfilename": "capydeploy-hub",
   "frontend:install": "bun install",
-  "frontend:build": "bun run build",
+  "frontend:build": "bun run build && (taskkill /F /IM bun.exe >nul 2>&1 || true)",
   "frontend:dev:watcher": "bun run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {

@@ -40,13 +40,14 @@ type ConnectedAgent struct {
 
 // ConnectionStatus represents the current connection status
 type ConnectionStatus struct {
-	Connected bool     `json:"connected"`
-	AgentID   string   `json:"agentId"`
-	AgentName string   `json:"agentName"`
-	Platform  string   `json:"platform"`
-	Host      string   `json:"host"`
-	Port      int      `json:"port"`
-	IPs       []string `json:"ips"`
+	Connected             bool     `json:"connected"`
+	AgentID               string   `json:"agentId"`
+	AgentName             string   `json:"agentName"`
+	Platform              string   `json:"platform"`
+	Host                  string   `json:"host"`
+	Port                  int      `json:"port"`
+	IPs                   []string `json:"ips"`
+	SupportedImageFormats []string `json:"supportedImageFormats"`
 }
 
 // DiscoveredAgentInfo represents agent info for the frontend
@@ -252,13 +253,14 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 	}
 
 	return ConnectionStatus{
-		Connected: true,
-		AgentID:   agent.Info.ID,
-		AgentName: agent.Info.Name,
-		Platform:  agent.Info.Platform,
-		Host:      agent.Host,
-		Port:      agent.Port,
-		IPs:       ips,
+		Connected:             true,
+		AgentID:               agent.Info.ID,
+		AgentName:             agent.Info.Name,
+		Platform:              agent.Info.Platform,
+		Host:                  agent.Host,
+		Port:                  agent.Port,
+		IPs:                   ips,
+		SupportedImageFormats: agent.Info.SupportedImageFormats,
 	}
 }
 

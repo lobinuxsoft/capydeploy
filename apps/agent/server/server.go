@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -173,12 +174,23 @@ func (s *Server) GetInfo() protocol.AgentInfo {
 		acceptConnections = s.cfg.AcceptConnections()
 	}
 
+	// Determine supported image formats based on platform.
+	// Windows Steam only supports PNG/JPEG for shortcut artwork.
+	// Linux/macOS Steam supports WebP and GIF as well.
+	var supportedFormats []string
+	if runtime.GOOS == "windows" {
+		supportedFormats = []string{"image/png", "image/jpeg"}
+	} else {
+		supportedFormats = []string{"image/png", "image/jpeg", "image/webp", "image/gif"}
+	}
+
 	return protocol.AgentInfo{
-		ID:                s.id,
-		Name:              s.cfg.Name,
-		Platform:          s.cfg.Platform,
-		Version:           s.cfg.Version,
-		AcceptConnections: acceptConnections,
+		ID:                    s.id,
+		Name:                  s.cfg.Name,
+		Platform:              s.cfg.Platform,
+		Version:               s.cfg.Version,
+		AcceptConnections:     acceptConnections,
+		SupportedImageFormats: supportedFormats,
 	}
 }
 

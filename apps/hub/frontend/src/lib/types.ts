@@ -20,6 +20,7 @@ export interface ConnectionStatus {
 	host: string;
 	port: number;
 	ips: string[];
+	supportedImageFormats: string[];
 }
 
 // Legacy types (deprecated, kept for compatibility)

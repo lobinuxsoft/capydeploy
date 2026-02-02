@@ -1,27 +1,5 @@
 export namespace config {
 	
-	export class DeviceConfig {
-	    name: string;
-	    host: string;
-	    port: number;
-	    user: string;
-	    key_file?: string;
-	    password?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new DeviceConfig(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.host = source["host"];
-	        this.port = source["port"];
-	        this.user = source["user"];
-	        this.key_file = source["key_file"];
-	        this.password = source["password"];
-	    }
-	}
 	export class GameSetup {
 	    id: string;
 	    name: string;
@@ -71,6 +49,7 @@ export namespace main {
 	    host: string;
 	    port: number;
 	    ips: string[];
+	    supportedImageFormats: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionStatus(source);
@@ -85,6 +64,7 @@ export namespace main {
 	        this.host = source["host"];
 	        this.port = source["port"];
 	        this.ips = source["ips"];
+	        this.supportedImageFormats = source["supportedImageFormats"];
 	    }
 	}
 	export class DiscoveredAgentInfo {

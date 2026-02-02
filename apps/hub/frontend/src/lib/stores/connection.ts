@@ -9,7 +9,8 @@ function createConnectionStore() {
 		platform: '',
 		host: '',
 		port: 0,
-		ips: []
+		ips: [],
+		supportedImageFormats: []
 	});
 
 	return {
@@ -23,7 +24,8 @@ function createConnectionStore() {
 			platform: '',
 			host: '',
 			port: 0,
-			ips: []
+			ips: [],
+			supportedImageFormats: []
 		})
 	};
 }

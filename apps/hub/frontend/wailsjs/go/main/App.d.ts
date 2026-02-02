@@ -10,21 +10,15 @@ export function ClearImageCache():Promise<void>;
 
 export function ConnectAgent(arg1:string):Promise<void>;
 
-export function ConnectDevice(arg1:string):Promise<void>;
-
 export function DeleteGame(arg1:string,arg2:number):Promise<void>;
 
 export function DisconnectAgent():Promise<void>;
-
-export function DisconnectDevice():Promise<void>;
 
 export function GetAgentInstallPath():Promise<string>;
 
 export function GetCacheSize():Promise<number>;
 
 export function GetConnectionStatus():Promise<main.ConnectionStatus>;
-
-export function GetDevices():Promise<Array<config.DeviceConfig>>;
 
 export function GetDiscoveredAgents():Promise<Array<main.DiscoveredAgentInfo>>;
 
