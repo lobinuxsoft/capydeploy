@@ -214,6 +214,12 @@ func (a *App) ConnectAgent(agentID string) error {
 		return fmt.Errorf("agent not responding: %w", err)
 	}
 
+	// Fetch full agent info (includes SupportedImageFormats not available via mDNS)
+	fullInfo, err := client.GetInfo(ctx)
+	if err == nil && fullInfo != nil {
+		agent.Info = *fullInfo
+	}
+
 	a.mu.Lock()
 	a.connectedAgent = &ConnectedAgent{
 		Agent:  agent,
