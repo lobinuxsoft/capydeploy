@@ -3,7 +3,7 @@
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
 	import { GetStatus, SetAcceptConnections, DisconnectHub, SetName, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Server, Power, Unplug, Pencil, Check, X } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let loading = $state(true);
@@ -97,16 +97,6 @@
 </script>
 
 <Card class="p-6">
-	<div class="flex items-center gap-3 mb-6">
-		<div class="p-2 rounded-lg bg-primary/10">
-			<Server class="w-6 h-6 text-primary" />
-		</div>
-		<div>
-			<h2 class="text-xl font-semibold">Agent Status</h2>
-			<p class="text-sm text-muted-foreground">Estado del servidor</p>
-		</div>
-	</div>
-
 	{#if loading}
 		<div class="flex items-center justify-center py-8">
 			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -120,18 +110,7 @@
 		</div>
 	{:else if status}
 		<div class="space-y-4">
-			<!-- Server Status -->
-			<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center gap-2">
-					<Power class="w-4 h-4" />
-					<span class="text-sm">Servidor</span>
-				</div>
-				<Badge variant={status.running ? 'success' : 'destructive'}>
-					{status.running ? 'Activo' : 'Inactivo'}
-				</Badge>
-			</div>
-
-			<!-- Name & Platform -->
+			<!-- Name -->
 			<div class="p-3 rounded-lg bg-secondary/50">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
@@ -223,20 +202,10 @@
 					</Badge>
 				</div>
 
-				{#if status.connectedHub}
-					<div class="p-2 rounded bg-success/10 border border-success/20 mb-3">
-						<div class="flex items-center justify-between">
-							<div>
-								<p class="text-sm font-medium text-success">Conectado a Hub</p>
-								<p class="text-xs text-muted-foreground">{status.connectedHub.name} ({status.connectedHub.ip})</p>
-							</div>
-							<Button variant="ghost" size="icon" onclick={disconnect}>
-								<Unplug class="w-4 h-4" />
-							</Button>
-						</div>
-					</div>
-				{:else}
-					<p class="text-sm text-muted-foreground mb-3">Sin conexion activa</p>
+				{#if !status.acceptConnections}
+					<p class="text-xs text-muted-foreground mb-3">
+						El Hub puede ver este agente pero no puede realizar operaciones
+					</p>
 				{/if}
 
 				<Button
@@ -244,7 +213,7 @@
 					class="w-full"
 					onclick={toggleConnections}
 				>
-					{status.acceptConnections ? 'Bloquear Conexiones' : 'Aceptar Conexiones'}
+					{status.acceptConnections ? 'Bloquear Operaciones' : 'Permitir Operaciones'}
 				</Button>
 			</div>
 		</div>

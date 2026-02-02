@@ -155,12 +155,18 @@ func (s *Server) GetInfo() protocol.AgentInfo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	acceptConnections := true
+	if s.cfg.AcceptConnections != nil {
+		acceptConnections = s.cfg.AcceptConnections()
+	}
+
 	return protocol.AgentInfo{
-		ID:           s.id,
-		Name:         s.cfg.Name,
-		Platform:     s.cfg.Platform,
-		Version:      s.cfg.Version,
-		SteamRunning: false, // TODO: Implement Steam status check
+		ID:                s.id,
+		Name:              s.cfg.Name,
+		Platform:          s.cfg.Platform,
+		Version:           s.cfg.Version,
+		SteamRunning:      false, // TODO: Implement Steam status check
+		AcceptConnections: acceptConnections,
 	}
 }
 
