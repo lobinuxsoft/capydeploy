@@ -265,11 +265,10 @@ func TestClientWithMockServer(t *testing.T) {
 			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		case "/info":
 			json.NewEncoder(w).Encode(protocol.AgentInfo{
-				ID:           "mock-agent",
-				Name:         "Mock Agent",
-				Platform:     PlatformLinux,
-				Version:      "1.0.0",
-				SteamRunning: true,
+				ID:       "mock-agent",
+				Name:     "Mock Agent",
+				Platform: PlatformLinux,
+				Version:  "1.0.0",
 			})
 		case "/steam/users":
 			json.NewEncoder(w).Encode(map[string]interface{}{

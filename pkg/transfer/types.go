@@ -13,7 +13,6 @@ const DefaultChunkSize = 1024 * 1024
 
 // Chunk represents a single chunk of data in a transfer.
 type Chunk struct {
-	Index    int    `json:"index"`
 	Offset   int64  `json:"offset"`
 	Size     int    `json:"size"`
 	Data     []byte `json:"data,omitempty"`
@@ -25,7 +24,6 @@ type Chunk struct {
 type FileEntry struct {
 	RelativePath string `json:"relativePath"`
 	Size         int64  `json:"size"`
-	Mode         uint32 `json:"mode"`
 }
 
 // UploadSession tracks an active upload operation.

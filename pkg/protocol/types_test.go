@@ -67,11 +67,10 @@ func TestUploadStatus_Constants(t *testing.T) {
 
 func TestAgentInfo_Fields(t *testing.T) {
 	info := AgentInfo{
-		ID:           "agent-1",
-		Name:         "Test Agent",
-		Platform:     "steamdeck",
-		Version:      "1.0.0",
-		SteamRunning: true,
+		ID:       "agent-1",
+		Name:     "Test Agent",
+		Platform: "steamdeck",
+		Version:  "1.0.0",
 	}
 
 	if info.ID != "agent-1" {
@@ -83,15 +82,12 @@ func TestAgentInfo_Fields(t *testing.T) {
 	if info.Platform != "steamdeck" {
 		t.Errorf("Platform = %q, want %q", info.Platform, "steamdeck")
 	}
-	if !info.SteamRunning {
-		t.Error("SteamRunning should be true")
-	}
 }
 
 func TestUploadConfig_Fields(t *testing.T) {
 	cfg := UploadConfig{
 		GameName:      "Test Game",
-		RemotePath:    "/games/test",
+		InstallPath:    "/games/test",
 		Executable:    "game.exe",
 		LaunchOptions: "-fullscreen",
 		Tags:          "action,indie",
@@ -100,8 +96,8 @@ func TestUploadConfig_Fields(t *testing.T) {
 	if cfg.GameName != "Test Game" {
 		t.Errorf("GameName = %q, want %q", cfg.GameName, "Test Game")
 	}
-	if cfg.RemotePath != "/games/test" {
-		t.Errorf("RemotePath = %q, want %q", cfg.RemotePath, "/games/test")
+	if cfg.InstallPath != "/games/test" {
+		t.Errorf("InstallPath = %q, want %q", cfg.InstallPath, "/games/test")
 	}
 }
 

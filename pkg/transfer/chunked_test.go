@@ -70,27 +70,24 @@ func TestChunkReader_NextChunk(t *testing.T) {
 	defer reader.Close()
 
 	// Read first chunk
-	chunk, err := reader.NextChunk(0)
+	chunk, err := reader.NextChunk()
 	if err != nil {
-		t.Fatalf("NextChunk(0) error = %v", err)
+		t.Fatalf("NextChunk() error = %v", err)
 	}
 	if chunk == nil {
-		t.Fatal("NextChunk(0) returned nil")
+		t.Fatal("NextChunk() returned nil")
 	}
 	if string(chunk.Data) != "01234" {
 		t.Errorf("Chunk 0 data = %q, want %q", chunk.Data, "01234")
-	}
-	if chunk.Index != 0 {
-		t.Errorf("Chunk 0 index = %d, want 0", chunk.Index)
 	}
 	if chunk.Offset != 0 {
 		t.Errorf("Chunk 0 offset = %d, want 0", chunk.Offset)
 	}
 
 	// Read second chunk
-	chunk, err = reader.NextChunk(1)
+	chunk, err = reader.NextChunk()
 	if err != nil {
-		t.Fatalf("NextChunk(1) error = %v", err)
+		t.Fatalf("NextChunk() error = %v", err)
 	}
 	if string(chunk.Data) != "56789" {
 		t.Errorf("Chunk 1 data = %q, want %q", chunk.Data, "56789")
@@ -115,18 +112,18 @@ func TestChunkReader_NextChunk_EOF(t *testing.T) {
 	defer reader.Close()
 
 	// Read first chunk
-	chunk, err := reader.NextChunk(0)
+	chunk, err := reader.NextChunk()
 	if err != nil {
-		t.Fatalf("NextChunk(0) error = %v", err)
+		t.Fatalf("NextChunk() error = %v", err)
 	}
 	if chunk == nil {
-		t.Fatal("NextChunk(0) should not be nil")
+		t.Fatal("NextChunk() should not be nil")
 	}
 
 	// Read past EOF
-	chunk, err = reader.NextChunk(1)
+	chunk, err = reader.NextChunk()
 	if err != nil {
-		t.Fatalf("NextChunk(1) error = %v", err)
+		t.Fatalf("NextChunk() error = %v", err)
 	}
 	if chunk != nil {
 		t.Error("NextChunk after EOF should return nil")
@@ -157,7 +154,7 @@ func TestChunkReader_SeekTo(t *testing.T) {
 	}
 
 	// Read chunk from new position
-	chunk, err := reader.NextChunk(0)
+	chunk, err := reader.NextChunk()
 	if err != nil {
 		t.Fatalf("NextChunk() error = %v", err)
 	}
@@ -184,7 +181,7 @@ func TestChunkReader_Remaining(t *testing.T) {
 		t.Errorf("Initial Remaining() = %d, want 10", reader.Remaining())
 	}
 
-	reader.NextChunk(0) // Read 3 bytes
+	reader.NextChunk() // Read 3 bytes
 
 	if reader.Remaining() != 7 {
 		t.Errorf("Remaining() after read = %d, want 7", reader.Remaining())
@@ -205,7 +202,7 @@ func TestChunkReader_Checksum(t *testing.T) {
 	}
 	defer reader.Close()
 
-	chunk, err := reader.NextChunk(0)
+	chunk, err := reader.NextChunk()
 	if err != nil {
 		t.Fatalf("NextChunk() error = %v", err)
 	}
@@ -238,7 +235,6 @@ func TestChunkWriter_WriteChunk(t *testing.T) {
 	writer := NewChunkWriter(tmpDir, 1024)
 
 	chunk := &Chunk{
-		Index:    0,
 		Offset:   0,
 		Size:     9,
 		Data:     []byte("test data"),
@@ -266,7 +262,6 @@ func TestChunkWriter_WriteChunk_WithSubdirectory(t *testing.T) {
 	writer := NewChunkWriter(tmpDir, 1024)
 
 	chunk := &Chunk{
-		Index:    0,
 		Offset:   0,
 		Size:     4,
 		Data:     []byte("data"),
@@ -290,7 +285,6 @@ func TestChunkWriter_WriteChunk_AtOffset(t *testing.T) {
 
 	// Write first chunk
 	chunk1 := &Chunk{
-		Index:    0,
 		Offset:   0,
 		Size:     5,
 		Data:     []byte("AAAAA"),
@@ -302,7 +296,6 @@ func TestChunkWriter_WriteChunk_AtOffset(t *testing.T) {
 
 	// Write second chunk at offset
 	chunk2 := &Chunk{
-		Index:    1,
 		Offset:   5,
 		Size:     5,
 		Data:     []byte("BBBBB"),
@@ -329,7 +322,6 @@ func TestChunkWriter_WriteChunk_ChecksumMismatch(t *testing.T) {
 	writer := NewChunkWriter(tmpDir, 1024)
 
 	chunk := &Chunk{
-		Index:    0,
 		Offset:   0,
 		Size:     4,
 		Data:     []byte("test"),
@@ -357,7 +349,6 @@ func TestChunkWriter_GetWrittenOffset(t *testing.T) {
 
 	// Write a chunk
 	chunk := &Chunk{
-		Index:    0,
 		Offset:   0,
 		Size:     100,
 		Data:     make([]byte, 100),

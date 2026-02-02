@@ -9,7 +9,6 @@ type AgentInfo struct {
 	Name              string `json:"name"`
 	Platform          string `json:"platform"`
 	Version           string `json:"version"`
-	SteamRunning      bool   `json:"steamRunning"`
 	AcceptConnections bool   `json:"acceptConnections"`
 }
 

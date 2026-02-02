@@ -178,7 +178,6 @@ func (s *Server) GetInfo() protocol.AgentInfo {
 		Name:              s.cfg.Name,
 		Platform:          s.cfg.Platform,
 		Version:           s.cfg.Version,
-		SteamRunning:      false, // TODO: Implement Steam status check
 		AcceptConnections: acceptConnections,
 	}
 }

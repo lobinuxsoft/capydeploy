@@ -10,7 +10,7 @@ import (
 func TestNewUploadSession(t *testing.T) {
 	config := protocol.UploadConfig{
 		GameName:   "Test Game",
-		RemotePath: "/games/test",
+		InstallPath: "/games/test",
 	}
 	files := []FileEntry{
 		{RelativePath: "game.exe", Size: 1024},
@@ -182,7 +182,6 @@ func TestUploadSession_IsActive(t *testing.T) {
 
 func TestChunk_Fields(t *testing.T) {
 	chunk := Chunk{
-		Index:    0,
 		Offset:   1024,
 		Size:     512,
 		Data:     []byte("test data"),
@@ -190,9 +189,6 @@ func TestChunk_Fields(t *testing.T) {
 		Checksum: "abc123",
 	}
 
-	if chunk.Index != 0 {
-		t.Errorf("Index = %d, want %d", chunk.Index, 0)
-	}
 	if chunk.Offset != 1024 {
 		t.Errorf("Offset = %d, want %d", chunk.Offset, 1024)
 	}
@@ -205,7 +201,6 @@ func TestFileEntry_Fields(t *testing.T) {
 	entry := FileEntry{
 		RelativePath: "data/game.dat",
 		Size:         1024 * 1024,
-		Mode:         0644,
 	}
 
 	if entry.RelativePath != "data/game.dat" {

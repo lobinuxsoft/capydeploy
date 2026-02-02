@@ -27,19 +27,3 @@ func getBaseDir() (string, error) {
 	return steamPath, nil
 }
 
-// IsSteamRunning checks if Steam is currently running on Windows.
-func IsSteamRunning() (bool, error) {
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Valve\Steam\ActiveProcess`, registry.QUERY_VALUE)
-	if err != nil {
-		// Key doesn't exist, Steam probably not running
-		return false, nil
-	}
-	defer key.Close()
-
-	pid, _, err := key.GetIntegerValue("pid")
-	if err != nil {
-		return false, nil
-	}
-
-	return pid != 0, nil
-}

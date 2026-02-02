@@ -98,7 +98,7 @@ func (c *Client) UploadGame(ctx context.Context, opts UploadOptions) (*UploadRes
 			default:
 			}
 
-			chunk, err := reader.NextChunk(chunkIndex)
+			chunk, err := reader.NextChunk()
 			if err != nil {
 				reader.Close()
 				c.CancelUpload(ctx, uploadID)
@@ -173,7 +173,6 @@ func collectFiles(basePath string) ([]transfer.FileEntry, int64, error) {
 		files = append(files, transfer.FileEntry{
 			RelativePath: relPath,
 			Size:         info.Size(),
-			Mode:         uint32(info.Mode()),
 		})
 
 		totalSize += info.Size()
@@ -202,7 +201,6 @@ func (c *Client) UploadSingleFile(ctx context.Context, localPath string, config 
 		{
 			RelativePath: filepath.Base(localPath),
 			Size:         info.Size(),
-			Mode:         uint32(info.Mode()),
 		},
 	}
 
@@ -233,7 +231,7 @@ func (c *Client) UploadSingleFile(ctx context.Context, localPath string, config 
 		default:
 		}
 
-		chunk, err := reader.NextChunk(chunkIndex)
+		chunk, err := reader.NextChunk()
 		if err != nil {
 			c.CancelUpload(ctx, uploadID)
 			return nil, fmt.Errorf("failed to read chunk: %w", err)

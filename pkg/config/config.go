@@ -8,16 +8,6 @@ import (
 	"time"
 )
 
-// DeviceConfig represents a saved device configuration
-type DeviceConfig struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	KeyFile  string `json:"key_file,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
 // GameSetup represents a saved game installation setup
 type GameSetup struct {
 	ID            string `json:"id"`
@@ -38,10 +28,8 @@ type GameSetup struct {
 
 // AppConfig represents the application configuration
 type AppConfig struct {
-	Devices            []DeviceConfig `json:"devices"`
-	GameSetups         []GameSetup    `json:"game_setups"`
-	DefaultInstallPath string         `json:"default_install_path"`
-	SteamGridDBAPIKey  string         `json:"steamgriddb_api_key,omitempty"`
+	GameSetups        []GameSetup `json:"game_setups"`
+	SteamGridDBAPIKey string      `json:"steamgriddb_api_key,omitempty"`
 }
 
 // GetConfigPath returns the path to the config file
@@ -75,10 +63,7 @@ func Load() (*AppConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Return default config if file doesn't exist
-			return &AppConfig{
-				Devices:            []DeviceConfig{},
-				DefaultInstallPath: "~/Games",
-			}, nil
+			return &AppConfig{}, nil
 		}
 		return nil, err
 	}
@@ -104,72 +89,6 @@ func Save(config *AppConfig) error {
 	}
 
 	return os.WriteFile(configPath, data, 0600)
-}
-
-// AddDevice adds a device to the config and saves it
-func AddDevice(device DeviceConfig) error {
-	config, err := Load()
-	if err != nil {
-		return err
-	}
-
-	// Check if device already exists (by host)
-	for i, d := range config.Devices {
-		if d.Host == device.Host {
-			// Update existing device
-			config.Devices[i] = device
-			return Save(config)
-		}
-	}
-
-	// Add new device
-	config.Devices = append(config.Devices, device)
-	return Save(config)
-}
-
-// RemoveDevice removes a device from the config
-func RemoveDevice(host string) error {
-	config, err := Load()
-	if err != nil {
-		return err
-	}
-
-	for i, d := range config.Devices {
-		if d.Host == host {
-			config.Devices = append(config.Devices[:i], config.Devices[i+1:]...)
-			break
-		}
-	}
-
-	return Save(config)
-}
-
-// GetDevices returns all saved devices
-func GetDevices() ([]DeviceConfig, error) {
-	config, err := Load()
-	if err != nil {
-		return nil, err
-	}
-	return config.Devices, nil
-}
-
-// UpdateDevice updates an existing device
-func UpdateDevice(oldHost string, device DeviceConfig) error {
-	config, err := Load()
-	if err != nil {
-		return err
-	}
-
-	for i, d := range config.Devices {
-		if d.Host == oldHost {
-			config.Devices[i] = device
-			return Save(config)
-		}
-	}
-
-	// If not found, add it
-	config.Devices = append(config.Devices, device)
-	return Save(config)
 }
 
 // AddGameSetup adds a game setup to the config

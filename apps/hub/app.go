@@ -801,21 +801,3 @@ func parseTags(tagsStr string) []string {
 	return result
 }
 
-// =============================================================================
-// Legacy compatibility - these methods are deprecated
-// =============================================================================
-
-// GetDevices is deprecated - use GetDiscoveredAgents instead
-func (a *App) GetDevices() ([]config.DeviceConfig, error) {
-	return config.GetDevices()
-}
-
-// ConnectDevice is deprecated - use ConnectAgent instead
-func (a *App) ConnectDevice(host string) error {
-	return fmt.Errorf("ConnectDevice is deprecated, use ConnectAgent with agent ID")
-}
-
-// DisconnectDevice is deprecated - use DisconnectAgent instead
-func (a *App) DisconnectDevice() {
-	a.DisconnectAgent()
-}

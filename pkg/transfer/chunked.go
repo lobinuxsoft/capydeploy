@@ -53,7 +53,7 @@ func (r *ChunkReader) SeekTo(offset int64) error {
 }
 
 // NextChunk reads and returns the next chunk, or nil if EOF.
-func (r *ChunkReader) NextChunk(index int) (*Chunk, error) {
+func (r *ChunkReader) NextChunk() (*Chunk, error) {
 	buf := make([]byte, r.chunkSize)
 	n, err := r.file.Read(buf)
 	if err == io.EOF {
@@ -65,7 +65,6 @@ func (r *ChunkReader) NextChunk(index int) (*Chunk, error) {
 
 	data := buf[:n]
 	chunk := &Chunk{
-		Index:    index,
 		Offset:   r.offset,
 		Size:     n,
 		Data:     data,

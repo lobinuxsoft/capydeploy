@@ -26,11 +26,10 @@ func mockAgentServer() *httptest.Server {
 	// Info endpoint
 	mux.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(protocol.AgentInfo{
-			ID:           "test-agent-001",
-			Name:         "Test Agent",
-			Platform:     "linux",
-			Version:      "1.0.0",
-			SteamRunning: true,
+			ID:       "test-agent-001",
+			Name:     "Test Agent",
+			Platform: "linux",
+			Version:  "1.0.0",
 		})
 	})
 
@@ -45,8 +44,6 @@ func mockAgentServer() *httptest.Server {
 
 	// Shortcuts endpoints
 	mux.HandleFunc("/shortcuts/", func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(r.URL.Path, "/")
-
 		switch r.Method {
 		case "GET":
 			// List shortcuts
@@ -66,7 +63,6 @@ func mockAgentServer() *httptest.Server {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
-		_ = parts // avoid unused variable
 	})
 
 	// Steam restart endpoint

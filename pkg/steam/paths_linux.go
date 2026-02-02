@@ -35,20 +35,3 @@ func getBaseDir() (string, error) {
 	return "", ErrSteamNotFound
 }
 
-// IsSteamRunning checks if Steam is currently running on Linux.
-func IsSteamRunning() (bool, error) {
-	// Check for Steam's lock file
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false, err
-	}
-
-	lockFile := filepath.Join(home, ".steam", "steam.pid")
-	if _, err := os.Stat(lockFile); err == nil {
-		// Lock file exists, Steam might be running
-		// For a more accurate check, we'd need to verify the PID
-		return true, nil
-	}
-
-	return false, nil
-}

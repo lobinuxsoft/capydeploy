@@ -65,7 +65,7 @@ func TestMessage_ParsePayload(t *testing.T) {
 	original := InitUploadRequest{
 		Config: UploadConfig{
 			GameName:   "Test Game",
-			RemotePath: "/games/test",
+			InstallPath: "/games/test",
 		},
 		TotalSize: 2048,
 		FileCount: 10,
