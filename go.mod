@@ -3,8 +3,9 @@ module github.com/lobinuxsoft/capydeploy
 go 1.24.0
 
 require (
+	github.com/energye/systray v1.0.3
 	github.com/google/uuid v1.6.0
-	github.com/hashicorp/mdns v1.0.5
+	github.com/grandcat/zeroconf v1.0.0
 	github.com/shadowblip/steam-shortcut-manager v0.0.0
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/sys v0.39.0
@@ -14,6 +15,7 @@ replace github.com/shadowblip/steam-shortcut-manager => ./steam-shortcut-manager
 
 require (
 	github.com/bep/debounce v1.2.1 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

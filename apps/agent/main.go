@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"flag"
 	"log"
 
 	"github.com/wailsapp/wails/v2"
@@ -15,7 +16,11 @@ import (
 var assets embed.FS
 
 func main() {
+	noTray := flag.Bool("no-tray", false, "Disable system tray icon")
+	flag.Parse()
+
 	app := NewApp()
+	app.noTray = *noTray
 
 	err := wails.Run(&options.App{
 		Title:     "CapyDeploy Agent",

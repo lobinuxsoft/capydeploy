@@ -10,8 +10,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/lobinuxsoft/capydeploy/apps/agent/config"
+	"github.com/lobinuxsoft/capydeploy/apps/agent/firewall"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/server"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
+	"github.com/lobinuxsoft/capydeploy/apps/agent/tray"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
@@ -37,6 +39,10 @@ type App struct {
 	acceptConnections bool
 	connectedHub      *ConnectedHub
 	connectionMu      sync.RWMutex
+
+	// System tray
+	noTray bool
+	tray   *tray.Tray
 }
 
 // ConnectedHub represents a connected Hub
@@ -97,12 +103,26 @@ func (a *App) getName() string {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
+	// Ensure firewall rules exist (Windows only, requires admin first time)
+	if err := firewall.EnsureRules(a.port); err != nil {
+		log.Printf("Warning: could not configure firewall: %v", err)
+		log.Printf("You may need to run the Agent as Administrator once, or manually allow port %d", a.port)
+	}
+
 	// Start the HTTP server in background
 	go a.startServer()
+
+	// Start system tray if enabled
+	if !a.noTray {
+		go a.startTray()
+	}
 }
 
 // shutdown is called when the app is closing
 func (a *App) shutdown(ctx context.Context) {
+	if a.tray != nil {
+		a.tray.Quit()
+	}
 	if a.cancel != nil {
 		a.cancel()
 	}
@@ -240,6 +260,7 @@ func (a *App) SetAcceptConnections(accept bool) {
 	a.connectionMu.Unlock()
 
 	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	a.updateTrayStatus()
 }
 
 // DisconnectHub disconnects the current Hub
@@ -249,6 +270,7 @@ func (a *App) DisconnectHub() {
 	a.connectionMu.Unlock()
 
 	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	a.updateTrayStatus()
 }
 
 // SetName changes the agent name and restarts the server
@@ -339,10 +361,78 @@ func (a *App) restartServer() {
 }
 
 // =============================================================================
+// System Tray
+// =============================================================================
+
+// startTray initializes and runs the system tray
+func (a *App) startTray() {
+	a.tray = tray.New(tray.Config{
+		OnOpenWebUI: func() {
+			runtime.BrowserOpenURL(a.ctx, fmt.Sprintf("http://localhost:%d", a.port))
+		},
+		OnCopyAddress: func() string {
+			return a.getAddress()
+		},
+		OnToggleAccept: func(accept bool) {
+			a.SetAcceptConnections(accept)
+		},
+		OnQuit: func() {
+			runtime.Quit(a.ctx)
+		},
+		GetStatus: a.getTrayStatus,
+	})
+	a.tray.Run()
+}
+
+// getTrayStatus returns the current status for the tray
+func (a *App) getTrayStatus() tray.Status {
+	a.serverMu.RLock()
+	running := a.server != nil
+	a.serverMu.RUnlock()
+
+	a.connectionMu.RLock()
+	connectedHub := a.connectedHub
+	acceptConnections := a.acceptConnections
+	a.connectionMu.RUnlock()
+
+	var hubInfo *tray.HubInfo
+	if connectedHub != nil {
+		hubInfo = &tray.HubInfo{
+			Name: connectedHub.Name,
+			IP:   connectedHub.IP,
+		}
+	}
+
+	return tray.Status{
+		Running:           running,
+		AcceptConnections: acceptConnections,
+		ConnectedHub:      hubInfo,
+		Name:              a.getName(),
+		Address:           a.getAddress(),
+	}
+}
+
+// updateTrayStatus notifies the tray of a status change
+func (a *App) updateTrayStatus() {
+	if a.tray != nil {
+		a.tray.UpdateStatus(a.getTrayStatus())
+	}
+}
+
+// getAddress returns the first local IP with port
+func (a *App) getAddress() string {
+	ips := getLocalIPs()
+	if len(ips) > 0 {
+		return fmt.Sprintf("%s:%d", ips[0], a.port)
+	}
+	return fmt.Sprintf("localhost:%d", a.port)
+}
+
+// =============================================================================
 // Helper functions
 // =============================================================================
 
-// getLocalIPs returns the local IP addresses
+// getLocalIPs returns the local IP addresses, filtering out link-local (APIPA) addresses.
 func getLocalIPs() []string {
 	var ips []string
 
@@ -353,8 +443,13 @@ func getLocalIPs() []string {
 
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				ips = append(ips, ipnet.IP.String())
+			ip4 := ipnet.IP.To4()
+			if ip4 != nil {
+				// Skip link-local addresses (169.254.x.x / APIPA)
+				if ip4[0] == 169 && ip4[1] == 254 {
+					continue
+				}
+				ips = append(ips, ip4.String())
 			}
 		}
 	}

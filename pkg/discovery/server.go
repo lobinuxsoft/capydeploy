@@ -8,13 +8,13 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/hashicorp/mdns"
+	"github.com/grandcat/zeroconf"
 )
 
-// Server advertises an agent on the local network via mDNS.
+// Server advertises an agent on the local network via mDNS/DNS-SD.
 type Server struct {
 	info   ServiceInfo
-	server *mdns.Server
+	server *zeroconf.Server
 }
 
 // NewServer creates a new mDNS server for advertising an agent.
@@ -28,15 +28,6 @@ func (s *Server) Start() error {
 		s.info.Port = DefaultPort
 	}
 
-	// Get local IPs if not provided
-	if len(s.info.IPs) == 0 {
-		ips, err := getLocalIPs()
-		if err != nil {
-			return fmt.Errorf("failed to get local IPs: %w", err)
-		}
-		s.info.IPs = ips
-	}
-
 	// Build TXT records with agent info
 	txt := []string{
 		"id=" + s.info.ID,
@@ -45,24 +36,17 @@ func (s *Server) Start() error {
 		"version=" + s.info.Version,
 	}
 
-	// Create mDNS service
-	service, err := mdns.NewMDNSService(
-		s.info.ID,         // Instance name
-		ServiceName,       // Service type
-		"",                // Domain (default: local)
-		"",                // Host (auto-detect)
-		s.info.Port,       // Port
-		s.info.IPs,        // IPs to advertise
-		txt,               // TXT records
+	// Register service using zeroconf
+	server, err := zeroconf.Register(
+		s.info.ID,      // Instance name
+		ServiceName,    // Service type (_capydeploy._tcp)
+		"local.",       // Domain
+		s.info.Port,    // Port
+		txt,            // TXT records
+		nil,            // Interfaces (nil = all)
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create mDNS service: %w", err)
-	}
-
-	// Create and start server
-	server, err := mdns.NewServer(&mdns.Config{Zone: service})
-	if err != nil {
-		return fmt.Errorf("failed to start mDNS server: %w", err)
+		return fmt.Errorf("failed to register mDNS service: %w", err)
 	}
 
 	s.server = server
@@ -72,7 +56,8 @@ func (s *Server) Start() error {
 // Stop stops advertising the agent.
 func (s *Server) Stop() error {
 	if s.server != nil {
-		return s.server.Shutdown()
+		s.server.Shutdown()
+		s.server = nil
 	}
 	return nil
 }
@@ -82,7 +67,7 @@ func (s *Server) Info() ServiceInfo {
 	return s.info
 }
 
-// getLocalIPs returns the local non-loopback IPv4 addresses.
+// getLocalIPs returns the local non-loopback IPv4 addresses, excluding link-local (APIPA).
 func getLocalIPs() ([]net.IP, error) {
 	var ips []net.IP
 
@@ -112,7 +97,13 @@ func getLocalIPs() ([]net.IP, error) {
 			}
 
 			// Only include IPv4 addresses
-			if ip == nil || ip.IsLoopback() || ip.To4() == nil {
+			ip4 := ip.To4()
+			if ip4 == nil || ip.IsLoopback() {
+				continue
+			}
+
+			// Skip link-local addresses (169.254.x.x / APIPA)
+			if ip4[0] == 169 && ip4[1] == 254 {
 				continue
 			}
 
@@ -134,7 +125,6 @@ func GetHostname() string {
 
 // GetPlatform returns the current platform identifier.
 func GetPlatform() string {
-	// This will be set by build tags in actual implementation
 	return detectPlatform()
 }
 
