@@ -19,6 +19,9 @@ type PlatformModule interface {
 
 	// NewClient creates a new client for communicating with an Agent.
 	NewClient(host string, port int) PlatformClient
+
+	// SupportedImageFormats returns the MIME types supported for Steam artwork.
+	SupportedImageFormats() []string
 }
 
 // PlatformClient is the base interface for all Agent clients.

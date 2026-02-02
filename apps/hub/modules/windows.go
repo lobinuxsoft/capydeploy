@@ -23,5 +23,11 @@ func (m *WindowsModule) NewClient(host string, port int) PlatformClient {
 	return newBaseClient(host, port, PlatformWindows)
 }
 
+// SupportedImageFormats returns the image formats supported by Windows Steam.
+// Windows Steam only supports PNG and JPEG for shortcut artwork.
+func (m *WindowsModule) SupportedImageFormats() []string {
+	return []string{"image/png", "image/jpeg"}
+}
+
 // Ensure WindowsModule implements PlatformModule.
 var _ PlatformModule = (*WindowsModule)(nil)

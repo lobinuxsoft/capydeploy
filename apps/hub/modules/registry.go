@@ -96,3 +96,15 @@ func GetClientForPlatform(platform, host string, port int) (PlatformClient, erro
 func IsPlatformSupported(platform string) bool {
 	return DefaultRegistry.IsSupported(platform)
 }
+
+// GetSupportedImageFormats returns the supported image formats for a platform.
+// Uses normalized platform to handle aliases like "steamdeck" -> "linux".
+func GetSupportedImageFormats(platform string) []string {
+	normalizedPlatform := normalizePlatform(platform)
+	module := DefaultRegistry.Get(normalizedPlatform)
+	if module == nil {
+		// Fallback: return all common formats if platform unknown
+		return []string{"image/png", "image/jpeg", "image/webp", "image/gif"}
+	}
+	return module.SupportedImageFormats()
+}
