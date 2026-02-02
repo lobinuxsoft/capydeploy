@@ -134,6 +134,20 @@
 		}
 	});
 
+	// Check if animated formats are supported (WebP/GIF can be animated)
+	let supportsAnimated = $derived.by(() => {
+		const supported = $connectionStatus.supportedImageFormats;
+		if (!supported || supported.length === 0) return true; // No agent = show all
+		return supported.includes('image/webp') || supported.includes('image/gif');
+	});
+
+	// Reset animation filter if animated not supported
+	$effect(() => {
+		if (!supportsAnimated && filterAnimation === 'Animated Only') {
+			filterAnimation = '';
+		}
+	});
+
 	function getCurrentFilters(): ImageFilters {
 		return {
 			style: filterStyle,
@@ -590,16 +604,18 @@
 								class="w-28"
 							/>
 						</div>
-						<div class="flex items-center gap-1">
-							<span class="text-xs text-muted-foreground w-16">Animation:</span>
-							<Select
-								options={animationOptions}
-								value={filterAnimation}
-								onchange={(v) => filterAnimation = v}
-								placeholder="All"
-								class="w-32"
-							/>
-						</div>
+						{#if supportsAnimated}
+							<div class="flex items-center gap-1">
+								<span class="text-xs text-muted-foreground w-16">Animation:</span>
+								<Select
+									options={animationOptions}
+									value={filterAnimation}
+									onchange={(v) => filterAnimation = v}
+									placeholder="All"
+									class="w-32"
+								/>
+							</div>
+						{/if}
 						<Checkbox
 							checked={filterNsfw}
 							onchange={(v) => filterNsfw = v}
