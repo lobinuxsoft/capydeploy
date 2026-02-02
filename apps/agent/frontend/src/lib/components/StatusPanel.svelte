@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { Card, Badge, Button } from '$lib/components/ui';
-	import { GetStatus, SetAcceptConnections, DisconnectHub, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { Card, Badge, Button, Input } from '$lib/components/ui';
+	import { GetStatus, SetAcceptConnections, DisconnectHub, SetName, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Server, Power, Unplug } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Server, Power, Unplug, Pencil, Check, X } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let editingName = $state(false);
+	let newName = $state('');
+	let savingName = $state(false);
 
 	async function loadStatus() {
 		try {
@@ -27,6 +30,32 @@
 
 	async function disconnect() {
 		await DisconnectHub();
+	}
+
+	function startEditName() {
+		if (status) {
+			newName = status.name;
+			editingName = true;
+		}
+	}
+
+	function cancelEditName() {
+		editingName = false;
+		newName = '';
+	}
+
+	async function saveName() {
+		if (!newName.trim()) return;
+
+		savingName = true;
+		try {
+			await SetName(newName.trim());
+			editingName = false;
+		} catch (e) {
+			console.error('Failed to save name:', e);
+		} finally {
+			savingName = false;
+		}
 	}
 
 	$effect(() => {
@@ -103,12 +132,49 @@
 			</div>
 
 			<!-- Name & Platform -->
-			<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center gap-2">
-					<Monitor class="w-4 h-4" />
-					<span class="text-sm">Nombre</span>
+			<div class="p-3 rounded-lg bg-secondary/50">
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<Monitor class="w-4 h-4" />
+						<span class="text-sm">Nombre</span>
+					</div>
+					{#if !editingName}
+						<button
+							type="button"
+							class="flex items-center gap-2 hover:text-primary transition-colors"
+							onclick={startEditName}
+						>
+							<span class="text-sm font-medium">{status.name}</span>
+							<Pencil class="w-3 h-3 text-muted-foreground" />
+						</button>
+					{/if}
 				</div>
-				<span class="text-sm font-medium">{status.name}</span>
+				{#if editingName}
+					<div class="flex items-center gap-2 mt-2">
+						<Input
+							bind:value={newName}
+							placeholder="Nombre del agente"
+							class="flex-1"
+							disabled={savingName}
+						/>
+						<Button
+							size="icon"
+							variant="ghost"
+							onclick={saveName}
+							disabled={savingName || !newName.trim()}
+						>
+							<Check class="w-4 h-4 text-success" />
+						</Button>
+						<Button
+							size="icon"
+							variant="ghost"
+							onclick={cancelEditName}
+							disabled={savingName}
+						>
+							<X class="w-4 h-4 text-destructive" />
+						</Button>
+					</div>
+				{/if}
 			</div>
 
 			<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">

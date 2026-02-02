@@ -7,6 +7,7 @@ export const GetSteamUsers = App.GetSteamUsers;
 export const GetShortcuts = App.GetShortcuts;
 export const SetAcceptConnections = App.SetAcceptConnections;
 export const DisconnectHub = App.DisconnectHub;
+export const SetName = App.SetName;
 
 // Runtime
 export const EventsOn = runtime.EventsOn;

@@ -9,6 +9,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/lobinuxsoft/capydeploy/apps/agent/config"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/server"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
@@ -28,8 +29,8 @@ type App struct {
 	serverCtx context.Context
 
 	// Agent configuration
+	configMgr  *config.Manager
 	port       int
-	name       string
 	uploadPath string
 
 	// Connection state
@@ -72,11 +73,24 @@ type ShortcutInfo struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
+	cfgMgr, err := config.NewManager()
+	if err != nil {
+		log.Printf("Warning: failed to load config: %v", err)
+	}
+
 	return &App{
+		configMgr:         cfgMgr,
 		port:              discovery.DefaultPort,
-		name:              discovery.GetHostname(),
 		acceptConnections: true,
 	}
+}
+
+// getName returns the configured agent name
+func (a *App) getName() string {
+	if a.configMgr != nil {
+		return a.configMgr.GetName()
+	}
+	return discovery.GetHostname()
 }
 
 // startup is called when the app starts
@@ -104,7 +118,7 @@ func (a *App) startServer() {
 
 	cfg := server.Config{
 		Port:       a.port,
-		Name:       a.name,
+		Name:       a.getName(),
 		Version:    Version,
 		Platform:   discovery.GetPlatform(),
 		Verbose:    false,
@@ -156,7 +170,7 @@ func (a *App) GetStatus() AgentStatus {
 
 	return AgentStatus{
 		Running:           running,
-		Name:              a.name,
+		Name:              a.getName(),
 		Platform:          discovery.GetPlatform(),
 		Version:           Version,
 		Port:              a.port,
@@ -223,6 +237,45 @@ func (a *App) DisconnectHub() {
 	a.connectionMu.Unlock()
 
 	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+}
+
+// SetName changes the agent name and restarts the server
+func (a *App) SetName(name string) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+
+	// Save new name
+	if err := a.configMgr.SetName(name); err != nil {
+		return fmt.Errorf("failed to save name: %w", err)
+	}
+
+	log.Printf("Agent name changed to: %s", name)
+
+	// Restart server to update mDNS with new name
+	a.restartServer()
+
+	return nil
+}
+
+// restartServer stops and starts the server with current config
+func (a *App) restartServer() {
+	// Cancel current server
+	if a.cancel != nil {
+		a.cancel()
+	}
+
+	// Wait a bit for cleanup
+	a.serverMu.Lock()
+	a.server = nil
+	a.serverMu.Unlock()
+
+	// Start new server
+	go a.startServer()
 }
 
 // =============================================================================
