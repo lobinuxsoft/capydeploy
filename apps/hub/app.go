@@ -361,7 +361,7 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 	// Prepare upload config
 	uploadConfig := protocol.UploadConfig{
 		GameName:      setup.Name,
-		RemotePath:    setup.RemotePath,
+		InstallPath:   setup.InstallPath,
 		Executable:    setup.Executable,
 		LaunchOptions: setup.LaunchOptions,
 		Tags:          setup.Tags,
@@ -457,9 +457,9 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 	}
 
 	// Build full paths for the shortcut
-	// RemotePath is the parent dir (e.g. ~/devkit-games)
-	// Game files are uploaded to RemotePath/GameName/ (e.g. ~/devkit-games/stellar_delivery/)
-	gameDir := filepath.Join(setup.RemotePath, setup.Name)
+	// InstallPath is the parent dir (e.g. ~/Games)
+	// Game files are uploaded to InstallPath/GameName/ (e.g. ~/Games/stellar_delivery/)
+	gameDir := filepath.Join(setup.InstallPath, setup.Name)
 	exePath := filepath.Join(gameDir, setup.Executable)
 
 	shortcutCfg := &protocol.ShortcutConfig{

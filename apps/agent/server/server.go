@@ -203,18 +203,18 @@ func (s *Server) DeleteUpload(id string) {
 }
 
 // GetUploadPath returns the full path for an upload.
-// If remotePath is specified, it's used as base; otherwise uses default UploadPath.
-func (s *Server) GetUploadPath(gameName, remotePath string) string {
+// If installPath is specified, it's used as base; otherwise uses default UploadPath.
+func (s *Server) GetUploadPath(gameName, installPath string) string {
 	basePath := s.cfg.UploadPath
-	if remotePath != "" {
+	if installPath != "" {
 		// Expand ~ to home directory
-		if strings.HasPrefix(remotePath, "~/") {
+		if strings.HasPrefix(installPath, "~/") {
 			home, err := os.UserHomeDir()
 			if err == nil {
-				remotePath = filepath.Join(home, remotePath[2:])
+				installPath = filepath.Join(home, installPath[2:])
 			}
 		}
-		basePath = remotePath
+		basePath = installPath
 	}
 	return filepath.Join(basePath, gameName)
 }

@@ -26,7 +26,7 @@ type GameSetup struct {
 	Executable    string `json:"executable"`
 	LaunchOptions string `json:"launch_options,omitempty"`
 	Tags          string `json:"tags,omitempty"`
-	RemotePath    string `json:"remote_path"`
+	InstallPath   string `json:"install_path"`
 	// SteamGridDB artwork
 	GridDBGameID   int    `json:"griddb_game_id,omitempty"`
 	GridPortrait   string `json:"grid_portrait,omitempty"`   // 600x900 portrait grid
@@ -38,10 +38,10 @@ type GameSetup struct {
 
 // AppConfig represents the application configuration
 type AppConfig struct {
-	Devices           []DeviceConfig `json:"devices"`
-	GameSetups        []GameSetup    `json:"game_setups"`
-	DefaultRemotePath string         `json:"default_remote_path"`
-	SteamGridDBAPIKey string         `json:"steamgriddb_api_key,omitempty"`
+	Devices            []DeviceConfig `json:"devices"`
+	GameSetups         []GameSetup    `json:"game_setups"`
+	DefaultInstallPath string         `json:"default_install_path"`
+	SteamGridDBAPIKey  string         `json:"steamgriddb_api_key,omitempty"`
 }
 
 // GetConfigPath returns the path to the config file
@@ -76,8 +76,8 @@ func Load() (*AppConfig, error) {
 		if os.IsNotExist(err) {
 			// Return default config if file doesn't exist
 			return &AppConfig{
-				Devices:           []DeviceConfig{},
-				DefaultRemotePath: "~/devkit-games",
+				Devices:            []DeviceConfig{},
+				DefaultInstallPath: "~/Games",
 			}, nil
 		}
 		return nil, err

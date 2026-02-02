@@ -16,7 +16,7 @@ type AgentInfo struct {
 // UploadConfig defines the configuration for uploading a game.
 type UploadConfig struct {
 	GameName      string `json:"gameName"`
-	RemotePath    string `json:"remotePath"`
+	InstallPath   string `json:"installPath"`
 	Executable    string `json:"executable"`
 	LaunchOptions string `json:"launchOptions,omitempty"`
 	Tags          string `json:"tags,omitempty"`

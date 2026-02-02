@@ -40,7 +40,7 @@ export interface GameSetup {
 	executable: string;
 	launch_options?: string;
 	tags?: string;
-	remote_path: string;
+	install_path: string;
 	griddb_game_id?: number;
 	grid_portrait?: string;
 	grid_landscape?: string;
