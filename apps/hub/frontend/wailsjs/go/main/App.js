@@ -6,8 +6,16 @@ export function AddGameSetup(arg1) {
   return window['go']['main']['App']['AddGameSetup'](arg1);
 }
 
+export function CancelPairing() {
+  return window['go']['main']['App']['CancelPairing']();
+}
+
 export function ClearImageCache() {
   return window['go']['main']['App']['ClearImageCache']();
+}
+
+export function ConfirmPairing(arg1) {
+  return window['go']['main']['App']['ConfirmPairing'](arg1);
 }
 
 export function ConnectAgent(arg1) {

@@ -6,9 +6,11 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/lobinuxsoft/capydeploy/apps/agent/auth"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/config"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/firewall"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/server"
@@ -32,6 +34,7 @@ type App struct {
 
 	// Agent configuration
 	configMgr  *config.Manager
+	authMgr    *auth.Manager
 	port       int
 	uploadPath string
 
@@ -47,6 +50,7 @@ type App struct {
 
 // ConnectedHub represents a connected Hub
 type ConnectedHub struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 	IP   string `json:"ip"`
 }
@@ -84,8 +88,16 @@ func NewApp() *App {
 		log.Printf("Warning: failed to load config: %v", err)
 	}
 
+	// Create auth manager with config storage
+	var authMgr *auth.Manager
+	if cfgMgr != nil {
+		storage := auth.NewConfigStorage(cfgMgr)
+		authMgr = auth.NewManager(storage)
+	}
+
 	return &App{
 		configMgr:         cfgMgr,
+		authMgr:           authMgr,
 		port:              discovery.DefaultPort,
 		acceptConnections: true,
 	}
@@ -165,13 +177,17 @@ func (a *App) startServer() {
 		OnOperation: func(event server.OperationEvent) {
 			runtime.EventsEmit(a.ctx, "operation", event)
 		},
-		OnHubConnect: func(hubName string) {
+		OnHubConnect: func(hubID, hubName, hubIP string) {
 			a.connectionMu.Lock()
-			a.connectedHub = &ConnectedHub{Name: hubName}
+			a.connectedHub = &ConnectedHub{ID: hubID, Name: hubName, IP: hubIP}
 			a.connectionMu.Unlock()
-			log.Printf("Hub connected: %s", hubName)
+			log.Printf("Hub connected: %s (%s)", hubName, hubIP)
 			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 			a.updateTrayStatus()
+			// Hide pairing code on successful connection
+			if a.tray != nil {
+				a.tray.HidePairingCode()
+			}
 		},
 		OnHubDisconnect: func() {
 			a.connectionMu.Lock()
@@ -180,6 +196,21 @@ func (a *App) startServer() {
 			log.Printf("Hub disconnected")
 			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 			a.updateTrayStatus()
+		},
+		AuthManager: a.authMgr,
+		OnPairingCode: func(code string, expiresIn time.Duration) {
+			log.Printf("Pairing code generated: %s (expires in %v)", code, expiresIn)
+			runtime.EventsEmit(a.ctx, "pairing:code", code)
+			if a.tray != nil {
+				a.tray.ShowPairingCode(code, expiresIn)
+			}
+		},
+		OnPairingSuccess: func() {
+			runtime.EventsEmit(a.ctx, "pairing:success", nil)
+			runtime.EventsEmit(a.ctx, "hubs:changed", nil)
+			if a.tray != nil {
+				a.tray.HidePairingCode()
+			}
 		},
 	}
 
@@ -363,6 +394,67 @@ func (a *App) SelectInstallPath() (string, error) {
 	}
 
 	return path, nil
+}
+
+// =============================================================================
+// Authorized Hubs Management
+// =============================================================================
+
+// AuthorizedHubInfo represents an authorized Hub for the UI.
+type AuthorizedHubInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	PairedAt string `json:"pairedAt"`
+	LastSeen string `json:"lastSeen"`
+}
+
+// GetAuthorizedHubs returns the list of authorized Hubs.
+func (a *App) GetAuthorizedHubs() []AuthorizedHubInfo {
+	if a.authMgr == nil {
+		return []AuthorizedHubInfo{}
+	}
+
+	hubs := a.authMgr.GetAuthorizedHubs()
+	result := make([]AuthorizedHubInfo, len(hubs))
+	for i, h := range hubs {
+		result[i] = AuthorizedHubInfo{
+			ID:       h.ID,
+			Name:     h.Name,
+			PairedAt: h.PairedAt.Format(time.RFC3339),
+			LastSeen: h.LastSeen.Format(time.RFC3339),
+		}
+	}
+	return result
+}
+
+// RevokeHub removes a Hub from the authorized list.
+func (a *App) RevokeHub(hubID string) error {
+	if a.authMgr == nil {
+		return fmt.Errorf("authentication not configured")
+	}
+
+	if err := a.authMgr.RevokeHub(hubID); err != nil {
+		return fmt.Errorf("failed to revoke hub: %w", err)
+	}
+
+	log.Printf("Revoked Hub: %s", hubID)
+
+	// Disconnect the Hub if it's currently connected
+	a.connectionMu.RLock()
+	isConnected := a.connectedHub != nil && a.connectedHub.ID == hubID
+	a.connectionMu.RUnlock()
+
+	if isConnected {
+		a.serverMu.RLock()
+		srv := a.server
+		a.serverMu.RUnlock()
+		if srv != nil {
+			srv.DisconnectHub()
+		}
+	}
+
+	runtime.EventsEmit(a.ctx, "auth:hub-revoked", hubID)
+	return nil
 }
 
 // restartServer stops and starts the server with current config

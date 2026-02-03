@@ -25,7 +25,53 @@ func (ws *WSServer) handleHubConnected(hub *HubConnection, msg *protocol.Message
 
 	hub.name = req.Name
 	hub.version = req.Version
-	log.Printf("WS: Hub connected: %s v%s", req.Name, req.Version)
+	hub.hubID = req.HubID
+	log.Printf("WS: Hub connected: %s v%s (ID: %s)", req.Name, req.Version, req.HubID)
+
+	// If no auth manager, allow all connections (backwards compatibility)
+	if ws.authMgr == nil {
+		ws.acceptHub(hub, msg)
+		return
+	}
+
+	// If Hub provided a token, validate it
+	if req.Token != "" && req.HubID != "" {
+		if ws.authMgr.ValidateToken(req.HubID, req.Token) {
+			log.Printf("WS: Hub %s authenticated with valid token", req.Name)
+			ws.acceptHub(hub, msg)
+			return
+		}
+		log.Printf("WS: Hub %s provided invalid token, requiring pairing", req.Name)
+	}
+
+	// Hub not authorized - require pairing
+	if req.HubID == "" {
+		// Hub without ID cannot pair (old client)
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeUnauthorized, "hub_id required for pairing")
+		return
+	}
+
+	// Generate pairing code
+	code, err := ws.authMgr.GenerateCode(req.HubID, req.Name)
+	if err != nil {
+		log.Printf("WS: Failed to generate pairing code: %v", err)
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
+		return
+	}
+
+	log.Printf("WS: Pairing required for Hub %s, code: %s", req.Name, code)
+
+	// Send pairing required response
+	resp, _ := msg.Reply(protocol.MsgTypePairingRequired, protocol.PairingRequiredResponse{
+		Code:      code,
+		ExpiresIn: 60,
+	})
+	ws.send(hub, resp)
+}
+
+// acceptHub completes the handshake for an authorized Hub.
+func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
+	hub.authorized = true
 
 	// Send agent status
 	info := ws.server.GetInfo()
@@ -39,7 +85,52 @@ func (ws *WSServer) handleHubConnected(hub *HubConnection, msg *protocol.Message
 
 	// Notify callback
 	if ws.onConnect != nil {
-		ws.onConnect(req.Name)
+		ws.onConnect(hub.hubID, hub.name, hub.remoteAddr)
+	}
+}
+
+// handlePairConfirm processes a pairing confirmation from the Hub.
+func (ws *WSServer) handlePairConfirm(hub *HubConnection, msg *protocol.Message) {
+	var req protocol.PairConfirmRequest
+	if err := msg.ParsePayload(&req); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeBadRequest, "invalid payload")
+		return
+	}
+
+	if ws.authMgr == nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, "auth not configured")
+		return
+	}
+
+	// Validate the pairing code
+	token, err := ws.authMgr.ValidateCode(hub.hubID, hub.name, req.Code)
+	if err != nil {
+		log.Printf("WS: Pairing failed for Hub %s: %v", hub.name, err)
+		resp, _ := msg.Reply(protocol.MsgTypePairFailed, protocol.PairFailedResponse{
+			Reason: err.Error(),
+		})
+		ws.send(hub, resp)
+		return
+	}
+
+	log.Printf("WS: Pairing successful for Hub %s", hub.name)
+
+	// Send success with token
+	resp, _ := msg.Reply(protocol.MsgTypePairSuccess, protocol.PairSuccessResponse{
+		Token: token,
+	})
+	ws.send(hub, resp)
+
+	// Mark hub as authorized and complete handshake
+	hub.authorized = true
+
+	// Notify pairing success callback (for UI update)
+	if ws.server.cfg.OnPairingSuccess != nil {
+		ws.server.cfg.OnPairingSuccess()
+	}
+
+	if ws.onConnect != nil {
+		ws.onConnect(hub.hubID, hub.name, hub.remoteAddr)
 	}
 }
 

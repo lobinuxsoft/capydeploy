@@ -12,6 +12,10 @@ export const DisconnectAgent = App.DisconnectAgent;
 export const GetConnectionStatus = App.GetConnectionStatus;
 export const GetAgentInstallPath = App.GetAgentInstallPath;
 
+// Pairing functions
+export const ConfirmPairing = App.ConfirmPairing;
+export const CancelPairing = App.CancelPairing;
+
 // Legacy device functions (deprecated - use Agent functions instead)
 export const GetDevices = App.GetDevices;
 export const ConnectDevice = App.ConnectDevice;

@@ -79,3 +79,29 @@ func WSClientFromAgent(agent *discovery.DiscoveredAgent, hubName, hubVersion str
 
 	return NewWSClient(host, agent.Port, platform, hubName, hubVersion), nil
 }
+
+// WSClientFromAgentWithAuth creates a WebSocket client with authentication.
+// The returned client must be connected using Connect() before use.
+func WSClientFromAgentWithAuth(agent *discovery.DiscoveredAgent, hubName, hubVersion, hubID string,
+	getToken func(string) string, saveToken func(string, string) error) (*WSClient, error) {
+	if agent == nil {
+		return nil, fmt.Errorf("agent is nil")
+	}
+
+	platform := agent.Info.Platform
+	if platform == "" {
+		return nil, fmt.Errorf("agent has no platform information")
+	}
+
+	// Get the primary IP address
+	host := ""
+	if len(agent.IPs) > 0 {
+		host = agent.IPs[0].String()
+	} else if agent.Host != "" {
+		host = agent.Host
+	} else {
+		return nil, fmt.Errorf("agent has no reachable address")
+	}
+
+	return NewWSClientWithAuth(host, agent.Port, platform, hubName, hubVersion, hubID, agent.Info.ID, getToken, saveToken), nil
+}

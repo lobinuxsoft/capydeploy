@@ -34,6 +34,12 @@ const (
 	MsgTypeHubConnected MessageType = "hub_connected" // Hub → Agent: handshake
 	MsgTypeAgentStatus  MessageType = "agent_status"  // Agent → Hub: handshake response
 
+	// Authentication / Pairing
+	MsgTypePairingRequired MessageType = "pairing_required" // Agent → Hub: requires pairing
+	MsgTypePairConfirm     MessageType = "pair_confirm"     // Hub → Agent: confirm pairing code
+	MsgTypePairSuccess     MessageType = "pair_success"     // Agent → Hub: pairing successful
+	MsgTypePairFailed      MessageType = "pair_failed"      // Agent → Hub: pairing failed
+
 	// Requests from Hub to Agent
 	MsgTypePing           MessageType = "ping"
 	MsgTypeGetInfo        MessageType = "get_info"
@@ -234,6 +240,8 @@ type ErrorResponse struct {
 type HubConnectedRequest struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
+	HubID   string `json:"hubId,omitempty"`   // Unique Hub identifier
+	Token   string `json:"token,omitempty"`   // Auth token from previous pairing
 }
 
 // AgentStatusResponse is the Agent's response to a Hub connection.
@@ -242,6 +250,27 @@ type AgentStatusResponse struct {
 	Version           string `json:"version"`
 	Platform          string `json:"platform"`
 	AcceptConnections bool   `json:"acceptConnections"`
+}
+
+// PairingRequiredResponse is sent when a Hub needs to pair.
+type PairingRequiredResponse struct {
+	Code      string `json:"code"`      // 6-digit pairing code
+	ExpiresIn int    `json:"expiresIn"` // Seconds until expiration
+}
+
+// PairConfirmRequest is sent by Hub to confirm pairing.
+type PairConfirmRequest struct {
+	Code string `json:"code"` // 6-digit code entered by user
+}
+
+// PairSuccessResponse is sent when pairing is successful.
+type PairSuccessResponse struct {
+	Token string `json:"token"` // Auth token for future connections
+}
+
+// PairFailedResponse is sent when pairing fails.
+type PairFailedResponse struct {
+	Reason string `json:"reason"` // Failure reason
 }
 
 // Config payloads

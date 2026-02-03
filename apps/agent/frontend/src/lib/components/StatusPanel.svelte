@@ -3,7 +3,7 @@
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
 	import { GetStatus, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let loading = $state(true);
@@ -12,6 +12,8 @@
 	let newName = $state('');
 	let savingName = $state(false);
 	let installPath = $state('');
+	let pairingCode = $state<string | null>(null);
+	let pairingTimer: ReturnType<typeof setTimeout> | null = null;
 
 	async function loadStatus() {
 		try {
@@ -88,10 +90,35 @@
 			error = err;
 		});
 
+		EventsOn('pairing:code', (code: string) => {
+			pairingCode = code;
+			// Clear existing timer
+			if (pairingTimer) {
+				clearTimeout(pairingTimer);
+			}
+			// Auto-hide after 60 seconds
+			pairingTimer = setTimeout(() => {
+				pairingCode = null;
+			}, 60000);
+		});
+
+		EventsOn('pairing:success', () => {
+			pairingCode = null;
+			if (pairingTimer) {
+				clearTimeout(pairingTimer);
+				pairingTimer = null;
+			}
+		});
+
 		return () => {
 			EventsOff('server:started');
 			EventsOff('status:changed');
 			EventsOff('server:error');
+			EventsOff('pairing:code');
+			EventsOff('pairing:success');
+			if (pairingTimer) {
+				clearTimeout(pairingTimer);
+			}
 		};
 	});
 
@@ -220,6 +247,24 @@
 				</div>
 			</div>
 
+			<!-- Pairing Code (shown when a Hub requests pairing) -->
+			{#if pairingCode}
+				<div class="p-4 rounded-lg bg-primary/10 border border-primary/30 animate-pulse">
+					<div class="flex items-center gap-2 mb-2">
+						<Key class="w-5 h-5 text-primary" />
+						<span class="text-sm font-medium text-primary">Código de Emparejamiento</span>
+					</div>
+					<div class="text-center">
+						<p class="text-3xl font-mono font-bold tracking-[0.5em] text-primary">
+							{pairingCode}
+						</p>
+						<p class="text-xs text-muted-foreground mt-2">
+							Ingresa este código en el Hub para autorizar la conexión
+						</p>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Connection Status -->
 			<div class="p-3 rounded-lg bg-secondary/50">
 				<div class="flex items-center justify-between mb-3">
@@ -236,7 +281,13 @@
 					</Badge>
 				</div>
 
-				{#if !status.acceptConnections}
+				{#if status.connectedHub}
+					<div class="flex items-center gap-2 p-2 mb-3 rounded bg-success/10 border border-success/30">
+						<Monitor class="w-4 h-4 text-success" />
+						<span class="text-sm font-medium text-success">{status.connectedHub.name}</span>
+						<span class="text-xs text-muted-foreground">({status.connectedHub.ip})</span>
+					</div>
+				{:else if !status.acceptConnections}
 					<p class="text-xs text-muted-foreground mb-3">
 						El Hub puede ver este agente pero no puede realizar operaciones
 					</p>
