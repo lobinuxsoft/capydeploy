@@ -44,6 +44,11 @@ func GetUsersWithPaths(paths *Paths) ([]User, error) {
 			continue
 		}
 
+		// Skip "0" directory - it's a temporary Steam directory, not a real user
+		if name == "0" {
+			continue
+		}
+
 		users = append(users, User{
 			ID:          name,
 			HasShortcuts: paths.HasShortcuts(name),
