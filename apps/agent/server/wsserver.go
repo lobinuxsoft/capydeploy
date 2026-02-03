@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ type WSServer struct {
 
 	mu           sync.RWMutex
 	hubConn      *HubConnection
-	onConnect    func(hubName string)
+	onConnect    func(hubID, hubName, hubIP string)
 	onDisconnect func()
 }
 
@@ -31,6 +32,7 @@ type HubConnection struct {
 	name       string
 	version    string
 	hubID      string
+	remoteAddr string
 	authorized bool
 	sendCh     chan []byte
 	closeCh    chan struct{}
@@ -39,7 +41,7 @@ type HubConnection struct {
 }
 
 // NewWSServer creates a new WebSocket server.
-func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string), onDisconnect func()) *WSServer {
+func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string, string, string), onDisconnect func()) *WSServer {
 	return &WSServer{
 		server:  s,
 		authMgr: authMgr,
@@ -52,6 +54,17 @@ func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string), onDis
 		},
 		onConnect:    onConnect,
 		onDisconnect: onDisconnect,
+	}
+}
+
+// DisconnectHub closes the current Hub connection if any.
+func (ws *WSServer) DisconnectHub() {
+	ws.mu.Lock()
+	hub := ws.hubConn
+	ws.mu.Unlock()
+
+	if hub != nil && hub.conn != nil {
+		hub.conn.Close()
 	}
 }
 
@@ -84,11 +97,18 @@ func (ws *WSServer) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("WS: New connection from %s", r.RemoteAddr)
 
+	// Extract IP from remote address (format: "IP:port")
+	remoteIP := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		remoteIP = host
+	}
+
 	// Create hub connection
 	hub := &HubConnection{
-		conn:    conn,
-		sendCh:  make(chan []byte, 256),
-		closeCh: make(chan struct{}),
+		conn:       conn,
+		remoteAddr: remoteIP,
+		sendCh:     make(chan []byte, 256),
+		closeCh:    make(chan struct{}),
 	}
 
 	ws.mu.Lock()

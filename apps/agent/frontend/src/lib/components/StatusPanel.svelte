@@ -102,11 +102,20 @@
 			}, 60000);
 		});
 
+		EventsOn('pairing:success', () => {
+			pairingCode = null;
+			if (pairingTimer) {
+				clearTimeout(pairingTimer);
+				pairingTimer = null;
+			}
+		});
+
 		return () => {
 			EventsOff('server:started');
 			EventsOff('status:changed');
 			EventsOff('server:error');
 			EventsOff('pairing:code');
+			EventsOff('pairing:success');
 			if (pairingTimer) {
 				clearTimeout(pairingTimer);
 			}
@@ -272,7 +281,13 @@
 					</Badge>
 				</div>
 
-				{#if !status.acceptConnections}
+				{#if status.connectedHub}
+					<div class="flex items-center gap-2 p-2 mb-3 rounded bg-success/10 border border-success/30">
+						<Monitor class="w-4 h-4 text-success" />
+						<span class="text-sm font-medium text-success">{status.connectedHub.name}</span>
+						<span class="text-xs text-muted-foreground">({status.connectedHub.ip})</span>
+					</div>
+				{:else if !status.acceptConnections}
 					<p class="text-xs text-muted-foreground mb-3">
 						El Hub puede ver este agente pero no puede realizar operaciones
 					</p>

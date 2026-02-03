@@ -43,10 +43,11 @@ type Config struct {
 	GetInstallPath    func() string              // Callback to get the install path from config
 	OnShortcutChange  func()                     // Callback when shortcuts are created/deleted
 	OnOperation       func(event OperationEvent) // Callback for operation progress
-	OnHubConnect      func(hubName string)       // Callback when a Hub connects
+	OnHubConnect      func(hubID, hubName, hubIP string) // Callback when a Hub connects
 	OnHubDisconnect   func()                     // Callback when the Hub disconnects
 	AuthManager       *auth.Manager              // Authentication manager for pairing
 	OnPairingCode     func(code string, expiresIn time.Duration) // Callback when pairing code is generated
+	OnPairingSuccess  func()                     // Callback when pairing is successful
 }
 
 // Server is the main agent server that handles WebSocket connections and mDNS discovery.
@@ -330,6 +331,13 @@ func (s *Server) GetConnectedHub() string {
 		return ""
 	}
 	return s.wsSrv.GetConnectedHub()
+}
+
+// DisconnectHub disconnects the currently connected Hub.
+func (s *Server) DisconnectHub() {
+	if s.wsSrv != nil {
+		s.wsSrv.DisconnectHub()
+	}
 }
 
 // SendEvent sends a push event to the connected Hub via WebSocket.

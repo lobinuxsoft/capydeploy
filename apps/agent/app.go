@@ -50,6 +50,7 @@ type App struct {
 
 // ConnectedHub represents a connected Hub
 type ConnectedHub struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 	IP   string `json:"ip"`
 }
@@ -176,11 +177,11 @@ func (a *App) startServer() {
 		OnOperation: func(event server.OperationEvent) {
 			runtime.EventsEmit(a.ctx, "operation", event)
 		},
-		OnHubConnect: func(hubName string) {
+		OnHubConnect: func(hubID, hubName, hubIP string) {
 			a.connectionMu.Lock()
-			a.connectedHub = &ConnectedHub{Name: hubName}
+			a.connectedHub = &ConnectedHub{ID: hubID, Name: hubName, IP: hubIP}
 			a.connectionMu.Unlock()
-			log.Printf("Hub connected: %s", hubName)
+			log.Printf("Hub connected: %s (%s)", hubName, hubIP)
 			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 			a.updateTrayStatus()
 			// Hide pairing code on successful connection
@@ -202,6 +203,13 @@ func (a *App) startServer() {
 			runtime.EventsEmit(a.ctx, "pairing:code", code)
 			if a.tray != nil {
 				a.tray.ShowPairingCode(code, expiresIn)
+			}
+		},
+		OnPairingSuccess: func() {
+			runtime.EventsEmit(a.ctx, "pairing:success", nil)
+			runtime.EventsEmit(a.ctx, "hubs:changed", nil)
+			if a.tray != nil {
+				a.tray.HidePairingCode()
 			}
 		},
 	}
@@ -430,6 +438,21 @@ func (a *App) RevokeHub(hubID string) error {
 	}
 
 	log.Printf("Revoked Hub: %s", hubID)
+
+	// Disconnect the Hub if it's currently connected
+	a.connectionMu.RLock()
+	isConnected := a.connectedHub != nil && a.connectedHub.ID == hubID
+	a.connectionMu.RUnlock()
+
+	if isConnected {
+		a.serverMu.RLock()
+		srv := a.server
+		a.serverMu.RUnlock()
+		if srv != nil {
+			srv.DisconnectHub()
+		}
+	}
+
 	runtime.EventsEmit(a.ctx, "auth:hub-revoked", hubID)
 	return nil
 }

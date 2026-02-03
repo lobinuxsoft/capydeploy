@@ -85,7 +85,7 @@ func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
 
 	// Notify callback
 	if ws.onConnect != nil {
-		ws.onConnect(hub.name)
+		ws.onConnect(hub.hubID, hub.name, hub.remoteAddr)
 	}
 }
 
@@ -123,8 +123,14 @@ func (ws *WSServer) handlePairConfirm(hub *HubConnection, msg *protocol.Message)
 
 	// Mark hub as authorized and complete handshake
 	hub.authorized = true
+
+	// Notify pairing success callback (for UI update)
+	if ws.server.cfg.OnPairingSuccess != nil {
+		ws.server.cfg.OnPairingSuccess()
+	}
+
 	if ws.onConnect != nil {
-		ws.onConnect(hub.name)
+		ws.onConnect(hub.hubID, hub.name, hub.remoteAddr)
 	}
 }
 

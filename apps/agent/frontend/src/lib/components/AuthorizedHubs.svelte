@@ -62,12 +62,18 @@
 
 		loadHubs();
 
+		// Listen for hub changes (new pairing or revocation)
+		EventsOn('hubs:changed', () => {
+			loadHubs();
+		});
+
 		// Listen for hub revocation events
 		EventsOn('auth:hub-revoked', (hubId: string) => {
 			hubs = hubs.filter(h => h.id !== hubId);
 		});
 
 		return () => {
+			EventsOff('hubs:changed');
 			EventsOff('auth:hub-revoked');
 		};
 	});
