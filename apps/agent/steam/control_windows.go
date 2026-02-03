@@ -4,7 +4,6 @@ package steam
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,10 +11,7 @@ import (
 )
 
 const (
-	cefEndpoint      = "http://localhost:8080/json"
-	cefTimeout       = 30 * time.Second
-	cefCheckInterval = 2 * time.Second
-	shutdownTimeout  = 10 * time.Second
+	shutdownTimeout = 10 * time.Second
 )
 
 // getSteamExe finds the Steam executable path
@@ -46,7 +42,6 @@ func (c *Controller) Start() error {
 
 	steamExe := getSteamExe()
 	if steamExe == "" {
-		// Try via protocol
 		return exec.Command("cmd", "/C", "start", "steam://open/main").Run()
 	}
 
@@ -54,44 +49,23 @@ func (c *Controller) Start() error {
 	return cmd.Start()
 }
 
-// IsCEFAvailable checks if Steam's CEF debugger is responding.
+// IsCEFAvailable returns false on Windows (CEF not supported).
 func (c *Controller) IsCEFAvailable() bool {
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(cefEndpoint)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	return false
 }
 
-// WaitForCEF waits until Steam's CEF debugger is available or timeout.
+// WaitForCEF is a no-op on Windows (CEF not supported).
 func (c *Controller) WaitForCEF() error {
-	deadline := time.Now().Add(cefTimeout)
-
-	for time.Now().Before(deadline) {
-		if c.IsCEFAvailable() {
-			return nil
-		}
-		time.Sleep(cefCheckInterval)
-	}
-
-	return fmt.Errorf("timeout waiting for Steam CEF (waited %v)", cefTimeout)
+	return nil
 }
 
-// EnsureRunning makes sure Steam is running and CEF is available.
+// EnsureRunning makes sure Steam is running.
+// On Windows, CEF is not available so we just ensure Steam is running.
 func (c *Controller) EnsureRunning() error {
-	if c.IsCEFAvailable() {
+	if c.IsRunning() {
 		return nil
 	}
-
-	if !c.IsRunning() {
-		if err := c.Start(); err != nil {
-			return err
-		}
-	}
-
-	return c.WaitForCEF()
+	return c.Start()
 }
 
 // Shutdown gracefully closes Steam.
@@ -132,12 +106,8 @@ func (c *Controller) Restart() *RestartResult {
 		}
 	}
 
-	if err := c.WaitForCEF(); err != nil {
-		return &RestartResult{
-			Success: false,
-			Message: fmt.Sprintf("Steam started but CEF not available: %v", err),
-		}
-	}
+	// Give Steam a moment to initialize
+	time.Sleep(3 * time.Second)
 
 	return &RestartResult{
 		Success: true,

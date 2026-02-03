@@ -24,9 +24,9 @@ func (m *WindowsModule) NewClient(host string, port int) PlatformClient {
 }
 
 // SupportedImageFormats returns the image formats supported by Windows Steam.
-// With CEF API, Windows Steam supports the same formats as Linux (PNG, JPEG, WebP, GIF).
+// Windows uses filesystem method only (no CEF API), so only static formats.
 func (m *WindowsModule) SupportedImageFormats() []string {
-	return []string{"image/png", "image/jpeg", "image/webp", "image/gif"}
+	return []string{"image/png", "image/jpeg"}
 }
 
 // Ensure WindowsModule implements PlatformModule.
