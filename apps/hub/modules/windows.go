@@ -24,9 +24,9 @@ func (m *WindowsModule) NewClient(host string, port int) PlatformClient {
 }
 
 // SupportedImageFormats returns the image formats supported by Windows Steam.
-// Windows Steam only supports PNG and JPEG for shortcut artwork.
+// With CEF API, Windows Steam supports the same formats as Linux (PNG, JPEG, WebP, GIF).
 func (m *WindowsModule) SupportedImageFormats() []string {
-	return []string{"image/png", "image/jpeg"}
+	return []string{"image/png", "image/jpeg", "image/webp", "image/gif"}
 }
 
 // Ensure WindowsModule implements PlatformModule.
