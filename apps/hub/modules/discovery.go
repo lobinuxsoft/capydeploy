@@ -54,3 +54,28 @@ func ClientFromAgentWithRegistry(registry *Registry, agent *discovery.Discovered
 
 	return registry.GetClient(platform, host, agent.Port)
 }
+
+// WSClientFromAgent creates a WebSocket client for a discovered agent.
+// The returned client must be connected using Connect() before use.
+func WSClientFromAgent(agent *discovery.DiscoveredAgent, hubName, hubVersion string) (*WSClient, error) {
+	if agent == nil {
+		return nil, fmt.Errorf("agent is nil")
+	}
+
+	platform := agent.Info.Platform
+	if platform == "" {
+		return nil, fmt.Errorf("agent has no platform information")
+	}
+
+	// Get the primary IP address
+	host := ""
+	if len(agent.IPs) > 0 {
+		host = agent.IPs[0].String()
+	} else if agent.Host != "" {
+		host = agent.Host
+	} else {
+		return nil, fmt.Errorf("agent has no reachable address")
+	}
+
+	return NewWSClient(host, agent.Port, platform, hubName, hubVersion), nil
+}

@@ -126,6 +126,11 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.cancel != nil {
 		a.cancel()
 	}
+
+	// Remove firewall rules on shutdown (Windows only)
+	if err := firewall.RemoveRules(); err != nil {
+		log.Printf("Warning: failed to remove firewall rules: %v", err)
+	}
 }
 
 // startServer starts the HTTP server for Hub connections
@@ -159,6 +164,22 @@ func (a *App) startServer() {
 		},
 		OnOperation: func(event server.OperationEvent) {
 			runtime.EventsEmit(a.ctx, "operation", event)
+		},
+		OnHubConnect: func(hubName string) {
+			a.connectionMu.Lock()
+			a.connectedHub = &ConnectedHub{Name: hubName}
+			a.connectionMu.Unlock()
+			log.Printf("Hub connected: %s", hubName)
+			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+			a.updateTrayStatus()
+		},
+		OnHubDisconnect: func() {
+			a.connectionMu.Lock()
+			a.connectedHub = nil
+			a.connectionMu.Unlock()
+			log.Printf("Hub disconnected")
+			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+			a.updateTrayStatus()
 		},
 	}
 
