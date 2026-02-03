@@ -9,35 +9,40 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/lobinuxsoft/capydeploy/apps/agent/auth"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 
 // WSServer handles WebSocket connections from the Hub.
 type WSServer struct {
 	server   *Server
+	authMgr  *auth.Manager
 	upgrader websocket.Upgrader
 
-	mu          sync.RWMutex
-	hubConn     *HubConnection
-	onConnect   func(hubName string)
+	mu           sync.RWMutex
+	hubConn      *HubConnection
+	onConnect    func(hubName string)
 	onDisconnect func()
 }
 
 // HubConnection represents an active connection from a Hub.
 type HubConnection struct {
-	conn     *websocket.Conn
-	name     string
-	version  string
-	sendCh   chan []byte
-	closeCh  chan struct{}
-	closed   bool
-	closeMu  sync.Mutex
+	conn       *websocket.Conn
+	name       string
+	version    string
+	hubID      string
+	authorized bool
+	sendCh     chan []byte
+	closeCh    chan struct{}
+	closed     bool
+	closeMu    sync.Mutex
 }
 
 // NewWSServer creates a new WebSocket server.
-func NewWSServer(s *Server, onConnect func(string), onDisconnect func()) *WSServer {
+func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string), onDisconnect func()) *WSServer {
 	return &WSServer{
-		server: s,
+		server:  s,
+		authMgr: authMgr,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -177,6 +182,8 @@ func (ws *WSServer) handleTextMessage(hub *HubConnection, data []byte) {
 	switch msg.Type {
 	case protocol.MsgTypeHubConnected:
 		ws.handleHubConnected(hub, &msg)
+	case protocol.MsgTypePairConfirm:
+		ws.handlePairConfirm(hub, &msg)
 	case protocol.MsgTypePing:
 		ws.handlePing(hub, &msg)
 	case protocol.MsgTypeGetInfo:

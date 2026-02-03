@@ -3,6 +3,7 @@ package tray
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/energye/systray"
 )
@@ -29,6 +30,7 @@ type Config struct {
 	OnToggleAccept func(bool)
 	OnQuit         func()
 	GetStatus      func() Status
+	OnPairingCode  func(code string) // Called when pairing code is generated
 }
 
 // Tray manages the system tray icon and menu.
@@ -43,12 +45,13 @@ type Tray struct {
 	quitOnce sync.Once
 
 	// Menu items
-	mTitle    *systray.MenuItem
-	mStatus   *systray.MenuItem
-	mToggle   *systray.MenuItem
-	mOpenUI   *systray.MenuItem
-	mCopyAddr *systray.MenuItem
-	mQuit     *systray.MenuItem
+	mTitle       *systray.MenuItem
+	mStatus      *systray.MenuItem
+	mPairingCode *systray.MenuItem
+	mToggle      *systray.MenuItem
+	mOpenUI      *systray.MenuItem
+	mCopyAddr    *systray.MenuItem
+	mQuit        *systray.MenuItem
 }
 
 // New creates a new Tray instance.
@@ -111,6 +114,10 @@ func (t *Tray) onReady() {
 
 	t.mStatus = systray.AddMenuItem("Sin conexión", "Estado de conexión al Hub")
 	t.mStatus.Disable()
+
+	t.mPairingCode = systray.AddMenuItem("", "Código de emparejamiento")
+	t.mPairingCode.Disable()
+	t.mPairingCode.Hide()
 
 	systray.AddSeparator()
 
@@ -225,4 +232,44 @@ func (t *Tray) updateMenu() {
 	} else {
 		t.mToggle.Uncheck()
 	}
+}
+
+// ShowPairingCode displays the pairing code in the tray menu.
+func (t *Tray) ShowPairingCode(code string, duration time.Duration) {
+	t.closeMu.RLock()
+	if t.closed {
+		t.closeMu.RUnlock()
+		return
+	}
+	t.closeMu.RUnlock()
+
+	if t.mPairingCode == nil {
+		return
+	}
+
+	t.mPairingCode.SetTitle(fmt.Sprintf("Código: %s", code))
+	t.mPairingCode.Show()
+	systray.SetTooltip(fmt.Sprintf("Código de pairing: %s", code))
+
+	// Hide after duration
+	time.AfterFunc(duration, func() {
+		t.HidePairingCode()
+	})
+}
+
+// HidePairingCode hides the pairing code from the tray menu.
+func (t *Tray) HidePairingCode() {
+	t.closeMu.RLock()
+	if t.closed {
+		t.closeMu.RUnlock()
+		return
+	}
+	t.closeMu.RUnlock()
+
+	if t.mPairingCode == nil {
+		return
+	}
+
+	t.mPairingCode.Hide()
+	t.updateTooltip()
 }

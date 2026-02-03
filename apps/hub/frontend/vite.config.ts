@@ -6,6 +6,7 @@ import { resolve } from 'path';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
+		port: 5174,
 		strictPort: true,
 		fs: {
 			// Allow serving files from wailsjs directory

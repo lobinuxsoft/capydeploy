@@ -16,6 +16,7 @@ import (
 type WSClient struct {
 	client   *wsclient.Client
 	platform string
+	agentID  string
 }
 
 // NewWSClient creates a new WebSocket-based client.
@@ -24,6 +25,38 @@ func NewWSClient(host string, port int, platform, hubName, hubVersion string) *W
 		client:   wsclient.NewClient(host, port, hubName, hubVersion),
 		platform: platform,
 	}
+}
+
+// NewWSClientWithAuth creates a new WebSocket-based client with authentication.
+func NewWSClientWithAuth(host string, port int, platform, hubName, hubVersion, hubID, agentID string,
+	getToken func(string) string, saveToken func(string, string) error) *WSClient {
+	client := wsclient.NewClient(host, port, hubName, hubVersion)
+	client.SetAuth(hubID, agentID, getToken, saveToken)
+	return &WSClient{
+		client:   client,
+		platform: platform,
+		agentID:  agentID,
+	}
+}
+
+// SetPairingCallback sets the callback for when pairing is required.
+func (c *WSClient) SetPairingCallback(cb func(agentID string)) {
+	c.client.SetPairingCallback(cb)
+}
+
+// ConfirmPairing sends the pairing code to confirm authentication.
+func (c *WSClient) ConfirmPairing(ctx context.Context, code string) error {
+	return c.client.ConfirmPairing(ctx, code)
+}
+
+// GetAgentID returns the agent ID for this client.
+func (c *WSClient) GetAgentID() string {
+	return c.agentID
+}
+
+// IsPairingRequired checks if the error indicates pairing is required.
+func IsPairingRequired(err error) bool {
+	return err == wsclient.ErrPairingRequired
 }
 
 // Ensure WSClient implements all interfaces.

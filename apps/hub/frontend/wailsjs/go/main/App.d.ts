@@ -6,7 +6,11 @@ import {steamgriddb} from '../models';
 
 export function AddGameSetup(arg1:config.GameSetup):Promise<void>;
 
+export function CancelPairing():Promise<void>;
+
 export function ClearImageCache():Promise<void>;
+
+export function ConfirmPairing(arg1:string):Promise<void>;
 
 export function ConnectAgent(arg1:string):Promise<void>;
 

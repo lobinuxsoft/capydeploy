@@ -10,10 +10,20 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 )
 
+// AuthorizedHub represents a Hub that has been paired with this Agent.
+type AuthorizedHub struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Token    string `json:"token"`
+	PairedAt string `json:"pairedAt"`
+	LastSeen string `json:"lastSeen"`
+}
+
 // Config holds the agent configuration.
 type Config struct {
-	Name        string `json:"name"`
-	InstallPath string `json:"installPath"`
+	Name           string          `json:"name"`
+	InstallPath    string          `json:"installPath"`
+	AuthorizedHubs []AuthorizedHub `json:"authorizedHubs,omitempty"`
 }
 
 // Manager handles loading and saving configuration.
@@ -68,6 +78,9 @@ func (m *Manager) load() {
 	if cfg.InstallPath != "" {
 		m.config.InstallPath = cfg.InstallPath
 	}
+	if len(cfg.AuthorizedHubs) > 0 {
+		m.config.AuthorizedHubs = cfg.AuthorizedHubs
+	}
 }
 
 // Save writes config to disk.
@@ -120,4 +133,69 @@ func (m *Manager) SetInstallPath(path string) error {
 	m.mu.Unlock()
 
 	return m.Save()
+}
+
+// GetAuthorizedHubs returns the list of authorized Hubs.
+func (m *Manager) GetAuthorizedHubs() []AuthorizedHub {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	// Return a copy to prevent external modification
+	hubs := make([]AuthorizedHub, len(m.config.AuthorizedHubs))
+	copy(hubs, m.config.AuthorizedHubs)
+	return hubs
+}
+
+// AddAuthorizedHub adds a Hub to the authorized list.
+func (m *Manager) AddAuthorizedHub(hub AuthorizedHub) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check if already exists and update
+	for i, h := range m.config.AuthorizedHubs {
+		if h.ID == hub.ID {
+			m.config.AuthorizedHubs[i] = hub
+			return m.saveUnlocked()
+		}
+	}
+
+	// Add new hub
+	m.config.AuthorizedHubs = append(m.config.AuthorizedHubs, hub)
+	return m.saveUnlocked()
+}
+
+// RemoveAuthorizedHub removes a Hub from the authorized list.
+func (m *Manager) RemoveAuthorizedHub(hubID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i, h := range m.config.AuthorizedHubs {
+		if h.ID == hubID {
+			m.config.AuthorizedHubs = append(m.config.AuthorizedHubs[:i], m.config.AuthorizedHubs[i+1:]...)
+			return m.saveUnlocked()
+		}
+	}
+	return nil // Not found is not an error
+}
+
+// UpdateHubLastSeen updates the LastSeen timestamp for a Hub.
+func (m *Manager) UpdateHubLastSeen(hubID string, lastSeen string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i, h := range m.config.AuthorizedHubs {
+		if h.ID == hubID {
+			m.config.AuthorizedHubs[i].LastSeen = lastSeen
+			return m.saveUnlocked()
+		}
+	}
+	return nil
+}
+
+// saveUnlocked writes config to disk (must hold lock).
+func (m *Manager) saveUnlocked() error {
+	data, err := json.MarshalIndent(m.config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(m.filePath, data, 0600)
 }

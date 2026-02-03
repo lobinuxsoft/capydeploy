@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, Card } from '$lib/components/ui';
+	import PairingDialog from './PairingDialog.svelte';
 	import { connectionStatus } from '$lib/stores/connection';
 	import type { DiscoveredAgent } from '$lib/types';
 	import { Monitor, LogIn, LogOut, RefreshCw, Loader2, Wifi, WifiOff } from 'lucide-svelte';
@@ -13,6 +14,8 @@
 	let agents = $state<DiscoveredAgent[]>([]);
 	let connecting = $state<string | null>(null);
 	let refreshing = $state(false);
+	let showPairingDialog = $state(false);
+	let pairingAgentName = $state('');
 
 	async function loadAgents() {
 		if (!browser) return;
@@ -111,14 +114,31 @@
 			connectionStatus.set(status);
 		});
 
+		EventsOn('pairing:required', (agentID: string) => {
+			// Find agent name
+			const agent = agents.find(a => a.id === agentID);
+			pairingAgentName = agent?.name || 'Agent';
+			showPairingDialog = true;
+			connecting = null;
+		});
+
 		// Cleanup on destroy
 		return () => {
 			EventsOff('discovery:agent-found');
 			EventsOff('discovery:agent-updated');
 			EventsOff('discovery:agent-lost');
 			EventsOff('connection:changed');
+			EventsOff('pairing:required');
 		};
 	});
+
+	function handlePairingSuccess() {
+		loadConnectionStatus();
+	}
+
+	function handlePairingCancel() {
+		connecting = null;
+	}
 </script>
 
 <div class="space-y-4">
@@ -216,3 +236,10 @@
 		{/if}
 	</div>
 </div>
+
+<PairingDialog
+	bind:open={showPairingDialog}
+	agentName={pairingAgentName}
+	onSuccess={handlePairingSuccess}
+	onCancel={handlePairingCancel}
+/>

@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,7 +16,9 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/lobinuxsoft/capydeploy/apps/hub/auth"
 	"github.com/lobinuxsoft/capydeploy/apps/hub/modules"
+	"github.com/lobinuxsoft/capydeploy/apps/hub/wsclient"
 	"github.com/lobinuxsoft/capydeploy/pkg/config"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
@@ -30,6 +34,7 @@ type App struct {
 	discoveredMu    sync.RWMutex
 	discoveredCache map[string]*discovery.DiscoveredAgent
 	mu              sync.RWMutex
+	tokenStore      *auth.TokenStore
 }
 
 // ConnectedAgent represents a connected agent with its client
@@ -85,9 +90,15 @@ type UploadProgress struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
+	tokenStore, err := auth.NewTokenStore()
+	if err != nil {
+		log.Printf("Warning: failed to initialize token store: %v", err)
+	}
+
 	return &App{
 		discoveryClient: discovery.NewClient(),
 		discoveredCache: make(map[string]*discovery.DiscoveredAgent),
+		tokenStore:      tokenStore,
 	}
 }
 
@@ -205,8 +216,22 @@ func (a *App) ConnectAgent(agentID string) error {
 	// Disconnect existing connection
 	a.DisconnectAgent()
 
-	// Create WebSocket client
-	wsClient, err := modules.WSClientFromAgent(agent, "CapyDeploy Hub", "1.0.0")
+	// Create WebSocket client with auth
+	var wsClient *modules.WSClient
+	var err error
+
+	if a.tokenStore != nil {
+		wsClient, err = modules.WSClientFromAgentWithAuth(
+			agent,
+			"CapyDeploy Hub",
+			"1.0.0",
+			a.tokenStore.GetHubID(),
+			a.tokenStore.GetToken,
+			a.tokenStore.SaveToken,
+		)
+	} else {
+		wsClient, err = modules.WSClientFromAgent(agent, "CapyDeploy Hub", "1.0.0")
+	}
 	if err != nil {
 		return fmt.Errorf("failed to create WS client: %w", err)
 	}
@@ -234,11 +259,32 @@ func (a *App) ConnectAgent(agentID string) error {
 		},
 	)
 
+	// Set pairing callback
+	wsClient.SetPairingCallback(func(agentID string) {
+		runtime.EventsEmit(a.ctx, "pairing:required", agentID)
+	})
+
 	// Connect via WebSocket
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := wsClient.Connect(ctx); err != nil {
+		// Check if pairing is required
+		if errors.Is(err, wsclient.ErrPairingRequired) {
+			// Store the client for pairing completion
+			a.mu.Lock()
+			a.connectedAgent = &ConnectedAgent{
+				Agent:    agent,
+				Client:   wsClient,
+				WSClient: wsClient,
+				Info:     nil, // Not yet authenticated
+			}
+			a.mu.Unlock()
+
+			// Emit pairing required event
+			runtime.EventsEmit(a.ctx, "pairing:required", agentID)
+			return nil // Not an error, waiting for pairing
+		}
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
@@ -252,7 +298,7 @@ func (a *App) ConnectAgent(agentID string) error {
 	a.mu.Lock()
 	a.connectedAgent = &ConnectedAgent{
 		Agent:    agent,
-		Client:   wsClient, // WSClient implements PlatformClient
+		Client:   wsClient,
 		WSClient: wsClient,
 		Info:     agentInfo,
 	}
@@ -275,6 +321,51 @@ func (a *App) DisconnectAgent() {
 
 	// Emit connection status change
 	runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+}
+
+// ConfirmPairing confirms a pairing with the connected agent using the provided code.
+func (a *App) ConfirmPairing(code string) error {
+	a.mu.RLock()
+	if a.connectedAgent == nil || a.connectedAgent.WSClient == nil {
+		a.mu.RUnlock()
+		return fmt.Errorf("no agent connection pending pairing")
+	}
+	wsClient := a.connectedAgent.WSClient
+	agent := a.connectedAgent.Agent
+	a.mu.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Confirm pairing
+	if err := wsClient.ConfirmPairing(ctx, code); err != nil {
+		return fmt.Errorf("pairing failed: %w", err)
+	}
+
+	// Now get agent info
+	agentInfo, err := wsClient.GetInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get agent info after pairing: %w", err)
+	}
+
+	a.mu.Lock()
+	a.connectedAgent = &ConnectedAgent{
+		Agent:    agent,
+		Client:   wsClient,
+		WSClient: wsClient,
+		Info:     agentInfo,
+	}
+	a.mu.Unlock()
+
+	// Emit connection status change
+	runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+
+	return nil
+}
+
+// CancelPairing cancels a pending pairing and disconnects.
+func (a *App) CancelPairing() {
+	a.DisconnectAgent()
 }
 
 // GetConnectionStatus returns the current connection status

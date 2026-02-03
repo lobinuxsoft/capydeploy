@@ -4,6 +4,7 @@ package wsclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -14,23 +15,37 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 
+// Errors returned by client operations.
+var (
+	ErrPairingRequired = errors.New("pairing required")
+	ErrPairingFailed   = errors.New("pairing failed")
+)
+
 // Client is a WebSocket client for communicating with a CapyDeploy Agent.
 type Client struct {
 	url        string
 	hubName    string
 	hubVersion string
+	hubID      string
+	agentID    string
 
-	mu       sync.RWMutex
-	conn     *websocket.Conn
-	sendCh   chan []byte
-	closeCh  chan struct{}
-	closed   bool
-	requests map[string]chan *protocol.Message
+	mu        sync.RWMutex
+	conn      *websocket.Conn
+	sendCh    chan []byte
+	closeCh   chan struct{}
+	closed    bool
+	requests  map[string]chan *protocol.Message
+	authToken string
+
+	// Token management
+	getToken  func(agentID string) string
+	saveToken func(agentID, token string) error
 
 	// Callbacks
-	onDisconnect     func()
-	onUploadProgress func(event protocol.UploadProgressEvent)
-	onOperationEvent func(event protocol.OperationEvent)
+	onDisconnect      func()
+	onUploadProgress  func(event protocol.UploadProgressEvent)
+	onOperationEvent  func(event protocol.OperationEvent)
+	onPairingRequired func(agentID string)
 }
 
 // NewClient creates a new WebSocket client for an Agent.
@@ -41,6 +56,23 @@ func NewClient(host string, port int, hubName, hubVersion string) *Client {
 		hubVersion: hubVersion,
 		requests:   make(map[string]chan *protocol.Message),
 	}
+}
+
+// SetAuth configures authentication for this client.
+func (c *Client) SetAuth(hubID, agentID string, getToken func(string) string, saveToken func(string, string) error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hubID = hubID
+	c.agentID = agentID
+	c.getToken = getToken
+	c.saveToken = saveToken
+}
+
+// SetPairingCallback sets the callback for when pairing is required.
+func (c *Client) SetPairingCallback(cb func(agentID string)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onPairingRequired = cb
 }
 
 // SetCallbacks sets the event callbacks.
@@ -76,24 +108,113 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.closeCh = make(chan struct{})
 	c.closed = false
 	c.requests = make(map[string]chan *protocol.Message)
+
+	// Get existing token if available
+	var token string
+	if c.getToken != nil && c.agentID != "" {
+		token = c.getToken(c.agentID)
+	}
+	c.authToken = token
+	hubID := c.hubID
 	c.mu.Unlock()
 
 	// Start goroutines
 	go c.readPump()
 	go c.writePump()
 
-	// Send handshake
-	_, err = c.sendRequest(ctx, protocol.MsgTypeHubConnected, protocol.HubConnectedRequest{
+	// Send handshake with auth info
+	resp, err := c.sendRequest(ctx, protocol.MsgTypeHubConnected, protocol.HubConnectedRequest{
 		Name:    c.hubName,
 		Version: c.hubVersion,
+		HubID:   hubID,
+		Token:   token,
 	})
 	if err != nil {
 		c.Close()
 		return fmt.Errorf("handshake failed: %w", err)
 	}
 
-	log.Printf("WS Client: Connected to %s", c.url)
-	return nil
+	// Check response type
+	switch resp.Type {
+	case protocol.MsgTypeAgentStatus:
+		// Successfully authenticated
+		log.Printf("WS Client: Connected to %s (authenticated)", c.url)
+		return nil
+
+	case protocol.MsgTypePairingRequired:
+		// Need to pair
+		var pairingResp protocol.PairingRequiredResponse
+		if err := resp.ParsePayload(&pairingResp); err != nil {
+			c.Close()
+			return fmt.Errorf("failed to parse pairing response: %w", err)
+		}
+		log.Printf("WS Client: Pairing required, code: %s (expires in %ds)", pairingResp.Code, pairingResp.ExpiresIn)
+
+		// Notify callback if set
+		c.mu.RLock()
+		cb := c.onPairingRequired
+		c.mu.RUnlock()
+		if cb != nil {
+			cb(c.agentID)
+		}
+
+		return ErrPairingRequired
+
+	default:
+		c.Close()
+		return fmt.Errorf("unexpected response type: %s", resp.Type)
+	}
+}
+
+// ConfirmPairing sends the pairing code to confirm authentication.
+func (c *Client) ConfirmPairing(ctx context.Context, code string) error {
+	c.mu.RLock()
+	if c.closed || c.conn == nil {
+		c.mu.RUnlock()
+		return fmt.Errorf("not connected")
+	}
+	c.mu.RUnlock()
+
+	resp, err := c.sendRequest(ctx, protocol.MsgTypePairConfirm, protocol.PairConfirmRequest{
+		Code: code,
+	})
+	if err != nil {
+		return fmt.Errorf("pairing request failed: %w", err)
+	}
+
+	switch resp.Type {
+	case protocol.MsgTypePairSuccess:
+		var successResp protocol.PairSuccessResponse
+		if err := resp.ParsePayload(&successResp); err != nil {
+			return fmt.Errorf("failed to parse pairing success: %w", err)
+		}
+
+		// Save token
+		c.mu.Lock()
+		c.authToken = successResp.Token
+		saveToken := c.saveToken
+		agentID := c.agentID
+		c.mu.Unlock()
+
+		if saveToken != nil && agentID != "" {
+			if err := saveToken(agentID, successResp.Token); err != nil {
+				log.Printf("WS Client: Warning: failed to save token: %v", err)
+			}
+		}
+
+		log.Printf("WS Client: Pairing successful")
+		return nil
+
+	case protocol.MsgTypePairFailed:
+		var failResp protocol.PairFailedResponse
+		if err := resp.ParsePayload(&failResp); err != nil {
+			return ErrPairingFailed
+		}
+		return fmt.Errorf("%w: %s", ErrPairingFailed, failResp.Reason)
+
+	default:
+		return fmt.Errorf("unexpected response type: %s", resp.Type)
+	}
 }
 
 // Close closes the WebSocket connection.
@@ -110,12 +231,14 @@ func (c *Client) Close() error {
 		close(c.closeCh)
 	}
 
+	var err error
 	if c.conn != nil {
 		c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		return c.conn.Close()
+		err = c.conn.Close()
+		c.conn = nil
 	}
 
-	return nil
+	return err
 }
 
 // IsConnected returns true if the client is connected.
@@ -160,26 +283,43 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(protocol.WSPingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		c.mu.RLock()
+		conn := c.conn
+		c.mu.RUnlock()
+		if conn != nil {
+			conn.Close()
+		}
 	}()
 
 	for {
 		select {
 		case message, ok := <-c.sendCh:
-			c.conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
+			c.mu.RLock()
+			conn := c.conn
+			c.mu.RUnlock()
+			if conn == nil {
+				return
+			}
+			conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				log.Printf("WS Client: Write error: %v", err)
 				return
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			c.mu.RLock()
+			conn := c.conn
+			c.mu.RUnlock()
+			if conn == nil {
+				return
+			}
+			conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
 

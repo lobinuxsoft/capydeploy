@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { StatusPanel, SteamInfo, ProgressOverlay } from '$lib/components';
+	import { StatusPanel, SteamInfo, ProgressOverlay, AuthorizedHubs } from '$lib/components';
 </script>
 
 <ProgressOverlay />
@@ -12,6 +12,7 @@
 
 	<div class="space-y-4">
 		<StatusPanel />
+		<AuthorizedHubs />
 		<SteamInfo />
 	</div>
 </div>

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lobinuxsoft/capydeploy/apps/agent/auth"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
@@ -44,6 +45,8 @@ type Config struct {
 	OnOperation       func(event OperationEvent) // Callback for operation progress
 	OnHubConnect      func(hubName string)       // Callback when a Hub connects
 	OnHubDisconnect   func()                     // Callback when the Hub disconnects
+	AuthManager       *auth.Manager              // Authentication manager for pairing
+	OnPairingCode     func(code string, expiresIn time.Duration) // Callback when pairing code is generated
 }
 
 // Server is the main agent server that handles WebSocket connections and mDNS discovery.
@@ -53,6 +56,7 @@ type Server struct {
 	httpSrv   *http.Server
 	mdnsSrv   *discovery.Server
 	wsSrv     *WSServer
+	authMgr   *auth.Manager
 	mu        sync.RWMutex
 	startTime time.Time
 
@@ -81,11 +85,19 @@ func New(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
 
-	return &Server{
+	srv := &Server{
 		cfg:     cfg,
 		id:      id,
+		authMgr: cfg.AuthManager,
 		uploads: make(map[string]*transfer.UploadSession),
-	}, nil
+	}
+
+	// Set pairing code callback if provided
+	if srv.authMgr != nil && cfg.OnPairingCode != nil {
+		srv.authMgr.SetPairingCodeCallback(cfg.OnPairingCode)
+	}
+
+	return srv, nil
 }
 
 // Run starts the WebSocket server and mDNS discovery.
@@ -94,7 +106,7 @@ func (s *Server) Run(ctx context.Context) error {
 	log.Printf("Upload path: %s", s.cfg.UploadPath)
 
 	// Setup WebSocket server
-	s.wsSrv = NewWSServer(s, s.cfg.OnHubConnect, s.cfg.OnHubDisconnect)
+	s.wsSrv = NewWSServer(s, s.authMgr, s.cfg.OnHubConnect, s.cfg.OnHubDisconnect)
 
 	// Setup HTTP server with WebSocket endpoint
 	mux := http.NewServeMux()
