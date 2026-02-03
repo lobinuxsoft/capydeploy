@@ -3,14 +3,45 @@ package protocol
 
 import "time"
 
+// Capability represents a feature supported by an agent.
+// Capabilities are used by the Hub to dynamically show/hide UI sections
+// based on what the connected Agent supports.
+type Capability string
+
+// Available capabilities that an agent can report.
+//
+// File capabilities:
+//   - CapFileUpload: Agent can receive game file uploads from the Hub
+//   - CapFileList: Agent can list installed games/files
+//
+// Steam capabilities (require Steam client on agent machine):
+//   - CapSteamShortcuts: Agent can create/delete Steam non-Steam game shortcuts
+//   - CapSteamArtwork: Agent can apply custom artwork to shortcuts
+//   - CapSteamUsers: Agent can list local Steam users
+//   - CapSteamRestart: Agent can restart the Steam client
+//
+// Platform support:
+//   - PC (Windows/Linux/macOS) with Steam: all capabilities
+//   - PC without Steam: file_upload, file_list only
+//   - Android (future): file_upload, file_list only
+const (
+	CapFileUpload     Capability = "file_upload"
+	CapFileList       Capability = "file_list"
+	CapSteamShortcuts Capability = "steam_shortcuts"
+	CapSteamArtwork   Capability = "steam_artwork"
+	CapSteamUsers     Capability = "steam_users"
+	CapSteamRestart   Capability = "steam_restart"
+)
+
 // AgentInfo contains information about a discovered agent.
 type AgentInfo struct {
-	ID                    string   `json:"id"`
-	Name                  string   `json:"name"`
-	Platform              string   `json:"platform"`
-	Version               string   `json:"version"`
-	AcceptConnections     bool     `json:"acceptConnections"`
-	SupportedImageFormats []string `json:"supportedImageFormats"`
+	ID                    string       `json:"id"`
+	Name                  string       `json:"name"`
+	Platform              string       `json:"platform"`
+	Version               string       `json:"version"`
+	AcceptConnections     bool         `json:"acceptConnections"`
+	SupportedImageFormats []string     `json:"supportedImageFormats"`
+	Capabilities          []Capability `json:"capabilities"`
 }
 
 // UploadConfig defines the configuration for uploading a game.
