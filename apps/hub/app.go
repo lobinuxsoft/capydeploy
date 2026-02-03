@@ -34,8 +34,9 @@ type App struct {
 
 // ConnectedAgent represents a connected agent with its client
 type ConnectedAgent struct {
-	Agent  *discovery.DiscoveredAgent
-	Client modules.PlatformClient
+	Agent    *discovery.DiscoveredAgent
+	Client   modules.PlatformClient
+	WSClient *modules.WSClient // WebSocket client (nil if using HTTP)
 }
 
 // ConnectionStatus represents the current connection status
@@ -97,6 +98,10 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app is closing
 func (a *App) shutdown(ctx context.Context) {
+	// Disconnect from agent
+	a.DisconnectAgent()
+
+	// Stop discovery
 	if a.discoveryClient != nil {
 		a.discoveryClient.Close()
 	}
@@ -184,7 +189,7 @@ func (a *App) RefreshDiscovery() ([]DiscoveredAgentInfo, error) {
 	return a.GetDiscoveredAgents(), nil
 }
 
-// ConnectAgent connects to an agent by ID
+// ConnectAgent connects to an agent by ID using WebSocket
 func (a *App) ConnectAgent(agentID string) error {
 	// Find agent in cache
 	a.discoveredMu.RLock()
@@ -196,28 +201,50 @@ func (a *App) ConnectAgent(agentID string) error {
 	}
 
 	// Disconnect existing connection
-	a.mu.Lock()
-	a.connectedAgent = nil
-	a.mu.Unlock()
+	a.DisconnectAgent()
 
-	// Create client using modules
-	client, err := modules.ClientFromAgent(agent)
+	// Create WebSocket client
+	wsClient, err := modules.WSClientFromAgent(agent, "CapyDeploy Hub", "1.0.0")
 	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
+		return fmt.Errorf("failed to create WS client: %w", err)
 	}
 
-	// Verify connection with health check
+	// Set callbacks for push events
+	wsClient.SetCallbacks(
+		func() {
+			// On disconnect
+			a.mu.Lock()
+			a.connectedAgent = nil
+			a.mu.Unlock()
+			runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+		},
+		func(event protocol.UploadProgressEvent) {
+			// On upload progress
+			runtime.EventsEmit(a.ctx, "upload:progress", UploadProgress{
+				Progress: event.Percentage,
+				Status:   fmt.Sprintf("Uploading: %s", event.CurrentFile),
+				Done:     false,
+			})
+		},
+		func(event protocol.OperationEvent) {
+			// On operation event
+			runtime.EventsEmit(a.ctx, "operation:event", event)
+		},
+	)
+
+	// Connect via WebSocket
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := client.Health(ctx); err != nil {
-		return fmt.Errorf("agent not responding: %w", err)
+	if err := wsClient.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
 	}
 
 	a.mu.Lock()
 	a.connectedAgent = &ConnectedAgent{
-		Agent:  agent,
-		Client: client,
+		Agent:    agent,
+		Client:   wsClient, // WSClient implements PlatformClient
+		WSClient: wsClient,
 	}
 	a.mu.Unlock()
 
@@ -230,6 +257,9 @@ func (a *App) ConnectAgent(agentID string) error {
 // DisconnectAgent disconnects from the current agent
 func (a *App) DisconnectAgent() {
 	a.mu.Lock()
+	if a.connectedAgent != nil && a.connectedAgent.WSClient != nil {
+		a.connectedAgent.WSClient.Close()
+	}
 	a.connectedAgent = nil
 	a.mu.Unlock()
 
