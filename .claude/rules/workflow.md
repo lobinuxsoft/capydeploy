@@ -15,8 +15,8 @@ priority: critical
 - **Flow:** Issue -> Branch -> PR -> **STOP** -> (User merges) -> Next issue.
 - **Labels:** `priority:*`, `difficulty:*`, `next-session`.
 - **Ops:**
-  - `gh issue develop <NUM> --base master --checkout`
-  - `gh pr create --base master --title "Title" --body "Closes #XX"`
+  - `gh issue develop <NUM> --base development --checkout`
+  - `gh pr create --base development --title "Title" --body "Closes #XX"`
   - `gh issue edit <NUM> --add-label next-session`
 
 ## PR Rules — CRITICAL
