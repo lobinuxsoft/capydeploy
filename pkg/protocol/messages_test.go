@@ -106,17 +106,20 @@ func TestMessage_ParsePayload_NilPayload(t *testing.T) {
 func TestMessageType_Constants(t *testing.T) {
 	// Verify request message types
 	requestTypes := []MessageType{
+		MsgTypeHubConnected,
 		MsgTypePing,
 		MsgTypeGetInfo,
+		MsgTypeGetConfig,
+		MsgTypeGetSteamUsers,
+		MsgTypeListShortcuts,
+		MsgTypeCreateShortcut,
+		MsgTypeDeleteShortcut,
+		MsgTypeApplyArtwork,
+		MsgTypeRestartSteam,
 		MsgTypeInitUpload,
 		MsgTypeUploadChunk,
 		MsgTypeCompleteUpload,
 		MsgTypeCancelUpload,
-		MsgTypeCreateShortcut,
-		MsgTypeDeleteShortcut,
-		MsgTypeListShortcuts,
-		MsgTypeRestartSteam,
-		MsgTypeGetSteamStatus,
 	}
 
 	for _, mt := range requestTypes {
@@ -127,13 +130,20 @@ func TestMessageType_Constants(t *testing.T) {
 
 	// Verify response message types
 	responseTypes := []MessageType{
+		MsgTypeAgentStatus,
 		MsgTypePong,
 		MsgTypeInfoResponse,
-		MsgTypeUploadResponse,
-		MsgTypeShortcutResponse,
+		MsgTypeConfigResponse,
+		MsgTypeSteamUsersResponse,
+		MsgTypeShortcutsResponse,
+		MsgTypeArtworkResponse,
 		MsgTypeSteamResponse,
+		MsgTypeUploadInitResponse,
+		MsgTypeUploadChunkResponse,
+		MsgTypeOperationResult,
 		MsgTypeError,
 		MsgTypeUploadProgress,
+		MsgTypeOperationEvent,
 	}
 
 	for _, mt := range responseTypes {
