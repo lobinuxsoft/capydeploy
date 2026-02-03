@@ -14,20 +14,12 @@ export function ConnectAgent(arg1) {
   return window['go']['main']['App']['ConnectAgent'](arg1);
 }
 
-export function ConnectDevice(arg1) {
-  return window['go']['main']['App']['ConnectDevice'](arg1);
-}
-
 export function DeleteGame(arg1, arg2) {
   return window['go']['main']['App']['DeleteGame'](arg1, arg2);
 }
 
 export function DisconnectAgent() {
   return window['go']['main']['App']['DisconnectAgent']();
-}
-
-export function DisconnectDevice() {
-  return window['go']['main']['App']['DisconnectDevice']();
 }
 
 export function GetAgentInstallPath() {
@@ -40,10 +32,6 @@ export function GetCacheSize() {
 
 export function GetConnectionStatus() {
   return window['go']['main']['App']['GetConnectionStatus']();
-}
-
-export function GetDevices() {
-  return window['go']['main']['App']['GetDevices']();
 }
 
 export function GetDiscoveredAgents() {

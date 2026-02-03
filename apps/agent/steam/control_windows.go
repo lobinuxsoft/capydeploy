@@ -3,66 +3,115 @@
 package steam
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
 
-// Restart performs a soft restart of Steam.
-// On Windows, it uses Steam's -shutdown flag and then relaunches.
-func (c *Controller) Restart() *RestartResult {
-	// Find Steam executable
+const (
+	shutdownTimeout = 10 * time.Second
+)
+
+// getSteamExe finds the Steam executable path
+func getSteamExe() string {
 	steamPaths := []string{
 		`C:\Program Files (x86)\Steam\steam.exe`,
 		`C:\Program Files\Steam\steam.exe`,
 	}
 
-	var steamExe string
 	for _, path := range steamPaths {
 		if _, err := os.Stat(path); err == nil {
-			steamExe = path
-			break
+			return path
 		}
 	}
+	return ""
+}
 
+// IsGamingMode returns false on Windows (no Gaming Mode)
+func (c *Controller) IsGamingMode() bool {
+	return false
+}
+
+// Start launches Steam if it's not already running.
+func (c *Controller) Start() error {
+	if c.IsRunning() {
+		return nil
+	}
+
+	steamExe := getSteamExe()
 	if steamExe == "" {
-		// Fallback: try to shutdown via protocol
-		exec.Command("cmd", "/C", "start", "steam://exit").Run()
-		time.Sleep(5 * time.Second)
-		exec.Command("cmd", "/C", "start", "steam://open/main").Run()
-		return &RestartResult{
-			Success: true,
-			Message: "Steam restart initiated via protocol",
-		}
+		return exec.Command("cmd", "/C", "start", "steam://open/main").Run()
 	}
 
-	// Gracefully shutdown Steam
-	exec.Command(steamExe, "-shutdown").Run()
-
-	// Wait for Steam to fully close (up to 10 seconds)
-	for i := 0; i < 20; i++ {
-		time.Sleep(500 * time.Millisecond)
-		if !c.IsRunning() {
-			break
-		}
-	}
-
-	// Extra delay to ensure Steam is fully closed
-	time.Sleep(1 * time.Second)
-
-	// Relaunch Steam
 	cmd := exec.Command(steamExe)
-	if err := cmd.Start(); err != nil {
+	return cmd.Start()
+}
+
+// IsCEFAvailable returns false on Windows (CEF not supported).
+func (c *Controller) IsCEFAvailable() bool {
+	return false
+}
+
+// WaitForCEF is a no-op on Windows (CEF not supported).
+func (c *Controller) WaitForCEF() error {
+	return nil
+}
+
+// EnsureRunning makes sure Steam is running.
+// On Windows, CEF is not available so we just ensure Steam is running.
+func (c *Controller) EnsureRunning() error {
+	if c.IsRunning() {
+		return nil
+	}
+	return c.Start()
+}
+
+// Shutdown gracefully closes Steam.
+func (c *Controller) Shutdown() error {
+	if !c.IsRunning() {
+		return nil
+	}
+
+	steamExe := getSteamExe()
+	if steamExe != "" {
+		exec.Command(steamExe, "-shutdown").Run()
+	} else {
+		exec.Command("cmd", "/C", "start", "steam://exit").Run()
+	}
+
+	deadline := time.Now().Add(shutdownTimeout)
+	for time.Now().Before(deadline) {
+		if !c.IsRunning() {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return fmt.Errorf("timeout waiting for Steam to close")
+}
+
+// Restart performs a full restart of Steam.
+func (c *Controller) Restart() *RestartResult {
+	if err := c.Shutdown(); err != nil {
+		exec.Command("taskkill", "/F", "/IM", "steam.exe").Run()
+		time.Sleep(2 * time.Second)
+	}
+
+	if err := c.Start(); err != nil {
 		return &RestartResult{
 			Success: false,
-			Message: "Failed to relaunch Steam: " + err.Error(),
+			Message: fmt.Sprintf("Failed to start Steam: %v", err),
 		}
 	}
+
+	// Give Steam a moment to initialize
+	time.Sleep(3 * time.Second)
 
 	return &RestartResult{
 		Success: true,
-		Message: "Steam restart completed",
+		Message: "Steam restarted successfully",
 	}
 }
 

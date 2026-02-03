@@ -13,6 +13,7 @@
 	import { cn } from '$lib/utils';
 	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, ProxyImage } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
+	import { connectionStatus } from '$lib/stores/connection';
 
 	interface Props {
 		gameName: string;
@@ -110,13 +111,42 @@
 		}
 	}
 
-	function getMimeOptions(): string[] {
-		switch (activeTab) {
-			case 'logo': return logoMimes;
-			case 'icon': return iconMimes;
-			default: return gridMimes;
-		}
+	// Filter MIMEs based on what the connected agent supports
+	function filterMimes(mimes: string[], supported: string[]): string[] {
+		if (!supported || supported.length === 0) return mimes;
+		return mimes.filter(m => m === 'All Formats' || supported.includes(m));
 	}
+
+	// Reactive MIME options filtered by agent's supported formats
+	let mimeOptions = $derived.by(() => {
+		const supported = $connectionStatus.supportedImageFormats;
+		switch (activeTab) {
+			case 'logo': return filterMimes(logoMimes, supported);
+			case 'icon': return filterMimes(iconMimes, supported);
+			default: return filterMimes(gridMimes, supported);
+		}
+	});
+
+	// Reset filterMime when it's no longer valid for current options
+	$effect(() => {
+		if (filterMime && !mimeOptions.includes(filterMime)) {
+			filterMime = '';
+		}
+	});
+
+	// Check if animated formats are supported (WebP/GIF can be animated)
+	let supportsAnimated = $derived.by(() => {
+		const supported = $connectionStatus.supportedImageFormats;
+		if (!supported || supported.length === 0) return true; // No agent = show all
+		return supported.includes('image/webp') || supported.includes('image/gif');
+	});
+
+	// Reset animation filter if animated not supported
+	$effect(() => {
+		if (!supportsAnimated && filterAnimation === 'Animated Only') {
+			filterAnimation = '';
+		}
+	});
 
 	function getCurrentFilters(): ImageFilters {
 		return {
@@ -557,7 +587,7 @@
 						<div class="flex items-center gap-1">
 							<span class="text-xs text-muted-foreground w-14">Format:</span>
 							<Select
-								options={getMimeOptions()}
+								options={mimeOptions}
 								value={filterMime}
 								onchange={(v) => filterMime = v}
 								placeholder="All"
@@ -574,16 +604,18 @@
 								class="w-28"
 							/>
 						</div>
-						<div class="flex items-center gap-1">
-							<span class="text-xs text-muted-foreground w-16">Animation:</span>
-							<Select
-								options={animationOptions}
-								value={filterAnimation}
-								onchange={(v) => filterAnimation = v}
-								placeholder="All"
-								class="w-32"
-							/>
-						</div>
+						{#if supportsAnimated}
+							<div class="flex items-center gap-1">
+								<span class="text-xs text-muted-foreground w-16">Animation:</span>
+								<Select
+									options={animationOptions}
+									value={filterAnimation}
+									onchange={(v) => filterAnimation = v}
+									placeholder="All"
+									class="w-32"
+								/>
+							</div>
+						{/if}
 						<Checkbox
 							checked={filterNsfw}
 							onchange={(v) => filterNsfw = v}

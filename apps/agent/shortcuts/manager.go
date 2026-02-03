@@ -178,6 +178,41 @@ func (m *Manager) DeleteWithCleanup(userID string, appID uint32, name string, de
 		}
 	}
 
+	// Delete artwork from grid folder
+	if appID > 0 {
+		if err := m.deleteArtwork(userID, appID); err != nil {
+			fmt.Printf("Warning: failed to delete artwork: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// deleteArtwork removes all artwork files for an appID from the grid folder.
+func (m *Manager) deleteArtwork(userID string, appID uint32) error {
+	gridDir := m.paths.GridDir(userID)
+
+	// All possible artwork file patterns
+	patterns := []string{
+		fmt.Sprintf("%d.*", appID),        // landscape grid
+		fmt.Sprintf("%dp.*", appID),       // portrait grid
+		fmt.Sprintf("%d_hero.*", appID),   // hero
+		fmt.Sprintf("%d_logo.*", appID),   // logo
+		fmt.Sprintf("%d_icon.*", appID),   // icon
+	}
+
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(filepath.Join(gridDir, pattern))
+		if err != nil {
+			continue
+		}
+		for _, path := range matches {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				fmt.Printf("Warning: failed to remove %s: %v\n", path, err)
+			}
+		}
+	}
+
 	return nil
 }
 

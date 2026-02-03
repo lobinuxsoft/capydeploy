@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agent/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
@@ -226,6 +227,12 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Create shortcut if requested
 	if req.CreateShortcut && req.Shortcut != nil {
+		// Ensure Steam is running before creating shortcut (needed for CEF API)
+		steamController := agentSteam.NewController()
+		if err := steamController.EnsureRunning(); err != nil {
+			log.Printf("Warning: Steam not available, artwork may not apply: %v", err)
+		}
+
 		mgr, err := shortcuts.NewManager()
 		if err != nil {
 			log.Printf("Warning: failed to create shortcut manager: %v", err)
@@ -258,6 +265,10 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 						log.Printf("Applied artwork: %v", artResult.Applied)
 					}
 					s.NotifyShortcutChange()
+
+					// Restart Steam to apply changes
+					result := steamController.Restart()
+					log.Printf("Steam restart: success=%v, message=%s", result.Success, result.Message)
 				}
 			}
 		}

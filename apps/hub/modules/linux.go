@@ -24,5 +24,11 @@ func (m *LinuxModule) NewClient(host string, port int) PlatformClient {
 	return newBaseClient(host, port, PlatformLinux)
 }
 
+// SupportedImageFormats returns the image formats supported by Linux Steam.
+// Linux Steam supports PNG, JPEG, WebP, and animated GIF.
+func (m *LinuxModule) SupportedImageFormats() []string {
+	return []string{"image/png", "image/jpeg", "image/webp", "image/gif"}
+}
+
 // Ensure LinuxModule implements PlatformModule.
 var _ PlatformModule = (*LinuxModule)(nil)

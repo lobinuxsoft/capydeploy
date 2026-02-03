@@ -5,12 +5,16 @@
 	import { EventsOn, EventsOff } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 
-	const tabs = [
+	// Tabs are dynamic based on connection status.
+	// "Upload Game" and "Installed Games" only appear when an agent is connected.
+	let tabs = $derived([
 		{ id: 'devices', label: 'Devices' },
-		{ id: 'upload', label: 'Upload Game' },
-		{ id: 'games', label: 'Installed Games' },
+		...($connectionStatus.connected ? [
+			{ id: 'upload', label: 'Upload Game' },
+			{ id: 'games', label: 'Installed Games' }
+		] : []),
 		{ id: 'settings', label: 'Settings' }
-	];
+	]);
 
 	// Listen for connection status changes
 	$effect(() => {

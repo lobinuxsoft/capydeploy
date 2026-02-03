@@ -3,14 +3,15 @@ package discovery
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/mdns"
+	"github.com/grandcat/zeroconf"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 
-// Client discovers agents on the local network via mDNS.
+// Client discovers agents on the local network via mDNS/DNS-SD.
 type Client struct {
 	mu       sync.RWMutex
 	agents   map[string]*DiscoveredAgent
@@ -41,33 +42,40 @@ func (c *Client) Events() <-chan DiscoveryEvent {
 
 // Discover performs a one-time mDNS query and returns discovered agents.
 func (c *Client) Discover(ctx context.Context, timeout time.Duration) ([]*DiscoveredAgent, error) {
-	entriesCh := make(chan *mdns.ServiceEntry, 16)
+	resolver, err := zeroconf.NewResolver(nil)
+	if err != nil {
+		return nil, err
+	}
 
-	// Start lookup in background
-	go func() {
-		params := mdns.DefaultParams(ServiceName)
-		params.Entries = entriesCh
-		params.Timeout = timeout
-		params.WantUnicastResponse = true
-		_ = mdns.Query(params)
-		close(entriesCh)
-	}()
-
+	entries := make(chan *zeroconf.ServiceEntry)
 	var agents []*DiscoveredAgent
+	var wg sync.WaitGroup
 
-	for {
-		select {
-		case entry, ok := <-entriesCh:
-			if !ok {
-				return agents, nil
-			}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for entry := range entries {
 			if agent := c.processEntry(entry); agent != nil {
 				agents = append(agents, agent)
 			}
-		case <-ctx.Done():
-			return agents, ctx.Err()
 		}
+	}()
+
+	// Create context with timeout
+	browseCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Browse for services
+	err = resolver.Browse(browseCtx, ServiceName, "local.", entries)
+	if err != nil {
+		return nil, err
 	}
+
+	// Wait for browsing to complete (zeroconf closes the channel)
+	<-browseCtx.Done()
+	wg.Wait()
+
+	return agents, nil
 }
 
 // StartContinuousDiscovery begins continuous agent discovery.
@@ -89,48 +97,48 @@ func (c *Client) StartContinuousDiscovery(ctx context.Context, interval time.Dur
 	}
 }
 
-// processEntry converts an mDNS entry to a DiscoveredAgent.
-func (c *Client) processEntry(entry *mdns.ServiceEntry) *DiscoveredAgent {
+// processEntry converts a zeroconf entry to a DiscoveredAgent.
+func (c *Client) processEntry(entry *zeroconf.ServiceEntry) *DiscoveredAgent {
 	if entry == nil {
 		return nil
 	}
 
 	// Parse TXT records
 	info := protocol.AgentInfo{}
-	for _, txt := range entry.InfoFields {
+	for _, txt := range entry.Text {
 		switch {
-		case len(txt) > 3 && txt[:3] == "id=":
+		case strings.HasPrefix(txt, "id="):
 			info.ID = txt[3:]
-		case len(txt) > 5 && txt[:5] == "name=":
+		case strings.HasPrefix(txt, "name="):
 			info.Name = txt[5:]
-		case len(txt) > 9 && txt[:9] == "platform=":
+		case strings.HasPrefix(txt, "platform="):
 			info.Platform = txt[9:]
-		case len(txt) > 8 && txt[:8] == "version=":
+		case strings.HasPrefix(txt, "version="):
 			info.Version = txt[8:]
 		}
 	}
 
 	// Use instance name as ID if not in TXT
 	if info.ID == "" {
-		info.ID = entry.Name
+		info.ID = entry.Instance
 	}
 	if info.Name == "" {
-		info.Name = entry.Host
+		info.Name = entry.HostName
 	}
 
-	// Collect IPs
+	// Collect IPs (filter out link-local)
 	var ips []net.IP
-	if entry.AddrV4 != nil {
-		ips = append(ips, entry.AddrV4)
-	}
-	if entry.AddrV6 != nil {
-		ips = append(ips, entry.AddrV6)
+	for _, ip := range entry.AddrIPv4 {
+		ip4 := ip.To4()
+		if ip4 != nil && !(ip4[0] == 169 && ip4[1] == 254) {
+			ips = append(ips, ip)
+		}
 	}
 
 	now := time.Now()
 	agent := &DiscoveredAgent{
 		Info:         info,
-		Host:         entry.Host,
+		Host:         entry.HostName,
 		Port:         entry.Port,
 		IPs:          ips,
 		DiscoveredAt: now,

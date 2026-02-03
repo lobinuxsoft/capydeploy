@@ -5,11 +5,12 @@ import "time"
 
 // AgentInfo contains information about a discovered agent.
 type AgentInfo struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	Platform          string `json:"platform"`
-	Version           string `json:"version"`
-	AcceptConnections bool   `json:"acceptConnections"`
+	ID                    string   `json:"id"`
+	Name                  string   `json:"name"`
+	Platform              string   `json:"platform"`
+	Version               string   `json:"version"`
+	AcceptConnections     bool     `json:"acceptConnections"`
+	SupportedImageFormats []string `json:"supportedImageFormats"`
 }
 
 // UploadConfig defines the configuration for uploading a game.
