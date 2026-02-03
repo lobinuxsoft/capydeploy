@@ -1,4 +1,4 @@
-// Package server provides the HTTP server for CapyDeploy Agent.
+// Package server provides the WebSocket server for CapyDeploy Agent.
 package server
 
 import (
@@ -37,19 +37,22 @@ type Config struct {
 	Version           string
 	Platform          string
 	Verbose           bool
-	UploadPath        string                   // Base path for uploaded files (deprecated, use GetInstallPath)
-	AcceptConnections func() bool              // Callback to check if connections are accepted
-	GetInstallPath    func() string            // Callback to get the install path from config
-	OnShortcutChange  func()                   // Callback when shortcuts are created/deleted
+	UploadPath        string                     // Base path for uploaded files (deprecated, use GetInstallPath)
+	AcceptConnections func() bool                // Callback to check if connections are accepted
+	GetInstallPath    func() string              // Callback to get the install path from config
+	OnShortcutChange  func()                     // Callback when shortcuts are created/deleted
 	OnOperation       func(event OperationEvent) // Callback for operation progress
+	OnHubConnect      func(hubName string)       // Callback when a Hub connects
+	OnHubDisconnect   func()                     // Callback when the Hub disconnects
 }
 
-// Server is the main agent server that handles HTTP requests and mDNS discovery.
+// Server is the main agent server that handles WebSocket connections and mDNS discovery.
 type Server struct {
 	cfg       Config
 	id        string
 	httpSrv   *http.Server
 	mdnsSrv   *discovery.Server
+	wsSrv     *WSServer
 	mu        sync.RWMutex
 	startTime time.Time
 
@@ -85,13 +88,18 @@ func New(cfg Config) (*Server, error) {
 	}, nil
 }
 
-// Run starts the HTTP server and mDNS discovery.
+// Run starts the WebSocket server and mDNS discovery.
 func (s *Server) Run(ctx context.Context) error {
 	s.startTime = time.Now()
 	log.Printf("Upload path: %s", s.cfg.UploadPath)
 
-	// Setup HTTP server
+	// Setup WebSocket server
+	s.wsSrv = NewWSServer(s, s.cfg.OnHubConnect, s.cfg.OnHubDisconnect)
+
+	// Setup HTTP server with WebSocket endpoint
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /ws", s.wsSrv.HandleWS)
+	// Keep legacy HTTP endpoints for backward compatibility during migration
 	s.registerHandlers(mux)
 
 	s.httpSrv = &http.Server{
@@ -120,11 +128,11 @@ func (s *Server) Run(ctx context.Context) error {
 		log.Printf("mDNS service registered: %s._capydeploy._tcp.local", s.id)
 	}()
 
-	// Start HTTP server in background
+	// Start HTTP/WS server in background
 	go func() {
-		log.Printf("HTTP server listening on :%d", s.cfg.Port)
+		log.Printf("WebSocket server listening on :%d/ws", s.cfg.Port)
 		if err := s.httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			errCh <- fmt.Errorf("HTTP server error: %w", err)
+			errCh <- fmt.Errorf("server error: %w", err)
 		}
 	}()
 
@@ -282,5 +290,28 @@ func (s *Server) NotifyOperation(opType, status, gameName string, progress float
 			Progress: progress,
 			Message:  message,
 		})
+	}
+}
+
+// IsHubConnected returns true if a Hub is currently connected via WebSocket.
+func (s *Server) IsHubConnected() bool {
+	if s.wsSrv == nil {
+		return false
+	}
+	return s.wsSrv.IsConnected()
+}
+
+// GetConnectedHub returns the name of the connected Hub, or empty string if none.
+func (s *Server) GetConnectedHub() string {
+	if s.wsSrv == nil {
+		return ""
+	}
+	return s.wsSrv.GetConnectedHub()
+}
+
+// SendEvent sends a push event to the connected Hub via WebSocket.
+func (s *Server) SendEvent(msgType protocol.MessageType, payload any) {
+	if s.wsSrv != nil {
+		s.wsSrv.SendEvent(msgType, payload)
 	}
 }

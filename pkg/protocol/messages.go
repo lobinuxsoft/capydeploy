@@ -1,41 +1,84 @@
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
+
+// WebSocket timing constants.
+const (
+	// WSWriteWait is the time allowed to write a message.
+	WSWriteWait = 10 * time.Second
+
+	// WSPongWait is the time to wait for a pong response.
+	WSPongWait = 15 * time.Second
+
+	// WSPingPeriod is how often to send pings (must be < PongWait).
+	WSPingPeriod = 5 * time.Second
+
+	// WSMaxMessageSize is the maximum message size in bytes (10MB).
+	WSMaxMessageSize = 10 * 1024 * 1024
+
+	// WSChunkSize is the size for binary chunks (1MB).
+	WSChunkSize = 1024 * 1024
+
+	// WSRequestTimeout is the timeout for request/response operations.
+	WSRequestTimeout = 30 * time.Second
+)
 
 // MessageType identifies the type of WebSocket message.
 type MessageType string
 
 const (
+	// Connection management
+	MsgTypeHubConnected MessageType = "hub_connected" // Hub → Agent: handshake
+	MsgTypeAgentStatus  MessageType = "agent_status"  // Agent → Hub: handshake response
+
 	// Requests from Hub to Agent
-	MsgTypePing            MessageType = "ping"
-	MsgTypeGetInfo         MessageType = "get_info"
-	MsgTypeInitUpload      MessageType = "init_upload"
-	MsgTypeUploadChunk     MessageType = "upload_chunk"
-	MsgTypeCompleteUpload  MessageType = "complete_upload"
-	MsgTypeCancelUpload    MessageType = "cancel_upload"
-	MsgTypeCreateShortcut  MessageType = "create_shortcut"
-	MsgTypeDeleteShortcut  MessageType = "delete_shortcut"
-	MsgTypeListShortcuts   MessageType = "list_shortcuts"
-	MsgTypeRestartSteam    MessageType = "restart_steam"
-	MsgTypeGetSteamStatus  MessageType = "get_steam_status"
+	MsgTypePing           MessageType = "ping"
+	MsgTypeGetInfo        MessageType = "get_info"
+	MsgTypeGetConfig      MessageType = "get_config"
+	MsgTypeGetSteamUsers  MessageType = "get_steam_users"
+	MsgTypeListShortcuts  MessageType = "list_shortcuts"
+	MsgTypeCreateShortcut MessageType = "create_shortcut"
+	MsgTypeDeleteShortcut MessageType = "delete_shortcut"
+	MsgTypeApplyArtwork   MessageType = "apply_artwork"
+	MsgTypeRestartSteam   MessageType = "restart_steam"
+	MsgTypeInitUpload     MessageType = "init_upload"
+	MsgTypeUploadChunk    MessageType = "upload_chunk"
+	MsgTypeCompleteUpload MessageType = "complete_upload"
+	MsgTypeCancelUpload   MessageType = "cancel_upload"
 
 	// Responses from Agent to Hub
-	MsgTypePong           MessageType = "pong"
-	MsgTypeInfoResponse   MessageType = "info_response"
-	MsgTypeUploadResponse MessageType = "upload_response"
-	MsgTypeShortcutResponse MessageType = "shortcut_response"
-	MsgTypeSteamResponse  MessageType = "steam_response"
-	MsgTypeError          MessageType = "error"
+	MsgTypePong              MessageType = "pong"
+	MsgTypeInfoResponse      MessageType = "info_response"
+	MsgTypeConfigResponse    MessageType = "config_response"
+	MsgTypeSteamUsersResponse MessageType = "steam_users_response"
+	MsgTypeShortcutsResponse MessageType = "shortcuts_response"
+	MsgTypeArtworkResponse   MessageType = "artwork_response"
+	MsgTypeSteamResponse     MessageType = "steam_response"
+	MsgTypeUploadInitResponse MessageType = "upload_init_response"
+	MsgTypeUploadChunkResponse MessageType = "upload_chunk_response"
+	MsgTypeOperationResult   MessageType = "operation_result"
+	MsgTypeError             MessageType = "error"
 
-	// Events from Agent to Hub
+	// Events from Agent to Hub (push notifications)
 	MsgTypeUploadProgress MessageType = "upload_progress"
+	MsgTypeOperationEvent MessageType = "operation_event"
 )
+
+// WSError represents an error in a WebSocket message.
+type WSError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
 
 // Message is the envelope for all WebSocket communication.
 type Message struct {
 	ID      string          `json:"id"`
 	Type    MessageType     `json:"type"`
 	Payload json.RawMessage `json:"payload,omitempty"`
+	Error   *WSError        `json:"error,omitempty"`
 }
 
 // NewMessage creates a new message with the given type and payload.
@@ -58,6 +101,39 @@ func (m *Message) ParsePayload(v any) error {
 	}
 	return json.Unmarshal(m.Payload, v)
 }
+
+// NewErrorMessage creates an error response message.
+func NewErrorMessage(id string, code int, message string) *Message {
+	return &Message{
+		ID:   id,
+		Type: MsgTypeError,
+		Error: &WSError{
+			Code:    code,
+			Message: message,
+		},
+	}
+}
+
+// Reply creates a response message for this request.
+func (m *Message) Reply(msgType MessageType, payload any) (*Message, error) {
+	return NewMessage(m.ID, msgType, payload)
+}
+
+// ReplyError creates an error response for this request.
+func (m *Message) ReplyError(code int, message string) *Message {
+	return NewErrorMessage(m.ID, code, message)
+}
+
+// Common WebSocket error codes.
+const (
+	WSErrCodeBadRequest     = 400
+	WSErrCodeUnauthorized   = 401
+	WSErrCodeNotFound       = 404
+	WSErrCodeNotAccepted    = 406
+	WSErrCodeConflict       = 409
+	WSErrCodeInternal       = 500
+	WSErrCodeNotImplemented = 501
+)
 
 // Request payloads
 
@@ -150,4 +226,161 @@ type ErrorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Details string `json:"details,omitempty"`
+}
+
+// Connection payloads
+
+// HubConnectedRequest is sent when a Hub connects to an Agent.
+type HubConnectedRequest struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// AgentStatusResponse is the Agent's response to a Hub connection.
+type AgentStatusResponse struct {
+	Name              string `json:"name"`
+	Version           string `json:"version"`
+	Platform          string `json:"platform"`
+	AcceptConnections bool   `json:"acceptConnections"`
+}
+
+// Config payloads
+
+// ConfigResponse contains agent configuration.
+type ConfigResponse struct {
+	InstallPath string `json:"installPath"`
+}
+
+// Steam payloads
+
+// SteamUser represents a Steam user (matches steam.User).
+type SteamUser struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+	LastLoginAt int64  `json:"lastLoginAt,omitempty"`
+}
+
+// SteamUsersResponse contains the list of Steam users.
+type SteamUsersResponse struct {
+	Users []SteamUser `json:"users"`
+}
+
+// ShortcutsListResponse contains the list of shortcuts.
+type ShortcutsListResponse struct {
+	Shortcuts []ShortcutInfo `json:"shortcuts"`
+}
+
+// CreateShortcutResponse contains the result of shortcut creation.
+type CreateShortcutResponse struct {
+	AppID          uint32 `json:"appId"`
+	SteamRestarted bool   `json:"steamRestarted,omitempty"`
+}
+
+// DeleteShortcutRequest with restart option.
+type DeleteShortcutWithRestartRequest struct {
+	UserID       string `json:"userId"`
+	AppID        uint32 `json:"appId"`
+	RestartSteam bool   `json:"restartSteam,omitempty"`
+}
+
+// Artwork payloads
+
+// ApplyArtworkRequest requests artwork application.
+type ApplyArtworkRequest struct {
+	UserID  string         `json:"userId"`
+	AppID   uint32         `json:"appId"`
+	Artwork *ArtworkConfig `json:"artwork"`
+}
+
+// ArtworkResponse contains artwork operation result.
+type ArtworkResponse struct {
+	Applied []string        `json:"applied"`
+	Failed  []ArtworkFailed `json:"failed,omitempty"`
+}
+
+// ArtworkFailed represents a failed artwork application.
+type ArtworkFailed struct {
+	Type  string `json:"type"`
+	Error string `json:"error"`
+}
+
+// Operation payloads
+
+// OperationResult is a generic result for operations.
+type OperationResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+// OperationEvent is a push notification for operation progress.
+type OperationEvent struct {
+	Type     string  `json:"type"`     // "install", "delete"
+	Status   string  `json:"status"`   // "start", "progress", "complete", "error"
+	GameName string  `json:"gameName"`
+	Progress float64 `json:"progress"` // 0-100
+	Message  string  `json:"message,omitempty"`
+}
+
+// Upload payloads (extended)
+
+// InitUploadRequestFull includes file entries for the upload.
+type InitUploadRequestFull struct {
+	Config    UploadConfig `json:"config"`
+	TotalSize int64        `json:"totalSize"`
+	Files     []FileEntry  `json:"files"`
+}
+
+// FileEntry represents a file in the upload manifest.
+type FileEntry struct {
+	RelativePath string `json:"relativePath"`
+	Size         int64  `json:"size"`
+}
+
+// InitUploadResponseFull includes chunk size configuration.
+type InitUploadResponseFull struct {
+	UploadID   string           `json:"uploadId"`
+	ChunkSize  int              `json:"chunkSize"`
+	ResumeFrom map[string]int64 `json:"resumeFrom,omitempty"`
+}
+
+// UploadChunkRequestFull includes all chunk metadata.
+type UploadChunkRequestFull struct {
+	UploadID string `json:"uploadId"`
+	FilePath string `json:"filePath"`
+	Offset   int64  `json:"offset"`
+	Size     int    `json:"size"`
+	Checksum string `json:"checksum,omitempty"`
+	// Data is sent as binary message, not in JSON
+}
+
+// CompleteUploadRequestFull includes shortcut configuration.
+type CompleteUploadRequestFull struct {
+	UploadID       string          `json:"uploadId"`
+	CreateShortcut bool            `json:"createShortcut"`
+	Shortcut       *ShortcutConfig `json:"shortcut,omitempty"`
+}
+
+// CompleteUploadResponseFull includes the result path and appID.
+type CompleteUploadResponseFull struct {
+	Success bool   `json:"success"`
+	Path    string `json:"path,omitempty"`
+	AppID   uint32 `json:"appId,omitempty"`
+}
+
+// UploadProgressEvent is sent during upload to report progress.
+type UploadProgressEvent struct {
+	UploadID         string  `json:"uploadId"`
+	TransferredBytes int64   `json:"transferredBytes"`
+	TotalBytes       int64   `json:"totalBytes"`
+	CurrentFile      string  `json:"currentFile,omitempty"`
+	Percentage       float64 `json:"percentage"`
+}
+
+// Steam control payloads
+
+// RestartSteamResponse contains the result of Steam restart.
+type RestartSteamResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
