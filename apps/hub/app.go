@@ -36,19 +36,21 @@ type App struct {
 type ConnectedAgent struct {
 	Agent    *discovery.DiscoveredAgent
 	Client   modules.PlatformClient
-	WSClient *modules.WSClient // WebSocket client (nil if using HTTP)
+	WSClient *modules.WSClient       // WebSocket client (nil if using HTTP)
+	Info     *protocol.AgentInfo     // Full agent info from WS connection (includes capabilities)
 }
 
 // ConnectionStatus represents the current connection status
 type ConnectionStatus struct {
-	Connected             bool     `json:"connected"`
-	AgentID               string   `json:"agentId"`
-	AgentName             string   `json:"agentName"`
-	Platform              string   `json:"platform"`
-	Host                  string   `json:"host"`
-	Port                  int      `json:"port"`
-	IPs                   []string `json:"ips"`
-	SupportedImageFormats []string `json:"supportedImageFormats"`
+	Connected             bool       `json:"connected"`
+	AgentID               string     `json:"agentId"`
+	AgentName             string     `json:"agentName"`
+	Platform              string     `json:"platform"`
+	Host                  string     `json:"host"`
+	Port                  int        `json:"port"`
+	IPs                   []string   `json:"ips"`
+	SupportedImageFormats []string   `json:"supportedImageFormats"`
+	Capabilities          []string   `json:"capabilities"`
 }
 
 // DiscoveredAgentInfo represents agent info for the frontend
@@ -240,11 +242,19 @@ func (a *App) ConnectAgent(agentID string) error {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
+	// Get full agent info (includes capabilities)
+	agentInfo, err := wsClient.GetInfo(ctx)
+	if err != nil {
+		wsClient.Close()
+		return fmt.Errorf("failed to get agent info: %w", err)
+	}
+
 	a.mu.Lock()
 	a.connectedAgent = &ConnectedAgent{
 		Agent:    agent,
 		Client:   wsClient, // WSClient implements PlatformClient
 		WSClient: wsClient,
+		Info:     agentInfo,
 	}
 	a.mu.Unlock()
 
@@ -277,9 +287,28 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 	}
 
 	agent := a.connectedAgent.Agent
+	info := a.connectedAgent.Info
+
 	ips := make([]string, 0, len(agent.IPs))
 	for _, ip := range agent.IPs {
 		ips = append(ips, ip.String())
+	}
+
+	// Convert capabilities to strings for JSON serialization
+	var capabilities []string
+	if info != nil {
+		capabilities = make([]string, len(info.Capabilities))
+		for i, cap := range info.Capabilities {
+			capabilities[i] = string(cap)
+		}
+	}
+
+	// Use formats from agent info if available, otherwise fall back to platform-based
+	var supportedFormats []string
+	if info != nil && len(info.SupportedImageFormats) > 0 {
+		supportedFormats = info.SupportedImageFormats
+	} else {
+		supportedFormats = modules.GetSupportedImageFormats(agent.Info.Platform)
 	}
 
 	return ConnectionStatus{
@@ -290,7 +319,8 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 		Host:                  agent.Host,
 		Port:                  agent.Port,
 		IPs:                   ips,
-		SupportedImageFormats: modules.GetSupportedImageFormats(agent.Info.Platform),
+		SupportedImageFormats: supportedFormats,
+		Capabilities:          capabilities,
 	}
 }
 
