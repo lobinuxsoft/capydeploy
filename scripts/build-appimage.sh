@@ -127,7 +127,7 @@ HERE=${SELF%/*}
 APPIMAGE="${APPIMAGE:-$SELF}"
 APP_NAME="BINARY_NAME"
 DESKTOP_NAME="DESKTOP_FILE"
-INSTALL_DIR="$HOME/Applications"
+INSTALL_DIR="$HOME/.local/bin"
 DESKTOP_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons"
 
