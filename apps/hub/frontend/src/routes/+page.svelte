@@ -30,9 +30,17 @@
 	});
 </script>
 
-<div class="min-h-screen bg-background text-foreground">
-	<!-- Header with connection status -->
-	<div class="flex items-center justify-end p-4 border-b">
+<div class="min-h-screen text-foreground">
+	<!-- Header with mascot and connection status -->
+	<div class="flex items-center justify-between px-4 py-3 glass-card border-b border-border">
+		<div class="flex items-center gap-3">
+			<div class="mini-mascot">
+				<video autoplay loop muted playsinline>
+					<source src="/mascot.webm" type="video/webm">
+				</video>
+			</div>
+			<h1 class="text-lg font-bold gradient-text">CapyDeploy Hub</h1>
+		</div>
 		<ConnectionStatus />
 	</div>
 

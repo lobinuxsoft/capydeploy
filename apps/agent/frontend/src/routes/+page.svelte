@@ -4,13 +4,21 @@
 
 <ProgressOverlay />
 
-<div class="min-h-screen p-4">
-	<header class="mb-6">
-		<h1 class="text-2xl font-bold">CapyDeploy Agent</h1>
-		<p class="text-sm text-muted-foreground">Recibe juegos desde el Hub</p>
+<div class="min-h-screen">
+	<!-- Header with mascot -->
+	<header class="flex items-center gap-3 px-4 py-3 glass-card border-b border-border mb-4">
+		<div class="mini-mascot">
+			<video autoplay loop muted playsinline>
+				<source src="/mascot.webm" type="video/webm">
+			</video>
+		</div>
+		<div>
+			<h1 class="text-lg font-bold gradient-text">CapyDeploy Agent</h1>
+			<p class="text-xs text-muted-foreground">Recibe juegos desde el Hub</p>
+		</div>
 	</header>
 
-	<div class="space-y-4">
+	<div class="px-4 space-y-4">
 		<StatusPanel />
 		<AuthorizedHubs />
 		<SteamInfo />
