@@ -28,12 +28,12 @@ declare const SteamClient: {
   };
 };
 
-// Asset types for SetCustomArtworkForApp
+// Asset types for SetCustomArtworkForApp (values from decky-steamgriddb)
 const ASSET_TYPE = {
-  grid_p: 0, // Portrait grid (600x900)
-  grid_l: 1, // Landscape grid (920x430)
-  hero: 2,   // Hero (1920x620)
-  logo: 3,   // Logo
+  grid_p: 0, // Portrait grid / Capsule (600x900)
+  hero: 1,   // Hero (1920x620)
+  logo: 2,   // Logo
+  grid_l: 3, // Landscape grid / Wide Capsule (920x430)
   icon: 4,   // Icon
 };
 
