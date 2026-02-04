@@ -213,13 +213,13 @@ if [[ "$APPIMAGE" != "$INSTALL_DIR"/* ]]; then
             --text="Install to ~/Applications and create menu entry?" \
             --width=300 2>/dev/null; then
             install_app
-            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" "$@"
+            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
         fi
     elif command -v kdialog &>/dev/null; then
         if kdialog --yesno "Install to ~/Applications and create menu entry?" \
             --title "Install $APP_NAME" 2>/dev/null; then
             install_app
-            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" "$@"
+            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
         fi
     elif [ -t 0 ]; then
         echo ""
@@ -228,7 +228,7 @@ if [[ "$APPIMAGE" != "$INSTALL_DIR"/* ]]; then
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             install_app
-            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" "$@"
+            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
         fi
     fi
 fi
