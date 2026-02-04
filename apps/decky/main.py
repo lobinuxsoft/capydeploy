@@ -422,7 +422,6 @@ class WebSocketServer:
     async def handle_delete_game(self, websocket, msg_id: str, payload: dict):
         """Delete a game completely (like Go agent's handleDeleteGame)."""
         import shutil
-        import subprocess
 
         app_id = payload.get("appId", 0)
         tracked = self.plugin.settings.getSetting("tracked_shortcuts", [])
@@ -458,29 +457,13 @@ class WebSocketServer:
             except Exception as e:
                 decky.logger.error(f"Failed to delete game folder: {e}")
 
-        # Notify frontend to remove Steam shortcut
+        # Notify frontend to remove Steam shortcut via SteamClient.Apps.RemoveShortcut
+        # No Steam restart needed — RemoveShortcut modifies Steam's internal state directly
         await self.plugin.notify_frontend("remove_shortcut", {"appId": app_id})
 
         # Remove from tracked list
         tracked = [sc for sc in tracked if sc.get("appId") != app_id]
         self.plugin.settings.setSetting("tracked_shortcuts", tracked)
-
-        # Notify progress: restarting Steam
-        await self.plugin.notify_frontend("operation_event", {
-            "type": "delete",
-            "status": "progress",
-            "gameName": game_name,
-            "progress": 50,
-            "message": "Reiniciando Steam...",
-        })
-
-        # Restart Steam
-        steam_restarted = False
-        try:
-            subprocess.Popen(["systemctl", "restart", "steam"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            steam_restarted = True
-        except Exception as e:
-            decky.logger.error(f"Failed to restart Steam: {e}")
 
         # Notify complete
         await self.plugin.notify_frontend("operation_event", {
@@ -494,7 +477,7 @@ class WebSocketServer:
         await self.send(websocket, msg_id, "operation_result", {
             "status": "deleted",
             "gameName": game_name,
-            "steamRestarted": steam_restarted,
+            "steamRestarted": False,
         })
 
     async def handle_restart_steam(self, websocket, msg_id: str):

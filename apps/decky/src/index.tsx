@@ -4,7 +4,7 @@
  */
 
 import { definePlugin, staticClasses } from "@decky/ui";
-import { toaster } from "@decky/api";
+import { call, toaster } from "@decky/api";
 import { useState, useCallback, VFC } from "react";
 
 import { useAgent, ShortcutConfig } from "./hooks/useAgent";
