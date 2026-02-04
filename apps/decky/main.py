@@ -33,11 +33,11 @@ class MDNSService:
         self.port = port
         self.zeroconf = None
         self.service_info = None
+        self._thread = None
 
     def _get_local_ip(self) -> str:
         """Get the local non-loopback IP address."""
         import socket
-        # Connect to external address to find local IP (doesn't actually send data)
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
@@ -49,15 +49,12 @@ class MDNSService:
 
     def _detect_platform(self) -> str:
         """Detect the handheld platform."""
-        # Check for common handheld devices
         if os.path.exists("/home/deck"):
             return "steamdeck"
         if os.path.exists("/usr/share/plymouth/themes/legion-go"):
             return "legiongologo"
         if os.path.exists("/usr/share/plymouth/themes/rogally"):
             return "rogally"
-
-        # Check OS release
         try:
             with open("/etc/os-release", "r") as f:
                 content = f.read().lower()
@@ -69,22 +66,19 @@ class MDNSService:
                     return "bazzite"
         except Exception:
             pass
-
         return "linux"
 
-    def start(self):
-        """Start advertising via mDNS."""
+    def _register_in_thread(self):
+        """Register mDNS service in a separate thread to avoid asyncio conflicts."""
+        import threading
+        import socket
         try:
             from zeroconf import Zeroconf, ServiceInfo
-            import socket
 
-            # Get local IP (not localhost)
             hostname = socket.gethostname()
             local_ip = self._get_local_ip()
-            decky.logger.info(f"mDNS will advertise on {local_ip}:{self.port}")
-
-            # Build TXT records (same format as Go agent)
             platform = self._detect_platform()
+
             properties = {
                 b"id": self.agent_id.encode(),
                 b"name": self.agent_name.encode(),
@@ -103,10 +97,18 @@ class MDNSService:
 
             self.zeroconf = Zeroconf()
             self.zeroconf.register_service(self.service_info)
-            decky.logger.info(f"mDNS service registered: {self.agent_id}._capydeploy._tcp.local")
+            decky.logger.info(f"mDNS service registered: {self.agent_id}._capydeploy._tcp.local on {local_ip}:{self.port}")
 
         except Exception as e:
-            decky.logger.error(f"Failed to start mDNS: {e}")
+            import traceback
+            decky.logger.error(f"Failed to start mDNS in thread: {e} - {traceback.format_exc()}")
+
+    def start(self):
+        """Start advertising via mDNS."""
+        import threading
+        decky.logger.info(f"mDNS will advertise on {self._get_local_ip()}:{self.port}")
+        self._thread = threading.Thread(target=self._register_in_thread, daemon=True)
+        self._thread.start()
 
     def stop(self):
         """Stop advertising."""
@@ -114,6 +116,8 @@ class MDNSService:
             if self.zeroconf and self.service_info:
                 self.zeroconf.unregister_service(self.service_info)
                 self.zeroconf.close()
+                self.zeroconf = None
+                self.service_info = None
                 decky.logger.info("mDNS service stopped")
         except Exception as e:
             decky.logger.error(f"Failed to stop mDNS: {e}")
@@ -221,7 +225,7 @@ class WebSocketServer:
             await self.server.wait_closed()
             decky.logger.info("WebSocket server stopped")
 
-    async def handle_connection(self, websocket, path):
+    async def handle_connection(self, websocket):
         """Handle a new WebSocket connection."""
         decky.logger.info(f"New connection from {websocket.remote_address}")
         authorized = False
@@ -517,43 +521,35 @@ class Plugin:
             "install_path",
             os.path.join(str(Path.home()), "Games")
         )
-        self.agent_id = self.settings.getSetting("agent_id", self._generate_id())
 
-        # Save agent_id if newly generated
-        self.settings.setSetting("agent_id", self.agent_id)
+        # Get or generate agent ID
+        stored_id = self.settings.getSetting("agent_id", None)
+        if stored_id:
+            self.agent_id = stored_id
+        else:
+            import hashlib
+            data = f"{self.agent_name}-linux-{time.time()}"
+            self.agent_id = hashlib.sha256(data.encode()).hexdigest()[:8]
+            self.settings.setSetting("agent_id", self.agent_id)
 
         # Ensure install path exists
         os.makedirs(self.install_path, exist_ok=True)
 
         # Start server if enabled
         if self.settings.getSetting("enabled", False):
-            await self._start_services()
+            await self.ws_server.start()
+            self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
+            self.mdns_service.start()
 
         decky.logger.info("CapyDeploy plugin loaded")
 
     async def _unload(self):
         """Called when the plugin is unloaded."""
-        await self._stop_services()
-        decky.logger.info("CapyDeploy plugin unloaded")
-
-    async def _start_services(self):
-        """Start WebSocket server and mDNS."""
-        await self.ws_server.start()
-        self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
-        self.mdns_service.start()
-
-    async def _stop_services(self):
-        """Stop WebSocket server and mDNS."""
         if self.mdns_service:
             self.mdns_service.stop()
             self.mdns_service = None
         await self.ws_server.stop()
-
-    def _generate_id(self) -> str:
-        """Generate a unique agent ID."""
-        import hashlib
-        data = f"{self.agent_name}-linux-{time.time()}"
-        return hashlib.sha256(data.encode()).hexdigest()[:8]
+        decky.logger.info("CapyDeploy plugin unloaded")
 
     async def notify_frontend(self, event: str, data: dict):
         """Send event to frontend."""
@@ -575,16 +571,23 @@ class Plugin:
         """Set a setting value."""
         self.settings.setSetting(key, value)
 
-    async def set_enabled(self, enabled: bool):
+    async def set_enabled(self, enabled=False):
         """Enable or disable the server."""
+        decky.logger.info(f"set_enabled called with: {enabled}")
         self.settings.setSetting("enabled", enabled)
         if enabled:
-            await self._start_services()
+            await self.ws_server.start()
+            self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
+            self.mdns_service.start()
         else:
-            await self._stop_services()
+            if self.mdns_service:
+                self.mdns_service.stop()
+                self.mdns_service = None
+            await self.ws_server.stop()
 
-    async def get_status(self) -> dict:
+    async def get_status(self):
         """Get current connection status."""
+        decky.logger.info("get_status called")
         return {
             "enabled": self.settings.getSetting("enabled", False),
             "connected": self.ws_server.connected_hub is not None,
