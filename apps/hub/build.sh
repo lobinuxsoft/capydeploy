@@ -133,15 +133,29 @@ else
 fi
 
 # ============================================
-# Version info (from git)
+# Version info (SemVer from git)
 # ============================================
 
 echo -e "${YELLOW}[3/6]${NC} Collecting version info..."
 echo
 
-VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# Base version (must match pkg/version/version.go)
+BASE_VERSION="0.1.0"
+
+# Get commit hash
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Check if we're on an exact version tag (v0.1.0, v1.0.0, etc.)
+EXACT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+
+if [[ "$EXACT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # Release build: use tag version (strip 'v' prefix)
+    VERSION="${EXACT_TAG#v}"
+else
+    # Development build: version-dev+commit
+    VERSION="${BASE_VERSION}-dev+${COMMIT}"
+fi
 
 echo "  Version:    $VERSION"
 echo "  Commit:     $COMMIT"
