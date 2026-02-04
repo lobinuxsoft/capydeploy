@@ -1,5 +1,9 @@
 # Build artifacts (only compiled binaries, not icons)
 **/build/bin/
+dist/
+
+# Tools (downloaded during build)
+.tools/
 *.exe
 *.dll
 *.so
