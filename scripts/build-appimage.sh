@@ -119,15 +119,105 @@ Categories=Utility;
 Terminal=false
 DESKTOP
 
-    # Create AppRun
+    # Create AppRun with auto-install support
     cat > "$APPDIR/AppRun" << 'APPRUN'
 #!/bin/bash
 SELF=$(readlink -f "$0")
 HERE=${SELF%/*}
+APPIMAGE="${APPIMAGE:-$SELF}"
+APP_NAME="BINARY_NAME"
+DESKTOP_NAME="DESKTOP_FILE"
+INSTALL_DIR="$HOME/Applications"
+DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons"
+
+install_app() {
+    echo "Installing $APP_NAME..."
+
+    # Create directories
+    mkdir -p "$INSTALL_DIR" "$DESKTOP_DIR" "$ICON_DIR"
+
+    # Copy AppImage
+    DEST="$INSTALL_DIR/$(basename "$APPIMAGE")"
+    if [ "$APPIMAGE" != "$DEST" ]; then
+        cp "$APPIMAGE" "$DEST"
+        chmod +x "$DEST"
+        echo "  Copied to: $DEST"
+    fi
+
+    # Extract and copy icon
+    "$DEST" --appimage-extract "$DESKTOP_NAME.png" >/dev/null 2>&1
+    if [ -f "squashfs-root/$DESKTOP_NAME.png" ]; then
+        cp "squashfs-root/$DESKTOP_NAME.png" "$ICON_DIR/$DESKTOP_NAME.png"
+        rm -rf squashfs-root
+        echo "  Icon installed"
+    fi
+
+    # Create .desktop file
+    cat > "$DESKTOP_DIR/$DESKTOP_NAME.desktop" << DESKTOP
+[Desktop Entry]
+Name=APP_DISPLAY_NAME
+Comment=Deploy games to Steam Deck and Linux devices
+Exec=$DEST
+Icon=$ICON_DIR/$DESKTOP_NAME.png
+Type=Application
+Categories=Utility;
+Terminal=false
+DESKTOP
+    echo "  Desktop entry created"
+    echo ""
+    echo "Installation complete! You can find the app in your application menu."
+}
+
+uninstall_app() {
+    echo "Uninstalling $APP_NAME..."
+    rm -f "$INSTALL_DIR"/*"$APP_NAME"*.AppImage
+    rm -f "$DESKTOP_DIR/$DESKTOP_NAME.desktop"
+    rm -f "$ICON_DIR/$DESKTOP_NAME.png"
+    echo "Uninstalled."
+}
+
+# Handle special arguments
+case "$1" in
+    --install)
+        install_app
+        exit 0
+        ;;
+    --uninstall)
+        uninstall_app
+        exit 0
+        ;;
+    --help)
+        echo "Usage: $(basename "$APPIMAGE") [OPTIONS]"
+        echo ""
+        echo "Options:"
+        echo "  --install     Install to ~/Applications and create desktop entry"
+        echo "  --uninstall   Remove installation"
+        echo "  --help        Show this help"
+        exit 0
+        ;;
+esac
+
+# Auto-install prompt if not in ~/Applications
+if [[ "$APPIMAGE" != "$INSTALL_DIR"/* ]] && [ -t 0 ]; then
+    echo ""
+    echo "$APP_NAME is not installed."
+    read -p "Install to ~/Applications? [y/N] " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        install_app
+        echo "Launching..."
+        exec "$INSTALL_DIR/$(basename "$APPIMAGE")" "$@"
+    fi
+fi
+
+# Run the app
 export PATH="${HERE}/usr/bin:${PATH}"
 exec "${HERE}/usr/bin/BINARY_NAME" "$@"
 APPRUN
     sed -i "s/BINARY_NAME/$BINARY_NAME/g" "$APPDIR/AppRun"
+    sed -i "s/DESKTOP_FILE/$DESKTOP_NAME/g" "$APPDIR/AppRun"
+    sed -i "s/APP_DISPLAY_NAME/CapyDeploy ${APP_NAME^}/g" "$APPDIR/AppRun"
     chmod +x "$APPDIR/AppRun"
 
     echo -e "  ${GREEN}AppDir created${NC}"
