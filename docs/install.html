@@ -58,9 +58,58 @@ cd apps/agent && ./build.sh</code></pre>
       </div>
     </div>
 
+    <!-- AppImage (Linux) -->
+    <div class="mt-12">
+      <h3 class="text-2xl font-bold mb-6">AppImage (Linux)</h3>
+      <p class="text-slate-400 mb-6">For easy distribution on Linux without dependencies.</p>
+
+      <div class="space-y-6">
+        <!-- Build AppImage -->
+        <div class="flex gap-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-lg font-semibold mb-2">Build AppImage</h4>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build both Hub and Agent</span>
+./scripts/build-appimage.sh all
+
+<span class="text-slate-500"># Or individually</span>
+./scripts/build-appimage.sh hub
+./scripts/build-appimage.sh agent</code></pre>
+            </div>
+            <p class="text-slate-500 text-sm mt-2">Output: <code class="text-capy-400">dist/appimage/CapyDeploy_Hub.AppImage</code></p>
+          </div>
+        </div>
+
+        <!-- Auto-Install -->
+        <div class="flex gap-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-lg font-semibold mb-2">Auto-Installation</h4>
+            <p class="text-slate-400 mb-3">Double-click the AppImage and it will prompt to install:</p>
+            <ul class="text-slate-400 text-sm space-y-1 mb-4">
+              <li>• Moves to <code class="text-capy-400">~/Applications/</code></li>
+              <li>• Creates desktop entry in <code class="text-capy-400">~/.local/share/applications/</code></li>
+              <li>• Copies icon to <code class="text-capy-400">~/.local/share/icons/</code></li>
+            </ul>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Command line options</span>
+./CapyDeploy_Agent.AppImage --install    <span class="text-slate-500"># Install manually</span>
+./CapyDeploy_Agent.AppImage --uninstall  <span class="text-slate-500"># Remove</span>
+./CapyDeploy_Agent.AppImage --help       <span class="text-slate-500"># Show options</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Platform Dependencies -->
     <div class="mt-12 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h3 class="text-lg font-semibold mb-4">Platform Dependencies</h3>
+      <h3 class="text-lg font-semibold mb-4">Platform Dependencies (for building from source)</h3>
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-capy-400 mb-2">Fedora / Bazzite</h4>
