@@ -657,3 +657,25 @@ class Plugin:
     async def log_error(self, message: str):
         """Log an error message."""
         decky.logger.error(f"[CapyDeploy] {message}")
+
+    async def get_authorized_hubs(self):
+        """Get list of authorized hubs."""
+        authorized = self.settings.getSetting("authorized_hubs", {})
+        hubs = []
+        for hub_id, hub_data in authorized.items():
+            hubs.append({
+                "id": hub_id,
+                "name": hub_data.get("name", "Unknown"),
+                "pairedAt": hub_data.get("paired_at", 0),
+            })
+        return hubs
+
+    async def revoke_hub(self, hub_id: str):
+        """Revoke authorization for a hub."""
+        authorized = self.settings.getSetting("authorized_hubs", {})
+        if hub_id in authorized:
+            del authorized[hub_id]
+            self.settings.setSetting("authorized_hubs", authorized)
+            decky.logger.info(f"Revoked hub: {hub_id}")
+            return True
+        return False

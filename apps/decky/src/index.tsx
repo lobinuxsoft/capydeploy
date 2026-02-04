@@ -9,6 +9,7 @@ import { useState, useCallback, VFC } from "react";
 
 import { useAgent, ShortcutConfig } from "./hooks/useAgent";
 import StatusPanel from "./components/StatusPanel";
+import AuthorizedHubs from "./components/AuthorizedHubs";
 import ProgressPanel from "./components/ProgressPanel";
 import CapyIcon from "./components/CapyIcon";
 import type { OperationEvent, UploadProgress } from "./types";
@@ -174,6 +175,8 @@ const CapyDeployPanel: VFC = () => {
         ip={status?.ip ?? "127.0.0.1"}
         installPath={status?.installPath ?? "~/Games"}
       />
+
+      <AuthorizedHubs enabled={enabled} />
 
       <ProgressPanel operation={currentOperation} uploadProgress={uploadProgress} />
     </div>
