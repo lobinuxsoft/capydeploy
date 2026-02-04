@@ -3,7 +3,8 @@
  * Receive games from your PC and create Steam shortcuts in gaming mode.
  */
 
-import { definePlugin, staticClasses, toaster } from "@decky/ui";
+import { definePlugin, staticClasses } from "@decky/ui";
+import { toaster } from "@decky/api";
 import { useState, useCallback, VFC } from "react";
 
 import { useAgent, ShortcutConfig } from "./hooks/useAgent";
