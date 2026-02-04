@@ -89,7 +89,7 @@ Output: `dist/appimage/CapyDeploy_Hub.AppImage` and `CapyDeploy_Agent.AppImage`
 ### Auto-Installation
 
 When you run the AppImage for the first time, it will prompt to install:
-- Moves to `~/Applications/`
+- Moves to `~/.local/bin/`
 - Creates desktop entry in `~/.local/share/applications/`
 - Copies icon to `~/.local/share/icons/`
 
