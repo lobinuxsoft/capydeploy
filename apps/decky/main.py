@@ -201,6 +201,8 @@ class WebSocketServer:
         self.server = None
         self.connected_hub: Optional[dict] = None
         self.uploads: dict[str, UploadSession] = {}
+        self._send_queue: Optional[asyncio.Queue] = None
+        self._write_task: Optional[asyncio.Task] = None
 
     async def start(self):
         """Start the WebSocket server."""
@@ -225,11 +227,33 @@ class WebSocketServer:
             await self.server.wait_closed()
             decky.logger.info("WebSocket server stopped")
 
+    async def _write_pump(self, websocket):
+        """Dedicated task for writing messages to WebSocket (like Go's writePump)."""
+        try:
+            while True:
+                msg_data = await self._send_queue.get()
+                if msg_data is None:  # Shutdown signal
+                    break
+                try:
+                    await websocket.send(msg_data)
+                    decky.logger.info(f"WS SENT: {msg_data[:100]}...")
+                except Exception as e:
+                    decky.logger.error(f"Write error: {e}")
+                    break
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            decky.logger.error(f"Write pump error: {e}")
+
     async def handle_connection(self, websocket):
         """Handle a new WebSocket connection."""
         decky.logger.info(f"New connection from {websocket.remote_address}")
         authorized = False
         hub_id = None
+
+        # Create send queue and start write pump (like Go's architecture)
+        self._send_queue = asyncio.Queue()
+        self._write_task = asyncio.create_task(self._write_pump(websocket))
 
         try:
             async for message in websocket:
@@ -243,6 +267,8 @@ class WebSocketServer:
                     msg_type = msg.get("type")
                     msg_id = msg.get("id", "")
                     payload = msg.get("payload", {})
+
+                    decky.logger.info(f"WS RECV [{msg_type}] id={msg_id}")
 
                     if msg_type == "hub_connected":
                         hub_id, authorized = await self.handle_hub_connected(
@@ -266,6 +292,11 @@ class WebSocketServer:
                         await self.handle_upload_chunk(websocket, msg_id, payload)
                     elif msg_type == "complete_upload":
                         await self.handle_complete_upload(websocket, msg_id, payload)
+                    elif msg_type == "cancel_upload":
+                        await self.handle_cancel_upload(websocket, msg_id, payload)
+                    elif msg_type == "get_steam_users":
+                        # Not implemented - Decky handles shortcuts via SteamClient
+                        await self.send(websocket, msg_id, "steam_users_response", {"users": []})
                     else:
                         decky.logger.warning(f"Unknown message type: {msg_type}")
 
@@ -277,6 +308,16 @@ class WebSocketServer:
         except Exception as e:
             decky.logger.error(f"Connection error: {e}")
         finally:
+            # Stop write pump
+            if self._send_queue:
+                await self._send_queue.put(None)
+            if self._write_task:
+                self._write_task.cancel()
+                try:
+                    await self._write_task
+                except asyncio.CancelledError:
+                    pass
+
             if self.connected_hub and self.connected_hub.get("id") == hub_id:
                 self.connected_hub = None
                 await self.plugin.notify_frontend("hub_disconnected", {})
@@ -367,7 +408,7 @@ class WebSocketServer:
         # Create install directory
         os.makedirs(session.install_path, exist_ok=True)
 
-        decky.logger.info(f"Upload started: {game_name} ({total_size} bytes)")
+        decky.logger.info(f"Upload started: {game_name} ({total_size} bytes) -> {session.install_path}")
         await self.plugin.notify_frontend("operation_event", {
             "type": "install",
             "status": "start",
@@ -425,10 +466,87 @@ class WebSocketServer:
         })
 
     async def handle_binary(self, websocket, data: bytes):
-        """Handle binary chunk data."""
-        # Binary format: upload_id (36 bytes) + file_path (256 bytes) + offset (8 bytes) + data
-        # For now, we use JSON chunks - binary is for optimization later
-        pass
+        """Handle binary chunk data. Format: [4 bytes: header len][header JSON][chunk data]"""
+        if len(data) < 4:
+            decky.logger.error("Binary message too short")
+            return
+
+        # Parse header length (big endian)
+        header_len = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]
+        if len(data) < 4 + header_len:
+            decky.logger.error("Binary message header incomplete")
+            return
+
+        # Parse header JSON
+        try:
+            header = json.loads(data[4:4 + header_len].decode('utf-8'))
+        except Exception as e:
+            decky.logger.error(f"Invalid binary header: {e}")
+            return
+
+        msg_id = header.get("id", "")
+        upload_id = header.get("uploadId", "")
+        file_path = header.get("filePath", "")
+        offset = header.get("offset", 0)
+        checksum = header.get("checksum", "")
+
+        # Extract chunk data
+        chunk_data = data[4 + header_len:]
+
+        decky.logger.info(f"Binary chunk: {upload_id}/{file_path} offset={offset} size={len(chunk_data)}")
+
+        # Process the chunk
+        session = self.uploads.get(upload_id)
+        if not session:
+            await self.send_error(websocket, msg_id, 404, "Upload not found")
+            return
+
+        # Write chunk to file
+        full_path = os.path.join(session.install_path, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        with open(full_path, "ab" if offset > 0 else "wb") as f:
+            f.seek(offset)
+            f.write(chunk_data)
+
+        session.transferred += len(chunk_data)
+        session.current_file = file_path
+
+        # Notify progress
+        progress = session.progress()
+        await self.plugin.notify_frontend("upload_progress", {
+            "uploadId": upload_id,
+            "transferredBytes": session.transferred,
+            "totalBytes": session.total_size,
+            "currentFile": file_path,
+            "percentage": progress,
+        })
+
+        # Send response
+        await self.send(websocket, msg_id, "upload_chunk_response", {
+            "uploadId": upload_id,
+            "bytesWritten": len(chunk_data),
+            "totalWritten": session.transferred,
+        })
+
+    async def handle_cancel_upload(self, websocket, msg_id: str, payload: dict):
+        """Cancel an active upload."""
+        upload_id = payload.get("uploadId", "")
+        session = self.uploads.get(upload_id)
+
+        if session:
+            session.status = "cancelled"
+            # Clean up partial files
+            if session.install_path and os.path.exists(session.install_path):
+                import shutil
+                try:
+                    shutil.rmtree(session.install_path)
+                except Exception as e:
+                    decky.logger.error(f"Failed to cleanup cancelled upload: {e}")
+            del self.uploads[upload_id]
+            decky.logger.info(f"Upload cancelled: {session.game_name}")
+
+        await self.send(websocket, msg_id, "operation_result", {"success": True})
 
     async def handle_complete_upload(self, websocket, msg_id: str, payload: dict):
         """Complete an upload and create shortcut."""
@@ -478,19 +596,28 @@ class WebSocketServer:
         await self.send(websocket, msg_id, "operation_result", result)
 
     async def send(self, websocket, msg_id: str, msg_type: str, payload):
-        """Send a JSON message."""
+        """Send a JSON message via the write queue."""
         msg = {"id": msg_id, "type": msg_type}
         if payload is not None:
             msg["payload"] = payload
-        await websocket.send(json.dumps(msg))
+        json_str = json.dumps(msg)
+        decky.logger.info(f"WS QUEUE [{msg_type}] id={msg_id}")
+        if self._send_queue:
+            await self._send_queue.put(json_str)
+        else:
+            decky.logger.error("Send queue not initialized!")
 
     async def send_error(self, websocket, msg_id: str, code: int, message: str):
-        """Send an error message."""
-        await websocket.send(json.dumps({
+        """Send an error message via the write queue."""
+        msg = {
             "id": msg_id,
             "type": "error",
             "error": {"code": code, "message": message},
-        }))
+        }
+        if self._send_queue:
+            await self._send_queue.put(json.dumps(msg))
+        else:
+            decky.logger.error("Send queue not initialized!")
 
 
 class Plugin:
@@ -503,6 +630,25 @@ class Plugin:
     accept_connections: bool
     install_path: str
     _frontend_ws = None
+
+    def _get_default_install_path(self) -> str:
+        """Get the default install path, detecting the real user home."""
+        # Try common Steam user homes
+        for user_home in ["/home/deck", "/home/lobinux"]:
+            if os.path.exists(user_home):
+                return os.path.join(user_home, "Games")
+
+        # Try to find a home with .steam directory
+        try:
+            for entry in os.listdir("/home"):
+                home_path = f"/home/{entry}"
+                if os.path.isdir(home_path) and os.path.exists(f"{home_path}/.steam"):
+                    return os.path.join(home_path, "Games")
+        except Exception:
+            pass
+
+        # Fallback to Path.home() (may be /root in Decky context)
+        return os.path.join(str(Path.home()), "Games")
 
     async def _main(self):
         """Called when the plugin is loaded."""
@@ -519,7 +665,7 @@ class Plugin:
         self.accept_connections = self.settings.getSetting("accept_connections", True)
         self.install_path = self.settings.getSetting(
             "install_path",
-            os.path.join(str(Path.home()), "Games")
+            self._get_default_install_path()
         )
 
         # Get or generate agent ID
