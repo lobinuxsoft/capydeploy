@@ -1,0 +1,26 @@
+# CapyDeploy Documentation
+title: CapyDeploy
+description: Deploy games to your handheld devices with the chill energy of a capybara
+url: https://lobinuxsoft.github.io
+baseurl: /capydeploy
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Exclude from build
+exclude:
+  - node_modules
+  - .nuxt
+  - content
+  - components
+  - public
+  - "*.import"
+  - .fuse_hidden*
+
+# Keep these files
+include:
+  - _includes
+  - _layouts
+  - assets
+  - donate

@@ -1,0 +1,176 @@
+---
+layout: default
+title: Developers
+---
+<section class="py-20 px-4 pt-32">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Adding a New Platform</h2>
+    <p class="text-slate-400 text-center mb-12 max-w-2xl mx-auto">Agents report their capabilities to the Hub. Steam is optional — implement only what your platform supports.</p>
+
+    <!-- Capabilities -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+      <h3 class="text-lg font-semibold mb-4">Agent Capabilities</h3>
+      <p class="text-slate-400 mb-4">The Hub dynamically shows/hides UI based on what the Agent reports:</p>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="text-sm font-semibold text-green-400 mb-2">File Capabilities (required)</h4>
+          <div class="space-y-1 text-sm">
+            <div class="flex items-center gap-2"><code class="text-slate-400">file_upload</code><span class="text-slate-500">— Receive game uploads</span></div>
+            <div class="flex items-center gap-2"><code class="text-slate-400">file_list</code><span class="text-slate-500">— List installed games</span></div>
+          </div>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="text-sm font-semibold text-water-400 mb-2">Steam Capabilities (optional)</h4>
+          <div class="space-y-1 text-sm">
+            <div class="flex items-center gap-2"><code class="text-slate-400">steam_shortcuts</code><span class="text-slate-500">— Create/delete shortcuts</span></div>
+            <div class="flex items-center gap-2"><code class="text-slate-400">steam_artwork</code><span class="text-slate-500">— Apply artwork</span></div>
+            <div class="flex items-center gap-2"><code class="text-slate-400">steam_users</code><span class="text-slate-500">— List Steam users</span></div>
+            <div class="flex items-center gap-2"><code class="text-slate-400">steam_restart</code><span class="text-slate-500">— Restart Steam</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 grid md:grid-cols-3 gap-3 text-xs">
+        <div class="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
+          <span class="text-green-400 font-semibold">PC + Steam</span>
+          <p class="text-slate-500 mt-1">All capabilities</p>
+        </div>
+        <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-center">
+          <span class="text-yellow-400 font-semibold">PC without Steam</span>
+          <p class="text-slate-500 mt-1">file_upload, file_list</p>
+        </div>
+        <div class="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-center">
+          <span class="text-purple-400 font-semibold">Android (future)</span>
+          <p class="text-slate-500 mt-1">file_upload, file_list</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Platform Files -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+      <h3 class="text-lg font-semibold mb-4">Platform-Specific Files (if using Steam)</h3>
+      <p class="text-slate-400 mb-4">Go build tags separate platform code. Only needed if your platform supports Steam:</p>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="bg-slate-950 rounded-xl p-4">
+          <code class="text-capy-400 text-sm">pkg/steam/paths_*.go</code>
+          <p class="text-slate-500 text-xs mt-2">Steam directory detection</p>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <code class="text-water-400 text-sm">apps/agent/steam/control_*.go</code>
+          <p class="text-slate-500 text-xs mt-2">Start, stop, restart Steam</p>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <code class="text-purple-400 text-sm">apps/agent/artwork/artwork_*.go</code>
+          <p class="text-slate-500 text-xs mt-2">Artwork paths (if different)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code Examples -->
+    <div class="grid md:grid-cols-2 gap-8">
+      <!-- Steam Paths -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-capy-500/20 flex items-center justify-center text-capy-500 text-sm font-bold">1</span>
+          Steam Paths
+        </h3>
+        <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs"><code class="text-slate-300"><span class="text-slate-500">//go:build darwin</span>
+
+<span class="text-purple-400">package</span> steam
+
+<span class="text-purple-400">func</span> <span class="text-water-400">getBaseDir</span>() (<span class="text-capy-400">string</span>, <span class="text-capy-400">error</span>) {
+    home, _ := os.UserHomeDir()
+    steamPath := filepath.Join(home,
+        <span class="text-green-400">"Library"</span>,
+        <span class="text-green-400">"Application Support"</span>,
+        <span class="text-green-400">"Steam"</span>)
+    <span class="text-purple-400">return</span> steamPath, <span class="text-capy-400">nil</span>
+}</code></pre>
+      </div>
+
+      <!-- Steam Controller -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-water-500/20 flex items-center justify-center text-water-500 text-sm font-bold">2</span>
+          Steam Controller
+        </h3>
+        <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs"><code class="text-slate-300"><span class="text-slate-500">//go:build darwin</span>
+
+<span class="text-purple-400">func</span> (c *Controller) <span class="text-water-400">Start</span>() <span class="text-capy-400">error</span> {
+    <span class="text-purple-400">return</span> exec.Command(<span class="text-green-400">"open"</span>, <span class="text-green-400">"-a"</span>, <span class="text-green-400">"Steam"</span>).Run()
+}
+
+<span class="text-purple-400">func</span> (c *Controller) <span class="text-water-400">IsRunning</span>() <span class="text-capy-400">bool</span> {
+    out, _ := exec.Command(<span class="text-green-400">"pgrep"</span>, <span class="text-green-400">"steam"</span>).Output()
+    <span class="text-purple-400">return</span> len(out) > <span class="text-purple-400">0</span>
+}
+
+<span class="text-purple-400">func</span> (c *Controller) <span class="text-water-400">Shutdown</span>() <span class="text-capy-400">error</span> {
+    <span class="text-purple-400">return</span> exec.Command(<span class="text-green-400">"osascript"</span>, <span class="text-green-400">"-e"</span>,
+        <span class="text-green-400">`quit app "Steam"`</span>).Run()
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- Required Methods -->
+    <div class="mt-8 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <h3 class="text-lg font-semibold mb-4">Required Controller Methods</h3>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">Start()</code>
+          <span class="text-slate-500">Launch Steam</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">Shutdown()</code>
+          <span class="text-slate-500">Graceful close</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">Restart()</code>
+          <span class="text-slate-500">Full restart</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">IsRunning()</code>
+          <span class="text-slate-500">Process check</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">IsGamingMode()</code>
+          <span class="text-slate-500">Console mode</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">EnsureRunning()</code>
+          <span class="text-slate-500">Start if needed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="mt-8 bg-gradient-to-r from-capy-500/10 to-water-500/10 border border-capy-500/20 rounded-2xl p-6">
+      <h3 class="text-lg font-semibold mb-4">Checklist (if adding Steam support)</h3>
+      <div class="grid md:grid-cols-2 gap-3 text-sm">
+        <div class="flex items-center gap-3 text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-capy-500"></span>
+          <span><code>paths_&lt;platform&gt;.go</code> - Steam directory</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-capy-500"></span>
+          <span><code>control_&lt;platform&gt;.go</code> - Steam control</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-water-500"></span>
+          <span>Test Steam detection works</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-water-500"></span>
+          <span>Test shortcut creation works</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+          <span>Update README.md</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+          <span>Add to docs install section</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

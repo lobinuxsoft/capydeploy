@@ -1,0 +1,48 @@
+---
+layout: default
+title: Support
+---
+<section class="py-20 px-4 pt-32">
+  <div class="max-w-4xl mx-auto text-center">
+    <h2 class="text-3xl md:text-4xl font-bold mb-4">Support the Project</h2>
+    <p class="text-slate-400 mb-8 max-w-2xl mx-auto">
+      CapyDeploy is free and open source. If you find it useful, consider supporting its development with a donation.
+    </p>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <!-- USDT TRC20 -->
+      <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-water-500/50 transition-all text-center cursor-pointer"
+           onclick="openQRLightbox('{{ '/donate/usdt-trc20.png' | relative_url }}', 'USDT (TRC20)', 'TF6AXBP3LKBCcbJkLG6RqyMsrPNs2JCpdQ')">
+        <img src="{{ '/donate/usdt-trc20.png' | relative_url }}" alt="USDT TRC20" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+        <h4 class="text-water-400 font-semibold text-sm">USDT (TRC20)</h4>
+        <code class="text-[0.6rem] text-slate-500 break-all block mt-1">TF6AXB...JCpdQ</code>
+      </div>
+
+      <!-- USDT BEP20 -->
+      <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-water-500/50 transition-all text-center cursor-pointer"
+           onclick="openQRLightbox('{{ '/donate/usdt-bep20.png' | relative_url }}', 'USDT (BEP20)', '0xd8d2Ed67C567CB3Af437f4638d3531e560575A20')">
+        <img src="{{ '/donate/usdt-bep20.png' | relative_url }}" alt="USDT BEP20" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+        <h4 class="text-water-400 font-semibold text-sm">USDT (BEP20)</h4>
+        <code class="text-[0.6rem] text-slate-500 break-all block mt-1">0xd8d2...5A20</code>
+      </div>
+
+      <!-- BTC -->
+      <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-capy-500/50 transition-all text-center cursor-pointer"
+           onclick="openQRLightbox('{{ '/donate/btc.png' | relative_url }}', 'Bitcoin (BTC)', 'bc1qkxy898wa6mz04c9hrjekx6p0yht2ukz56e9xxq')">
+        <img src="{{ '/donate/btc.png' | relative_url }}" alt="BTC" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+        <h4 class="text-capy-400 font-semibold text-sm">Bitcoin</h4>
+        <code class="text-[0.6rem] text-slate-500 break-all block mt-1">bc1qkx...9xxq</code>
+      </div>
+
+      <!-- Binance Pay -->
+      <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-yellow-500/50 transition-all text-center cursor-pointer"
+           onclick="openQRLightbox('{{ '/donate/binance-pay.jpeg' | relative_url }}', 'Binance Pay', '78328894')">
+        <img src="{{ '/donate/binance-pay.jpeg' | relative_url }}" alt="Binance Pay" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+        <h4 class="text-yellow-400 font-semibold text-sm">Binance Pay</h4>
+        <code class="text-[0.6rem] text-slate-500 block mt-1">78328894</code>
+      </div>
+    </div>
+
+    <p class="text-sm text-slate-500">Click on any option to view the QR code and full address</p>
+  </div>
+</section>

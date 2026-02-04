@@ -1,0 +1,84 @@
+---
+layout: default
+title: Installation
+---
+<section class="py-20 px-4 pt-32">
+  <div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Installation</h2>
+    <p class="text-slate-400 text-center mb-12">Get CapyDeploy running in a few steps.</p>
+
+    <div class="space-y-8">
+      <!-- Step 1 -->
+      <div class="flex gap-6">
+        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-capy-500 flex items-center justify-center text-white font-bold">1</div>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold mb-2">Install Prerequisites</h3>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Install Go 1.24+ and Wails CLI</span>
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+wails doctor</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="flex gap-6">
+        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-capy-500 flex items-center justify-center text-white font-bold">2</div>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold mb-2">Clone and Build</h3>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <pre class="text-sm overflow-x-auto"><code class="text-slate-300">git clone https://github.com/lobinuxsoft/capydeploy
+cd capydeploy
+git submodule update --init --recursive
+
+<span class="text-slate-500"># Build Hub (your PC)</span>
+cd apps/hub && ./build.sh
+
+<span class="text-slate-500"># Build Agent (handheld)</span>
+cd apps/agent && ./build.sh</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="flex gap-6">
+        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-capy-500 flex items-center justify-center text-white font-bold">3</div>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold mb-2">Run and Pair</h3>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># On handheld</span>
+./capyagent
+<span class="text-slate-500"># Shows 6-digit pairing code</span>
+
+<span class="text-slate-500"># On PC</span>
+./capyhub
+<span class="text-slate-500"># Enter the pairing code → Done!</span></code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Platform Dependencies -->
+    <div class="mt-12 bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <h3 class="text-lg font-semibold mb-4">Platform Dependencies</h3>
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="font-semibold text-capy-400 mb-2">Fedora / Bazzite</h4>
+          <code class="text-slate-400 text-xs">rpm-ostree install webkit2gtk4.0-devel gtk3-devel</code>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="font-semibold text-water-400 mb-2">Ubuntu / Debian</h4>
+          <code class="text-slate-400 text-xs">apt install libwebkit2gtk-4.0-dev libgtk-3-dev</code>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="font-semibold text-purple-400 mb-2">Arch Linux</h4>
+          <code class="text-slate-400 text-xs">pacman -S webkit2gtk gtk3</code>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="font-semibold text-blue-400 mb-2">Windows</h4>
+          <code class="text-slate-400 text-xs">WebView2 pre-installed on Win10/11</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

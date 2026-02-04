@@ -1,0 +1,99 @@
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page.title | default: site.title }} - Deploy games with chill energy</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <link rel="icon" type="image/gif" href="{{ '/mascot.gif' | relative_url }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            capy: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              200: '#fed7aa',
+              300: '#fdba74',
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              800: '#9a3412',
+              900: '#7c2d12',
+            },
+            water: {
+              50: '#ecfeff',
+              100: '#cffafe',
+              200: '#a5f3fc',
+              300: '#67e8f9',
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #06b6d4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-gradient {
+      background: radial-gradient(ellipse at top right, rgba(249,115,22,0.15) 0%, transparent 50%),
+                  radial-gradient(ellipse at bottom left, rgba(6,182,212,0.1) 0%, transparent 50%);
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px -12px rgba(249,115,22,0.25);
+      border-color: rgba(249,115,22,0.4);
+    }
+    .mockup-card {
+      background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%);
+    }
+    .mini-mascot {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(249,115,22,0.5);
+      box-shadow: 0 4px 12px rgba(249,115,22,0.4);
+      flex-shrink: 0;
+    }
+    .mini-mascot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .mockup-window {
+      min-height: 420px;
+    }
+    @media (min-width: 1280px) {
+      .mockup-window { min-height: 480px; }
+    }
+    @media (min-width: 1536px) {
+      .mockup-window { min-height: 520px; }
+    }
+    @media (min-width: 1800px) {
+      .mockup-window { min-height: 580px; }
+    }
+    .nav-active {
+      background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+      color: white;
+    }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::marker { display: none; }
+    pre { overflow-x: auto; }
+    code { font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; }
+    .prose code:not(pre code) {
+      background: #1e293b;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+    }
+  </style>
+</head>
