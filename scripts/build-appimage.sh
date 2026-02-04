@@ -115,7 +115,7 @@ Comment=Deploy games to Steam Deck and Linux devices
 Exec=$BINARY_NAME
 Icon=$DESKTOP_NAME
 Type=Application
-Categories=Utility;
+Categories=Game;Development;
 Terminal=false
 DESKTOP
 
@@ -161,7 +161,7 @@ Comment=Deploy games to Steam Deck and Linux devices
 Exec=$DEST --run
 Icon=$ICON_DIR/$DESKTOP_NAME.png
 Type=Application
-Categories=Utility;
+Categories=Game;Development;
 Terminal=false
 DESKTOP
     echo "  Desktop entry created"
