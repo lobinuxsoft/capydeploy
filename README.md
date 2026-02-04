@@ -71,6 +71,36 @@ cd apps/hub && ./build.sh
 cd apps/agent && ./build.sh
 ```
 
+## AppImage (Linux)
+
+For easy distribution on Linux, you can build AppImages:
+
+```bash
+# Build both Hub and Agent
+./scripts/build-appimage.sh all
+
+# Or build individually
+./scripts/build-appimage.sh hub
+./scripts/build-appimage.sh agent
+```
+
+Output: `dist/appimage/CapyDeploy_Hub.AppImage` and `CapyDeploy_Agent.AppImage`
+
+### Auto-Installation
+
+When you run the AppImage for the first time, it will prompt to install:
+- Moves to `~/Applications/`
+- Creates desktop entry in `~/.local/share/applications/`
+- Copies icon to `~/.local/share/icons/`
+
+You can also use command line flags:
+
+```bash
+./CapyDeploy_Agent.AppImage --install    # Install manually
+./CapyDeploy_Agent.AppImage --uninstall  # Remove installation
+./CapyDeploy_Agent.AppImage --help       # Show options
+```
+
 ## Usage
 
 ### 1. Start the Agent (on handheld)
