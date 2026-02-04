@@ -20,6 +20,77 @@ WS_PORT = 9999
 CHUNK_SIZE = 1024 * 1024  # 1MB
 PAIRING_CODE_LENGTH = 6
 PAIRING_CODE_EXPIRY = 60  # seconds
+MDNS_SERVICE_TYPE = "_capydeploy._tcp.local."
+PLUGIN_VERSION = "0.1.0"
+
+
+class MDNSService:
+    """Advertises the agent via mDNS/DNS-SD for Hub discovery."""
+
+    def __init__(self, agent_id: str, agent_name: str, port: int):
+        self.agent_id = agent_id
+        self.agent_name = agent_name
+        self.port = port
+        self.zeroconf = None
+        self.service_info = None
+
+    def _get_local_ip(self) -> str:
+        """Get the local non-loopback IP address."""
+        import socket
+        # Connect to external address to find local IP (doesn't actually send data)
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    def start(self):
+        """Start advertising via mDNS."""
+        try:
+            from zeroconf import Zeroconf, ServiceInfo
+            import socket
+
+            # Get local IP (not localhost)
+            hostname = socket.gethostname()
+            local_ip = self._get_local_ip()
+            decky.logger.info(f"mDNS will advertise on {local_ip}:{self.port}")
+
+            # Build TXT records (same format as Go agent)
+            properties = {
+                b"id": self.agent_id.encode(),
+                b"name": self.agent_name.encode(),
+                b"platform": b"steamdeck",
+                b"version": PLUGIN_VERSION.encode(),
+            }
+
+            self.service_info = ServiceInfo(
+                MDNS_SERVICE_TYPE,
+                f"{self.agent_id}.{MDNS_SERVICE_TYPE}",
+                addresses=[socket.inet_aton(local_ip)],
+                port=self.port,
+                properties=properties,
+                server=f"{hostname}.local.",
+            )
+
+            self.zeroconf = Zeroconf()
+            self.zeroconf.register_service(self.service_info)
+            decky.logger.info(f"mDNS service registered: {self.agent_id}._capydeploy._tcp.local")
+
+        except Exception as e:
+            decky.logger.error(f"Failed to start mDNS: {e}")
+
+    def stop(self):
+        """Stop advertising."""
+        try:
+            if self.zeroconf and self.service_info:
+                self.zeroconf.unregister_service(self.service_info)
+                self.zeroconf.close()
+                decky.logger.info("mDNS service stopped")
+        except Exception as e:
+            decky.logger.error(f"Failed to stop mDNS: {e}")
 
 
 class PairingManager:
@@ -396,6 +467,7 @@ class Plugin:
     settings: SettingsManager
     pairing: PairingManager
     ws_server: WebSocketServer
+    mdns_service: Optional[MDNSService]
     agent_id: str
     agent_name: str
     accept_connections: bool
@@ -410,6 +482,7 @@ class Plugin:
         )
         self.pairing = PairingManager(self.settings)
         self.ws_server = WebSocketServer(self)
+        self.mdns_service = None
 
         # Load settings
         self.agent_name = self.settings.getSetting("agent_name", "Steam Deck")
@@ -420,19 +493,35 @@ class Plugin:
         )
         self.agent_id = self.settings.getSetting("agent_id", self._generate_id())
 
+        # Save agent_id if newly generated
+        self.settings.setSetting("agent_id", self.agent_id)
+
         # Ensure install path exists
         os.makedirs(self.install_path, exist_ok=True)
 
         # Start server if enabled
         if self.settings.getSetting("enabled", False):
-            await self.ws_server.start()
+            await self._start_services()
 
         decky.logger.info("CapyDeploy plugin loaded")
 
     async def _unload(self):
         """Called when the plugin is unloaded."""
-        await self.ws_server.stop()
+        await self._stop_services()
         decky.logger.info("CapyDeploy plugin unloaded")
+
+    async def _start_services(self):
+        """Start WebSocket server and mDNS."""
+        await self.ws_server.start()
+        self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
+        self.mdns_service.start()
+
+    async def _stop_services(self):
+        """Stop WebSocket server and mDNS."""
+        if self.mdns_service:
+            self.mdns_service.stop()
+            self.mdns_service = None
+        await self.ws_server.stop()
 
     def _generate_id(self) -> str:
         """Generate a unique agent ID."""
@@ -464,9 +553,9 @@ class Plugin:
         """Enable or disable the server."""
         self.settings.setSetting("enabled", enabled)
         if enabled:
-            await self.ws_server.start()
+            await self._start_services()
         else:
-            await self.ws_server.stop()
+            await self._stop_services()
 
     async def get_status(self) -> dict:
         """Get current connection status."""
