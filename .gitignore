@@ -24,6 +24,11 @@ apps/agent/frontend/dist/
 apps/agent/frontend/.svelte-kit/
 apps/agent/frontend/wailsjs/
 
+# Docs (Docus/Nuxt)
+docs/node_modules/
+docs/.nuxt/
+docs/.output/
+
 # IDE
 .idea/
 .vscode/
