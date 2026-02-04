@@ -1,18 +1,21 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { formatBytes } from '$lib/utils';
-	import { ExternalLink, Trash2, FolderOpen, Save, Loader2 } from 'lucide-svelte';
+	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
-		GetCacheSize, ClearImageCache, OpenCacheFolder
+		GetCacheSize, ClearImageCache, OpenCacheFolder,
+		GetImageCacheEnabled, SetImageCacheEnabled
 	} from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 
 	let apiKey = $state('');
+	let cacheEnabled = $state(true);
 	let cacheSize = $state('Calculating...');
 	let saving = $state(false);
 	let clearing = $state(false);
+	let togglingCache = $state(false);
 
 	async function loadSettings() {
 		if (!browser) return;
@@ -23,7 +26,16 @@
 			console.error('Failed to load API key:', e);
 		}
 
-		await updateCacheSize();
+		try {
+			cacheEnabled = await GetImageCacheEnabled();
+		} catch (e) {
+			console.error('Failed to load cache setting:', e);
+			cacheEnabled = true;
+		}
+
+		if (cacheEnabled) {
+			await updateCacheSize();
+		}
 	}
 
 	async function updateCacheSize() {
@@ -33,6 +45,24 @@
 			cacheSize = formatBytes(size);
 		} catch (e) {
 			cacheSize = 'Unable to calculate';
+		}
+	}
+
+	async function toggleCache() {
+		togglingCache = true;
+		try {
+			const newValue = !cacheEnabled;
+			await SetImageCacheEnabled(newValue);
+			cacheEnabled = newValue;
+			if (newValue) {
+				await updateCacheSize();
+			} else {
+				cacheSize = '0 B';
+			}
+		} catch (e) {
+			alert('Failed to change cache setting: ' + e);
+		} finally {
+			togglingCache = false;
 		}
 	}
 
@@ -85,7 +115,7 @@
 
 <div class="space-y-6 max-w-xl">
 	<div>
-		<h3 class="text-lg font-semibold mb-4">SteamGridDB Integration</h3>
+		<h3 class="text-lg font-semibold mb-4 gradient-text">SteamGridDB Integration</h3>
 		<p class="text-sm text-muted-foreground mb-4">
 			SteamGridDB allows you to select custom artwork for your games.
 		</p>
@@ -113,30 +143,53 @@
 	<hr class="border-border" />
 
 	<div>
-		<h3 class="text-lg font-semibold mb-4">Image Cache</h3>
+		<h3 class="text-lg font-semibold mb-4 gradient-text">Image Cache</h3>
 		<p class="text-sm text-muted-foreground mb-4">
-			Cached images are stored locally for faster loading.
+			Cache images locally for faster loading. Disabling will delete all cached images.
 		</p>
 
-		<div class="flex items-center gap-4 mb-4">
-			<span class="text-sm">Cache Size:</span>
-			<span class="font-medium">{cacheSize}</span>
+		<!-- Cache toggle -->
+		<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50 mb-4">
+			<div class="flex items-center gap-3">
+				<HardDrive class="w-5 h-5 text-muted-foreground" />
+				<div>
+					<span class="text-sm font-medium">Enable Local Cache</span>
+					<p class="text-xs text-muted-foreground">Store downloaded images on disk</p>
+				</div>
+			</div>
+			<button
+				type="button"
+				onclick={toggleCache}
+				disabled={togglingCache}
+				class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background {cacheEnabled ? 'bg-primary' : 'bg-muted'}"
+			>
+				<span
+					class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"
+				></span>
+			</button>
 		</div>
 
-		<div class="flex gap-2">
-			<Button variant="outline" onclick={clearCache} disabled={clearing}>
-				{#if clearing}
-					<Loader2 class="w-4 h-4 mr-2 animate-spin" />
-				{:else}
-					<Trash2 class="w-4 h-4 mr-2" />
-				{/if}
-				Clear Cache
-			</Button>
-			<Button variant="outline" onclick={openCacheFolder}>
-				<FolderOpen class="w-4 h-4 mr-2" />
-				Open Cache Folder
-			</Button>
-		</div>
+		{#if cacheEnabled}
+			<div class="flex items-center gap-4 mb-4">
+				<span class="text-sm">Cache Size:</span>
+				<span class="font-medium">{cacheSize}</span>
+			</div>
+
+			<div class="flex gap-2">
+				<Button variant="outline" onclick={clearCache} disabled={clearing}>
+					{#if clearing}
+						<Loader2 class="w-4 h-4 mr-2 animate-spin" />
+					{:else}
+						<Trash2 class="w-4 h-4 mr-2" />
+					{/if}
+					Clear Cache
+				</Button>
+				<Button variant="outline" onclick={openCacheFolder}>
+					<FolderOpen class="w-4 h-4 mr-2" />
+					Open Cache Folder
+				</Button>
+			</div>
+		{/if}
 	</div>
 
 	<hr class="border-border" />

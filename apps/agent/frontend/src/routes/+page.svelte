@@ -8,9 +8,7 @@
 	<!-- Header with mascot -->
 	<header class="flex items-center gap-3 px-4 py-3 glass-card border-b border-border mb-4">
 		<div class="mini-mascot">
-			<video autoplay loop muted playsinline>
-				<source src="/mascot.webm" type="video/webm">
-			</video>
+			<img src="/mascot.gif" alt="CapyDeploy" />
 		</div>
 		<div>
 			<h1 class="text-lg font-bold gradient-text">CapyDeploy Agent</h1>

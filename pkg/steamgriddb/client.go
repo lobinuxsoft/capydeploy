@@ -1,6 +1,8 @@
 package steamgriddb
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 const baseURL = "https://www.steamgriddb.com/api/v2"
@@ -192,7 +195,109 @@ func GetImageCacheDir() (string, error) {
 	return cacheDir, nil
 }
 
-// ClearImageCache clears the image cache
+// GetGameCacheDir returns the cache directory for a specific game
+func GetGameCacheDir(gameID int) (string, error) {
+	baseDir, err := GetImageCacheDir()
+	if err != nil {
+		return "", err
+	}
+	gameDir := filepath.Join(baseDir, fmt.Sprintf("game_%d", gameID))
+	if err := os.MkdirAll(gameDir, 0755); err != nil {
+		return "", err
+	}
+	return gameDir, nil
+}
+
+// hashURL creates a safe filename from a URL
+func hashURL(url string) string {
+	h := sha256.Sum256([]byte(url))
+	return hex.EncodeToString(h[:16]) // Use first 16 bytes (32 hex chars)
+}
+
+// GetCachedImage returns the cached image data if it exists
+func GetCachedImage(gameID int, imageURL string) ([]byte, string, error) {
+	gameDir, err := GetGameCacheDir(gameID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Find file with matching hash prefix
+	hash := hashURL(imageURL)
+	entries, err := os.ReadDir(gameDir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), hash) {
+			filePath := filepath.Join(gameDir, entry.Name())
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				return nil, "", err
+			}
+			// Extract content type from extension
+			ext := filepath.Ext(entry.Name())
+			contentType := "image/jpeg"
+			switch ext {
+			case ".png":
+				contentType = "image/png"
+			case ".webp":
+				contentType = "image/webp"
+			case ".gif":
+				contentType = "image/gif"
+			}
+			return data, contentType, nil
+		}
+	}
+
+	return nil, "", os.ErrNotExist
+}
+
+// SaveImageToCache saves image data to the cache
+func SaveImageToCache(gameID int, imageURL string, data []byte, contentType string) error {
+	gameDir, err := GetGameCacheDir(gameID)
+	if err != nil {
+		return err
+	}
+
+	hash := hashURL(imageURL)
+	ext := ".jpg"
+	switch contentType {
+	case "image/png":
+		ext = ".png"
+	case "image/webp":
+		ext = ".webp"
+	case "image/gif":
+		ext = ".gif"
+	}
+
+	filePath := filepath.Join(gameDir, hash+ext)
+	return os.WriteFile(filePath, data, 0644)
+}
+
+// GetCachedImagePath returns the file path of a cached image if it exists
+func GetCachedImagePath(gameID int, imageURL string) (string, error) {
+	gameDir, err := GetGameCacheDir(gameID)
+	if err != nil {
+		return "", err
+	}
+
+	hash := hashURL(imageURL)
+	entries, err := os.ReadDir(gameDir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), hash) {
+			return filepath.Join(gameDir, entry.Name()), nil
+		}
+	}
+
+	return "", os.ErrNotExist
+}
+
+// ClearImageCache clears the image cache (including all game subdirectories)
 func ClearImageCache() error {
 	cacheDir, err := GetImageCacheDir()
 	if err != nil {
@@ -205,13 +310,18 @@ func ClearImageCache() error {
 	}
 
 	for _, entry := range entries {
-		os.Remove(filepath.Join(cacheDir, entry.Name()))
+		path := filepath.Join(cacheDir, entry.Name())
+		if entry.IsDir() {
+			os.RemoveAll(path)
+		} else {
+			os.Remove(path)
+		}
 	}
 
 	return nil
 }
 
-// GetCacheSize returns the total size of the image cache
+// GetCacheSize returns the total size of the image cache (including subdirectories)
 func GetCacheSize() (int64, error) {
 	cacheDir, err := GetImageCacheDir()
 	if err != nil {
@@ -219,18 +329,15 @@ func GetCacheSize() (int64, error) {
 	}
 
 	var size int64
-	entries, err := os.ReadDir(cacheDir)
-	if err != nil {
-		return 0, err
-	}
-
-	for _, entry := range entries {
-		info, err := entry.Info()
+	err = filepath.Walk(cacheDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			continue
+			return nil // Skip errors
 		}
-		size += info.Size()
-	}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
 
-	return size, nil
+	return size, err
 }

@@ -9,7 +9,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -793,14 +795,42 @@ func (a *App) ClearImageCache() error {
 	return steamgriddb.ClearImageCache()
 }
 
+// GetImageCacheEnabled returns whether image caching is enabled
+func (a *App) GetImageCacheEnabled() (bool, error) {
+	return config.GetImageCacheEnabled()
+}
+
+// SetImageCacheEnabled enables or disables image caching
+// When disabled, automatically clears the cache
+func (a *App) SetImageCacheEnabled(enabled bool) error {
+	if err := config.SetImageCacheEnabled(enabled); err != nil {
+		return err
+	}
+	// Clear cache when disabling
+	if !enabled {
+		return steamgriddb.ClearImageCache()
+	}
+	return nil
+}
+
 // OpenCacheFolder opens the cache folder in the file explorer
 func (a *App) OpenCacheFolder() error {
 	cacheDir, err := steamgriddb.GetImageCacheDir()
 	if err != nil {
 		return err
 	}
-	runtime.BrowserOpenURL(a.ctx, "file://"+cacheDir)
-	return nil
+
+	var cmd *exec.Cmd
+	switch goruntime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", cacheDir)
+	case "darwin":
+		cmd = exec.Command("open", cacheDir)
+	default: // linux and others
+		cmd = exec.Command("xdg-open", cacheDir)
+	}
+
+	return cmd.Start()
 }
 
 // =============================================================================
@@ -862,12 +892,29 @@ func (a *App) GetIcons(gameID int, filters steamgriddb.ImageFilters, page int) (
 	return client.GetIcons(gameID, &filters, page)
 }
 
-// ProxyImage fetches an image from URL and returns it as a base64 data URL
+// ProxyImage fetches an image from URL and returns it as a base64 data URL (no cache)
 func (a *App) ProxyImage(imageURL string) (string, error) {
+	return a.ProxyImageCached(0, imageURL)
+}
+
+// ProxyImageCached fetches an image from URL with caching support
+func (a *App) ProxyImageCached(gameID int, imageURL string) (string, error) {
 	if imageURL == "" {
 		return "", fmt.Errorf("empty URL")
 	}
 
+	// Check if caching is enabled
+	cacheEnabled, _ := config.GetImageCacheEnabled()
+
+	// Try to get from cache first (only if gameID is provided and cache enabled)
+	if gameID > 0 && cacheEnabled {
+		if data, contentType, err := steamgriddb.GetCachedImage(gameID, imageURL); err == nil {
+			base64Data := base64.StdEncoding.EncodeToString(data)
+			return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
+		}
+	}
+
+	// Download from URL
 	resp, err := http.Get(imageURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch image: %w", err)
@@ -896,10 +943,41 @@ func (a *App) ProxyImage(imageURL string) (string, error) {
 		}
 	}
 
-	base64Data := base64.StdEncoding.EncodeToString(data)
-	dataURL := fmt.Sprintf("data:%s;base64,%s", contentType, base64Data)
+	// Save to cache (only if gameID is provided and cache enabled)
+	if gameID > 0 && cacheEnabled {
+		if err := steamgriddb.SaveImageToCache(gameID, imageURL, data, contentType); err != nil {
+			log.Printf("Failed to cache image: %v", err)
+		}
+	}
 
-	return dataURL, nil
+	base64Data := base64.StdEncoding.EncodeToString(data)
+	return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
+}
+
+// OpenCachedImage opens a cached image with the system's default image viewer
+func (a *App) OpenCachedImage(gameID int, imageURL string) error {
+	if gameID <= 0 || imageURL == "" {
+		return fmt.Errorf("invalid gameID or imageURL")
+	}
+
+	// Get the cached file path
+	filePath, err := steamgriddb.GetCachedImagePath(gameID, imageURL)
+	if err != nil {
+		return fmt.Errorf("image not in cache: %w", err)
+	}
+
+	// Open with system's default image viewer
+	var cmd *exec.Cmd
+	switch goruntime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", filePath)
+	case "darwin":
+		cmd = exec.Command("open", filePath)
+	default: // linux and others
+		cmd = exec.Command("xdg-open", filePath)
+	}
+
+	return cmd.Start()
 }
 
 // =============================================================================

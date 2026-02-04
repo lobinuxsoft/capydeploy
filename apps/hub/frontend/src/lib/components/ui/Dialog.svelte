@@ -56,7 +56,7 @@
 		)}>
 			{#if title}
 				<div class="flex items-center justify-between mb-4">
-					<h2 class="text-lg font-semibold">{title}</h2>
+					<h2 class="text-lg font-semibold gradient-text">{title}</h2>
 					<button
 						type="button"
 						class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"

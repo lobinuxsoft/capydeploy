@@ -30,6 +30,7 @@ type GameSetup struct {
 type AppConfig struct {
 	GameSetups        []GameSetup `json:"game_setups"`
 	SteamGridDBAPIKey string      `json:"steamgriddb_api_key,omitempty"`
+	ImageCacheEnabled bool        `json:"image_cache_enabled"`
 }
 
 // GetConfigPath returns the path to the config file
@@ -63,7 +64,7 @@ func Load() (*AppConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Return default config if file doesn't exist
-			return &AppConfig{}, nil
+			return &AppConfig{ImageCacheEnabled: true}, nil
 		}
 		return nil, err
 	}
@@ -175,5 +176,24 @@ func SetSteamGridDBAPIKey(apiKey string) error {
 		return err
 	}
 	config.SteamGridDBAPIKey = apiKey
+	return Save(config)
+}
+
+// GetImageCacheEnabled returns whether image caching is enabled
+func GetImageCacheEnabled() (bool, error) {
+	config, err := Load()
+	if err != nil {
+		return true, err // Default to enabled on error
+	}
+	return config.ImageCacheEnabled, nil
+}
+
+// SetImageCacheEnabled enables or disables image caching
+func SetImageCacheEnabled(enabled bool) error {
+	config, err := Load()
+	if err != nil {
+		return err
+	}
+	config.ImageCacheEnabled = enabled
 	return Save(config)
 }

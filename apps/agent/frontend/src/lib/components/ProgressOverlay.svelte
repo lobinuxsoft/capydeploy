@@ -83,7 +83,7 @@
 					{/if}
 				</div>
 				<div class="flex-1 min-w-0">
-					<h3 class="font-semibold">
+					<h3 class="font-semibold gradient-text">
 						{getOperationLabel(operation.type)}
 					</h3>
 					<p class="text-sm text-muted-foreground truncate">

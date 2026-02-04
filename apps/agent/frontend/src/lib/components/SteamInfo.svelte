@@ -77,7 +77,7 @@
 			<Users class="w-6 h-6 text-primary" />
 		</div>
 		<div>
-			<h2 class="text-xl font-semibold">Steam</h2>
+			<h2 class="text-xl font-semibold gradient-text">Steam</h2>
 			<p class="text-sm text-muted-foreground">Usuarios y shortcuts</p>
 		</div>
 	</div>

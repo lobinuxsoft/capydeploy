@@ -82,7 +82,7 @@
 <Card class="p-4">
 	<div class="flex items-center gap-2 mb-4">
 		<ShieldCheck class="w-5 h-5 text-primary" />
-		<h3 class="font-semibold">Hubs Autorizados</h3>
+		<h3 class="font-semibold gradient-text">Hubs Autorizados</h3>
 	</div>
 
 	{#if loading}

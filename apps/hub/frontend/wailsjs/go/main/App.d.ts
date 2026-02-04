@@ -34,6 +34,8 @@ export function GetHeroes(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number)
 
 export function GetIcons(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.ImageData>>;
 
+export function GetImageCacheEnabled():Promise<boolean>;
+
 export function GetInstalledGames(arg1:string):Promise<Array<main.InstalledGame>>;
 
 export function GetLogos(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.ImageData>>;
@@ -42,7 +44,11 @@ export function GetSteamGridDBAPIKey():Promise<string>;
 
 export function OpenCacheFolder():Promise<void>;
 
+export function OpenCachedImage(arg1:number,arg2:string):Promise<void>;
+
 export function ProxyImage(arg1:string):Promise<string>;
+
+export function ProxyImageCached(arg1:number,arg2:string):Promise<string>;
 
 export function RefreshDiscovery():Promise<Array<main.DiscoveredAgentInfo>>;
 
@@ -51,6 +57,8 @@ export function RemoveGameSetup(arg1:string):Promise<void>;
 export function SearchGames(arg1:string):Promise<Array<steamgriddb.SearchResult>>;
 
 export function SelectFolder():Promise<string>;
+
+export function SetImageCacheEnabled(arg1:boolean):Promise<void>;
 
 export function SetSteamGridDBAPIKey(arg1:string):Promise<void>;
 

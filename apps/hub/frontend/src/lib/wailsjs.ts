@@ -39,6 +39,8 @@ export const SetSteamGridDBAPIKey = App.SetSteamGridDBAPIKey;
 export const GetCacheSize = App.GetCacheSize;
 export const ClearImageCache = App.ClearImageCache;
 export const OpenCacheFolder = App.OpenCacheFolder;
+export const GetImageCacheEnabled = App.GetImageCacheEnabled;
+export const SetImageCacheEnabled = App.SetImageCacheEnabled;
 
 // SteamGridDB functions
 export const SearchGames = App.SearchGames;
@@ -47,6 +49,8 @@ export const GetHeroes = App.GetHeroes;
 export const GetLogos = App.GetLogos;
 export const GetIcons = App.GetIcons;
 export const ProxyImage = App.ProxyImage;
+export const ProxyImageCached = App.ProxyImageCached;
+export const OpenCachedImage = App.OpenCachedImage;
 
 // Runtime events
 export const EventsOn = runtime.EventsOn;

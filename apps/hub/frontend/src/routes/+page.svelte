@@ -35,9 +35,7 @@
 	<div class="flex items-center justify-between px-4 py-3 glass-card border-b border-border">
 		<div class="flex items-center gap-3">
 			<div class="mini-mascot">
-				<video autoplay loop muted playsinline>
-					<source src="/mascot.webm" type="video/webm">
-				</video>
+				<img src="/mascot.gif" alt="CapyDeploy" />
 			</div>
 			<h1 class="text-lg font-bold gradient-text">CapyDeploy Hub</h1>
 		</div>

@@ -11,7 +11,8 @@
 	import { isAnimatedImage } from '$lib/utils';
 	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check, ImageOff } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, ProxyImage } from '$lib/wailsjs';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, ProxyImageCached, OpenCachedImage } from '$lib/wailsjs';
+	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
 
@@ -43,6 +44,7 @@
 
 	// Preview
 	let previewUrl = $state('');
+	let previewOriginalUrl = $state(''); // Original URL for opening cached file
 	let previewInfo = $state('');
 
 	// Image data
@@ -354,6 +356,8 @@
 	}
 
 	function showPreview(url: string, width: number, height: number, style: string, mime: string) {
+		// Save original URL for opening cached file
+		previewOriginalUrl = url;
 		// Use cached version for display if available
 		previewUrl = imageCache.get(url) || url;
 		const isAnim = isAnimatedImage(mime, url);
@@ -375,9 +379,9 @@
 		return cached || url;
 	}
 
-	// Preload images through proxy (runs in background, images show immediately with original URL)
+	// Preload images through proxy with disk cache (runs in background)
 	async function preloadImages(images: any[]) {
-		console.log('[preloadImages] Starting with', images.length, 'images');
+		console.log('[preloadImages] Starting with', images.length, 'images, gameID:', selectedGameID);
 		const urls = images.map(img => img?.url || img?.Url || img?.URL || '').filter(Boolean);
 
 		const uncachedUrls = urls.filter(url => !imageCache.has(url) && !loadingImages.has(url));
@@ -401,7 +405,8 @@
 			await Promise.all(batch.map(async (url) => {
 				try {
 					console.log('[preloadImages] Proxying:', url.substring(0, 60) + '...');
-					const dataUrl = await ProxyImage(url);
+					// Use cached version with gameID for disk persistence
+					const dataUrl = await ProxyImageCached(selectedGameID, url);
 					console.log('[preloadImages] Got data URL, length:', dataUrl?.length || 0);
 					if (dataUrl && dataUrl.startsWith('data:')) {
 						imageCache.set(url, dataUrl);
@@ -459,9 +464,18 @@
 		});
 	}
 
-	function openInBrowser() {
-		if (previewUrl) {
-			window.open(previewUrl, '_blank');
+	async function openInBrowser() {
+		if (previewOriginalUrl && selectedGameID > 0) {
+			try {
+				// Open cached image with system's default image viewer
+				await OpenCachedImage(selectedGameID, previewOriginalUrl);
+			} catch (e) {
+				// Fallback to opening URL in browser if not cached
+				console.warn('Image not cached, opening URL:', e);
+				BrowserOpenURL(previewOriginalUrl);
+			}
+		} else if (previewOriginalUrl) {
+			BrowserOpenURL(previewOriginalUrl);
 		}
 	}
 
@@ -490,7 +504,7 @@
 <div class="fixed inset-0 z-50 bg-background flex flex-col h-screen">
 	<!-- Header -->
 	<div class="flex items-center justify-between p-3 border-b shrink-0">
-		<h2 class="text-lg font-semibold">Select Artwork - {gameName}</h2>
+		<h2 class="text-lg font-semibold gradient-text">Select Artwork - {gameName}</h2>
 		<Button variant="ghost" size="icon" onclick={onclose}>
 			<X class="w-5 h-5" />
 		</Button>
@@ -501,7 +515,7 @@
 		<!-- Left panel: Search -->
 		<div class="w-56 border-r flex flex-col shrink-0">
 			<div class="p-3 space-y-2 shrink-0">
-				<h3 class="font-semibold text-sm">Search SteamGridDB</h3>
+				<h3 class="font-semibold text-sm gradient-text">Search SteamGridDB</h3>
 				<div class="flex gap-1">
 					<Input
 						bind:value={searchQuery}
@@ -865,7 +879,7 @@
 		<!-- Right panel: Preview & Selection -->
 		<div class="w-64 border-l flex flex-col shrink-0">
 			<div class="p-3 border-b shrink-0">
-				<h3 class="font-semibold text-sm mb-2">Preview</h3>
+				<h3 class="font-semibold text-sm mb-2 gradient-text">Preview</h3>
 				{#if previewUrl}
 					<img src={previewUrl} alt="Preview" class="w-full max-h-40 object-contain rounded-lg bg-muted" />
 					<p class="text-xs text-muted-foreground mt-1 text-center">{previewInfo}</p>
@@ -882,7 +896,7 @@
 
 			<!-- Current selections with thumbnails -->
 			<div class="flex-1 overflow-y-auto p-3 min-h-0">
-				<h3 class="font-semibold text-sm mb-2">Selected Artwork</h3>
+				<h3 class="font-semibold text-sm mb-2 gradient-text">Selected Artwork</h3>
 				<div class="space-y-3 text-xs">
 					<!-- Capsule -->
 					<div class="flex items-center gap-2">
