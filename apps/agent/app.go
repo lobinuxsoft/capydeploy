@@ -19,10 +19,8 @@ import (
 	"github.com/lobinuxsoft/capydeploy/apps/agent/tray"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
+	"github.com/lobinuxsoft/capydeploy/pkg/version"
 )
-
-// Version is set at build time.
-var Version = "dev"
 
 // App struct holds the application state
 type App struct {
@@ -157,7 +155,7 @@ func (a *App) startServer() {
 	cfg := server.Config{
 		Port:       a.port,
 		Name:       a.getName(),
-		Version:    Version,
+		Version:    version.Version,
 		Platform:   discovery.GetPlatform(),
 		Verbose:    false,
 		UploadPath: a.uploadPath,
@@ -225,7 +223,7 @@ func (a *App) startServer() {
 	a.server = srv
 	a.serverMu.Unlock()
 
-	log.Printf("CapyDeploy Agent v%s starting on port %d", Version, a.port)
+	log.Printf("CapyDeploy Agent %s starting on port %d", version.Full(), a.port)
 	log.Printf("Platform: %s, Name: %s", cfg.Platform, cfg.Name)
 
 	runtime.EventsEmit(a.ctx, "server:started", a.GetStatus())
@@ -257,7 +255,7 @@ func (a *App) GetStatus() AgentStatus {
 		Running:           running,
 		Name:              a.getName(),
 		Platform:          discovery.GetPlatform(),
-		Version:           Version,
+		Version:           version.Version,
 		Port:              a.port,
 		IPs:               getLocalIPs(),
 		AcceptConnections: acceptConnections,
@@ -608,6 +606,26 @@ func (a *App) getAddress() string {
 		return fmt.Sprintf("%s:%d", ips[0], a.port)
 	}
 	return fmt.Sprintf("localhost:%d", a.port)
+}
+
+// =============================================================================
+// Helper functions
+// =============================================================================
+
+// VersionInfo represents version information for the frontend.
+type VersionInfo struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"buildDate"`
+}
+
+// GetVersion returns the current version information.
+func (a *App) GetVersion() VersionInfo {
+	return VersionInfo{
+		Version:   version.Version,
+		Commit:    version.Commit,
+		BuildDate: version.BuildDate,
+	}
 }
 
 // =============================================================================

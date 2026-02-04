@@ -2,19 +2,32 @@ package main
 
 import (
 	"embed"
+	"flag"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+
+	"github.com/lobinuxsoft/capydeploy/pkg/version"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
+	showVersion := flag.Bool("version", false, "Show version information and exit")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("CapyDeploy Hub", version.Full())
+		os.Exit(0)
+	}
+
 	app := NewApp()
 
 	err := wails.Run(&options.App{

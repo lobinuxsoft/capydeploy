@@ -132,20 +132,40 @@ else
 fi
 
 # ============================================
+# Version info (from git)
+# ============================================
+
+echo -e "${YELLOW}[3/4]${NC} Collecting version info..."
+echo
+
+VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+echo "  Version:    $VERSION"
+echo "  Commit:     $COMMIT"
+echo "  Build Date: $BUILD_DATE"
+echo
+
+LDFLAGS="-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION"
+LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT"
+LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE"
+
+# ============================================
 # Build
 # ============================================
 
 if [ "$MODE" = "dev" ]; then
-    echo -e "${YELLOW}[3/4]${NC} Starting development server..."
+    echo -e "${YELLOW}[4/5]${NC} Starting development server..."
     echo
     echo "  Press Ctrl+C to stop."
     echo
-    wails dev -tags webkit2_41
+    wails dev -tags webkit2_41 -ldflags "$LDFLAGS"
 else
-    echo -e "${YELLOW}[3/4]${NC} Building production binary..."
+    echo -e "${YELLOW}[4/5]${NC} Building production binary..."
     echo
 
-    if ! wails build -clean -tags webkit2_41; then
+    if ! wails build -clean -tags webkit2_41 -ldflags "$LDFLAGS"; then
         echo
         echo "============================================"
         echo -e "  ${RED}BUILD FAILED${NC}"
@@ -160,7 +180,7 @@ else
     echo
 
     # Show result
-    echo -e "${YELLOW}[4/4]${NC} Build output:"
+    echo -e "${YELLOW}[5/5]${NC} Build output:"
     echo
 
     BINARY="build/bin/capydeploy-agent"
