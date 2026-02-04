@@ -153,12 +153,12 @@ install_app() {
         echo "  Icon installed"
     fi
 
-    # Create .desktop file
+    # Create .desktop file (uses --run to skip install check)
     cat > "$DESKTOP_DIR/$DESKTOP_NAME.desktop" << DESKTOP
 [Desktop Entry]
 Name=APP_DISPLAY_NAME
 Comment=Deploy games to Steam Deck and Linux devices
-Exec=$DEST
+Exec=$DEST --run
 Icon=$ICON_DIR/$DESKTOP_NAME.png
 Type=Application
 Categories=Utility;
@@ -187,12 +187,19 @@ case "$1" in
         uninstall_app
         exit 0
         ;;
+    --run)
+        # Skip install check, just run (used by .desktop)
+        shift
+        export PATH="${HERE}/usr/bin:${PATH}"
+        exec "${HERE}/usr/bin/BINARY_NAME" "$@"
+        ;;
     --help)
         echo "Usage: $(basename "$APPIMAGE") [OPTIONS]"
         echo ""
         echo "Options:"
         echo "  --install     Install to ~/Applications and create desktop entry"
         echo "  --uninstall   Remove installation"
+        echo "  --run         Run without install check (used by .desktop)"
         echo "  --help        Show this help"
         exit 0
         ;;
