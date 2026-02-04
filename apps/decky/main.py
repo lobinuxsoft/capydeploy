@@ -571,17 +571,21 @@ class WebSocketServer:
 
         # Notify frontend to create shortcut using SteamClient
         if create_shortcut and shortcut_config:
-            exe_name = shortcut_config.get("exe", "")
+            # Get just the executable filename (like Go's filepath.Base)
+            exe_name = os.path.basename(shortcut_config.get("exe", ""))
             exe_path = os.path.join(session.install_path, exe_name)
 
             # Make executable on Linux
             if os.path.exists(exe_path):
                 os.chmod(exe_path, 0o755)
 
+            # Steam adds quotes to exe automatically, but not to startDir
+            quoted_start_dir = f'"{session.install_path}"'
+
             await self.plugin.notify_frontend("create_shortcut", {
                 "name": shortcut_config.get("name", session.game_name),
                 "exe": exe_path,
-                "startDir": session.install_path,
+                "startDir": quoted_start_dir,
                 "artwork": shortcut_config.get("artwork", {}),
             })
 
