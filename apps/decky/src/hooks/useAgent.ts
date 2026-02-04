@@ -13,6 +13,10 @@ export interface AgentStatus {
   hubName: string | null;
   agentName: string;
   installPath: string;
+  platform: string;
+  version: string;
+  port: number;
+  ip: string;
 }
 
 export interface UseAgentOptions {

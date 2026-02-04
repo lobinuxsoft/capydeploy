@@ -588,12 +588,48 @@ class Plugin:
     async def get_status(self):
         """Get current connection status."""
         decky.logger.info("get_status called")
+
+        # Get local IP for display
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            local_ip = "127.0.0.1"
+
+        # Detect platform
+        platform = "linux"
+        if os.path.exists("/home/deck"):
+            platform = "steamdeck"
+        elif os.path.exists("/usr/share/plymouth/themes/legion-go"):
+            platform = "legiongologo"
+        elif os.path.exists("/usr/share/plymouth/themes/rogally"):
+            platform = "rogally"
+        else:
+            try:
+                with open("/etc/os-release", "r") as f:
+                    content = f.read().lower()
+                    if "steamos" in content:
+                        platform = "steamdeck"
+                    elif "chimeraos" in content:
+                        platform = "chimeraos"
+                    elif "bazzite" in content:
+                        platform = "bazzite"
+            except Exception:
+                pass
+
         return {
             "enabled": self.settings.getSetting("enabled", False),
             "connected": self.ws_server.connected_hub is not None,
             "hubName": self.ws_server.connected_hub.get("name") if self.ws_server.connected_hub else None,
             "agentName": self.agent_name,
             "installPath": self.install_path,
+            "platform": platform,
+            "version": PLUGIN_VERSION,
+            "port": WS_PORT,
+            "ip": local_ip,
         }
 
     async def get_event(self, event_name: str) -> Optional[dict]:

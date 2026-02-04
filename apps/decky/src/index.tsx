@@ -167,6 +167,12 @@ const CapyDeployPanel: VFC = () => {
         connected={status?.connected ?? false}
         hubName={status?.hubName ?? null}
         pairingCode={pairingCode}
+        agentName={status?.agentName ?? "CapyDeploy Agent"}
+        platform={status?.platform ?? "linux"}
+        version={status?.version ?? "0.1.0"}
+        port={status?.port ?? 9999}
+        ip={status?.ip ?? "127.0.0.1"}
+        installPath={status?.installPath ?? "~/Games"}
       />
 
       <ProgressPanel operation={currentOperation} uploadProgress={uploadProgress} />
