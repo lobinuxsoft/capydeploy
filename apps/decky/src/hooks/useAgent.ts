@@ -23,8 +23,6 @@ export interface UseAgentOptions {
   onOperation?: (event: OperationEvent) => void;
   onProgress?: (progress: UploadProgress) => void;
   onPairingCode?: (code: string) => void;
-  onShortcutRequest?: (config: ShortcutConfig) => void;
-  onRemoveShortcut?: (appId: number) => void;
 }
 
 interface ArtworkAsset {
@@ -56,7 +54,7 @@ export interface UseAgentReturn {
 const POLL_INTERVAL = 1000;
 
 export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
-  const { onOperation, onProgress, onPairingCode, onShortcutRequest, onRemoveShortcut } = options;
+  const { onOperation, onProgress, onPairingCode } = options;
 
   const [enabled, setEnabledState] = useState(false);
   const [status, setStatus] = useState<AgentStatus | null>(null);
@@ -132,27 +130,10 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
         refreshStatus();
       }
 
-      // Check for shortcut creation request
-      const shortcutEvent = await call<[string], { timestamp: number; data: ShortcutConfig } | null>(
-        "get_event",
-        "create_shortcut"
-      );
-      if (shortcutEvent?.data) {
-        onShortcutRequest?.(shortcutEvent.data);
-      }
-
-      // Check for shortcut removal request (from Hub delete_game)
-      const removeEvent = await call<[string], { timestamp: number; data: { appId: number } } | null>(
-        "get_event",
-        "remove_shortcut"
-      );
-      if (removeEvent?.data) {
-        onRemoveShortcut?.(removeEvent.data.appId);
-      }
     } catch (e) {
       console.error("Failed to poll events:", e);
     }
-  }, [onOperation, onProgress, onPairingCode, onShortcutRequest, onRemoveShortcut, refreshStatus]);
+  }, [onOperation, onProgress, onPairingCode, refreshStatus]);
 
   // Enable/disable the server
   const setEnabled = useCallback(async (value: boolean) => {

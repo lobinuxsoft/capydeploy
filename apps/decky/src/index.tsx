@@ -37,71 +37,106 @@ const ASSET_TYPE = {
   icon: 4,   // Icon
 };
 
+// Background handlers for SteamClient operations (run outside React lifecycle)
+async function handleCreateShortcut(config: ShortcutConfig) {
+  try {
+    const appId = await SteamClient.Apps.AddShortcut(
+      config.name,
+      config.exe,
+      config.startDir,
+      ""
+    );
+
+    if (appId) {
+      SteamClient.Apps.SetShortcutName(appId, config.name);
+      await call<[string, number], void>("register_shortcut", config.name, appId);
+
+      // Apply artwork (backend sends {data: base64, format: "png"|"jpg"})
+      if (config.artwork) {
+        const artworkEntries: [{ data: string; format: string } | undefined, number][] = [
+          [config.artwork.grid, ASSET_TYPE.grid_p],
+          [config.artwork.hero, ASSET_TYPE.hero],
+          [config.artwork.logo, ASSET_TYPE.logo],
+        ];
+        for (const [art, assetType] of artworkEntries) {
+          if (art?.data) {
+            try {
+              await SteamClient.Apps.SetCustomArtworkForApp(
+                appId,
+                art.data,
+                art.format || "png",
+                assetType
+              );
+            } catch (e) {
+              console.error(`Failed to apply artwork (type ${assetType}):`, e);
+            }
+          }
+        }
+      }
+
+      toaster.toast({ title: "Shortcut creado!", body: config.name });
+    }
+  } catch (e) {
+    console.error("Failed to create shortcut:", e);
+    toaster.toast({ title: "Error al crear shortcut", body: String(e) });
+  }
+}
+
+function handleRemoveShortcut(appId: number) {
+  try {
+    SteamClient.Apps.RemoveShortcut(appId);
+  } catch (e) {
+    console.error("Failed to remove shortcut:", e);
+  }
+}
+
+// Background polling for SteamClient events (runs even when panel is closed)
+let bgPollInterval: ReturnType<typeof setInterval> | null = null;
+
+async function pollSteamClientEvents() {
+  try {
+    const shortcutEvent = await call<[string], { timestamp: number; data: ShortcutConfig } | null>(
+      "get_event",
+      "create_shortcut"
+    );
+    if (shortcutEvent?.data) {
+      handleCreateShortcut(shortcutEvent.data);
+    }
+
+    const removeEvent = await call<[string], { timestamp: number; data: { appId: number } } | null>(
+      "get_event",
+      "remove_shortcut"
+    );
+    if (removeEvent?.data) {
+      handleRemoveShortcut(removeEvent.data.appId);
+    }
+  } catch (e) {
+    console.error("Background poll error:", e);
+  }
+}
+
+function startBackgroundPolling() {
+  if (!bgPollInterval) {
+    bgPollInterval = setInterval(pollSteamClientEvents, 1000);
+  }
+}
+
+function stopBackgroundPolling() {
+  if (bgPollInterval) {
+    clearInterval(bgPollInterval);
+    bgPollInterval = null;
+  }
+}
+
 const CapyDeployPanel: VFC = () => {
   const [currentOperation, setCurrentOperation] = useState<OperationEvent | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [gamesRefresh, setGamesRefresh] = useState(0);
 
-  // Handle shortcut creation using SteamClient API
-  const handleShortcutRequest = useCallback(async (config: ShortcutConfig) => {
-    try {
-      // Create the shortcut
-      const appId = await SteamClient.Apps.AddShortcut(
-        config.name,
-        config.exe,
-        config.startDir,
-        ""
-      );
-
-      if (appId) {
-        // Set the correct name (sometimes AddShortcut doesn't set it right)
-        SteamClient.Apps.SetShortcutName(appId, config.name);
-
-        // Register appId in backend for Hub queries
-        await call<[string, number], void>("register_shortcut", config.name, appId);
-
-        // Apply artwork if provided (backend sends {data: base64, format: "png"|"jpg"})
-        if (config.artwork) {
-          const artworkEntries: [{ data: string; format: string } | undefined, number][] = [
-            [config.artwork.grid, ASSET_TYPE.grid_p],
-            [config.artwork.hero, ASSET_TYPE.hero],
-            [config.artwork.logo, ASSET_TYPE.logo],
-          ];
-          for (const [art, assetType] of artworkEntries) {
-            if (art?.data) {
-              try {
-                await SteamClient.Apps.SetCustomArtworkForApp(
-                  appId,
-                  art.data,
-                  art.format || "png",
-                  assetType
-                );
-              } catch (e) {
-                console.error(`Failed to apply artwork (type ${assetType}):`, e);
-              }
-            }
-          }
-        }
-
-        toaster.toast({
-          title: "Shortcut creado!",
-          body: config.name,
-        });
-      }
-    } catch (e) {
-      console.error("Failed to create shortcut:", e);
-      toaster.toast({
-        title: "Error al crear shortcut",
-        body: String(e),
-      });
-    }
-  }, []);
-
   const { enabled, setEnabled, status, pairingCode, refreshStatus } = useAgent({
     onOperation: (event) => {
       setCurrentOperation(event);
 
-      // Show toast notifications
       if (event.status === "start") {
         toaster.toast({
           title: event.type === "install" ? "Instalando juego" : "Eliminando juego",
@@ -113,7 +148,6 @@ const CapyDeployPanel: VFC = () => {
           body: event.gameName,
         });
         setGamesRefresh((n) => n + 1);
-        // Clear operation after a delay
         setTimeout(() => setCurrentOperation(null), 5000);
       } else if (event.status === "error") {
         toaster.toast({
@@ -130,14 +164,6 @@ const CapyDeployPanel: VFC = () => {
         title: "Codigo de emparejamiento",
         body: code,
       });
-    },
-    onShortcutRequest: handleShortcutRequest,
-    onRemoveShortcut: (appId) => {
-      try {
-        SteamClient.Apps.RemoveShortcut(appId);
-      } catch (e) {
-        console.error("Failed to remove shortcut:", e);
-      }
     },
   });
 
@@ -197,12 +223,15 @@ const CapyDeployPanel: VFC = () => {
 };
 
 export default definePlugin(() => {
+  // Start background polling for SteamClient events (runs even when panel is closed)
+  startBackgroundPolling();
+
   return {
     title: <div className={staticClasses.Title}>CapyDeploy</div>,
     content: <CapyDeployPanel />,
     icon: <CapyIcon />,
     onDismount() {
-      // Cleanup if needed
+      stopBackgroundPolling();
     },
   };
 });
