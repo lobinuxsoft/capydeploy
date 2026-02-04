@@ -2,6 +2,7 @@
 	import Card from './ui/Card.svelte';
 	import Button from './ui/Button.svelte';
 	import { GetAuthorizedHubs, RevokeHub, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { toast } from '$lib/stores/toast';
 	import { Monitor, Trash2, ShieldCheck } from 'lucide-svelte';
 	import { browser } from '$app/environment';
 
@@ -28,15 +29,14 @@
 	}
 
 	async function handleRevoke(hubId: string) {
-		if (!confirm('Revocar acceso a este Hub?')) return;
-
 		revoking = hubId;
 		try {
 			await RevokeHub(hubId);
 			hubs = hubs.filter(h => h.id !== hubId);
+			toast.success('Hub revocado');
 		} catch (e) {
 			console.error('Failed to revoke hub:', e);
-			alert('Error al revocar: ' + e);
+			toast.error('Error al revocar', String(e));
 		} finally {
 			revoking = null;
 		}

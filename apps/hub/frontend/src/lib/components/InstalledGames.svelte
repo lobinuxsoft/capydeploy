@@ -1,68 +1,57 @@
 <script lang="ts">
 	import { Button, Card } from '$lib/components/ui';
 	import { connectionStatus } from '$lib/stores/connection';
+	import { toast } from '$lib/stores/toast';
 	import type { InstalledGame } from '$lib/types';
 	import { Folder, RefreshCw, Trash2, Loader2 } from 'lucide-svelte';
 	import { GetInstalledGames, DeleteGame, GetAgentInstallPath } from '$lib/wailsjs';
-	import { cn } from '$lib/utils';
 
 	let installPath = $state('');
 	let games = $state<InstalledGame[]>([]);
-	let selectedGame = $state<InstalledGame | null>(null);
 	let loading = $state(false);
 	let deleting = $state<string | null>(null);
 	let statusMessage = $state('Connect to a device and click Refresh');
 
 	async function refreshGames() {
 		if (!$connectionStatus.connected) {
-			alert('No device connected');
+			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
 			return;
 		}
 
 		loading = true;
-		statusMessage = 'Fetching games...';
+		statusMessage = 'Buscando juegos...';
 		try {
 			// Get install path from agent
 			installPath = await GetAgentInstallPath();
 			games = await GetInstalledGames('');
-			statusMessage = `Found ${games.length} games`;
+			statusMessage = `${games.length} juegos encontrados`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
+			toast.error('Error', String(e));
 			games = [];
 		} finally {
 			loading = false;
 		}
 	}
 
-	async function deleteSelectedGame() {
-		if (!selectedGame) return;
-
+	async function deleteGame(game: InstalledGame) {
 		if (!$connectionStatus.connected) {
-			alert('No device connected');
+			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
 			return;
 		}
 
-		if (!confirm(`Are you sure you want to delete '${selectedGame.name}'?\nThis will also remove the Steam shortcut.`)) {
-			return;
-		}
-
-		const game = selectedGame;
 		deleting = game.name;
-		statusMessage = `Deleting ${game.name}...`;
+		statusMessage = `Eliminando ${game.name}...`;
 		try {
 			await DeleteGame(game.name, game.appId || 0);
 			await refreshGames();
-			selectedGame = null;
-			statusMessage = `Deleted ${game.name}`;
+			toast.success('Juego eliminado', game.name);
 		} catch (e) {
-			statusMessage = `Error deleting game: ${e}`;
+			toast.error('Error al eliminar', String(e));
+			statusMessage = `Error: ${e}`;
 		} finally {
 			deleting = null;
 		}
-	}
-
-	function selectGame(game: InstalledGame) {
-		selectedGame = game;
 	}
 </script>
 
@@ -83,30 +72,14 @@
 				Refresh
 			{/if}
 		</Button>
-		<Button
-			variant="destructive"
-			onclick={deleteSelectedGame}
-			disabled={!selectedGame || deleting !== null || !$connectionStatus.connected}
-		>
-			<Trash2 class="w-4 h-4 mr-2" />
-			Delete Game
-		</Button>
 	</div>
 
 	<p class="text-sm text-muted-foreground">{statusMessage}</p>
 
 	<div class="space-y-2">
 		{#each games as game}
-			{@const isSelected = selectedGame?.name === game.name}
 			{@const isDeleting = deleting === game.name}
-			<button
-				type="button"
-				onclick={() => selectGame(game)}
-				class={cn(
-					'w-full text-left rounded-xl border bg-card text-card-foreground shadow p-4 cursor-pointer transition-all hover:bg-accent/50',
-					isSelected && 'ring-2 ring-primary bg-accent'
-				)}
-			>
+			<Card class="p-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-3">
 						<Folder class="w-6 h-6 text-muted-foreground" />
@@ -115,14 +88,26 @@
 							<div class="text-sm text-muted-foreground">{game.path}</div>
 						</div>
 					</div>
-					<div class="flex items-center gap-2">
-						<span class="text-sm text-muted-foreground">{game.size}</span>
-						{#if isDeleting}
-							<Loader2 class="w-4 h-4 animate-spin" />
+					<div class="flex items-center gap-3">
+						{#if game.size && game.size !== 'N/A'}
+							<span class="text-sm text-muted-foreground">{game.size}</span>
 						{/if}
+						<Button
+							variant="ghost"
+							size="icon"
+							onclick={() => deleteGame(game)}
+							disabled={isDeleting || !$connectionStatus.connected}
+							class="text-destructive hover:text-destructive hover:bg-destructive/10"
+						>
+							{#if isDeleting}
+								<Loader2 class="w-4 h-4 animate-spin" />
+							{:else}
+								<Trash2 class="w-4 h-4" />
+							{/if}
+						</Button>
 					</div>
 				</div>
-			</button>
+			</Card>
 		{/each}
 
 		{#if games.length === 0 && !loading}

@@ -5,6 +5,7 @@ import * as runtime from '$wailsjs/runtime/runtime';
 export const GetStatus = App.GetStatus;
 export const GetSteamUsers = App.GetSteamUsers;
 export const GetShortcuts = App.GetShortcuts;
+export const DeleteShortcut = App.DeleteShortcut;
 export const SetAcceptConnections = App.SetAcceptConnections;
 export const DisconnectHub = App.DisconnectHub;
 export const SetName = App.SetName;

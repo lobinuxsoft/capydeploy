@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { Card, Badge } from '$lib/components/ui';
-	import { GetSteamUsers, GetShortcuts, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { Card, Badge, Button } from '$lib/components/ui';
+	import { GetSteamUsers, GetShortcuts, DeleteShortcut, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { toast } from '$lib/stores/toast';
 	import type { SteamUserInfo, ShortcutInfo } from '$lib/types';
-	import { Users, Gamepad2, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { Users, Gamepad2, ChevronDown, ChevronRight, Trash2, Loader2 } from 'lucide-svelte';
 
 	let users = $state<SteamUserInfo[]>([]);
 	let shortcuts = $state<Map<string, ShortcutInfo[]>>(new Map());
 	let expandedUsers = $state<Set<string>>(new Set());
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let deleting = $state<number | null>(null);
 
 	async function loadUsers() {
 		try {
@@ -53,6 +55,20 @@
 					console.error('Error loading shortcuts:', e);
 				}
 			}
+		}
+	}
+
+	async function deleteShortcut(userId: string, shortcut: ShortcutInfo) {
+		if (deleting) return;
+
+		deleting = shortcut.appId;
+		try {
+			await DeleteShortcut(userId, shortcut.appId);
+			toast.success('Shortcut eliminado', shortcut.name);
+		} catch (e) {
+			toast.error('Error al eliminar', e instanceof Error ? e.message : String(e));
+		} finally {
+			deleting = null;
 		}
 	}
 
@@ -125,15 +141,29 @@
 								{:else}
 									<div class="space-y-2">
 										{#each userShortcuts as shortcut}
+											{@const isDeleting = deleting === shortcut.appId}
 											<div class="flex items-center gap-2 p-2 rounded bg-secondary/50">
-												<Gamepad2 class="w-4 h-4 text-muted-foreground" />
+												<Gamepad2 class="w-4 h-4 text-muted-foreground flex-shrink-0" />
 												<div class="flex-1 min-w-0">
 													<p class="text-sm font-medium truncate">{shortcut.name}</p>
 													<p class="text-xs text-muted-foreground truncate">{shortcut.exe}</p>
 												</div>
-												<Badge variant="secondary" class="text-xs">
+												<Badge variant="secondary" class="text-xs flex-shrink-0">
 													{shortcut.appId}
 												</Badge>
+												<Button
+													variant="ghost"
+													size="icon"
+													onclick={() => deleteShortcut(user.id, shortcut)}
+													disabled={isDeleting}
+													class="h-7 w-7 flex-shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+												>
+													{#if isDeleting}
+														<Loader2 class="w-3.5 h-3.5 animate-spin" />
+													{:else}
+														<Trash2 class="w-3.5 h-3.5" />
+													{/if}
+												</Button>
 											</div>
 										{/each}
 									</div>

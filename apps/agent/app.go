@@ -15,6 +15,7 @@ import (
 	"github.com/lobinuxsoft/capydeploy/apps/agent/firewall"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/server"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agent/steam"
 	"github.com/lobinuxsoft/capydeploy/apps/agent/tray"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
@@ -303,6 +304,74 @@ func (a *App) GetShortcuts(userID string) ([]ShortcutInfo, error) {
 		}
 	}
 	return result, nil
+}
+
+// DeleteShortcut deletes a shortcut by appID for a given user
+func (a *App) DeleteShortcut(userID string, appID uint32) error {
+	mgr, err := shortcuts.NewManager()
+	if err != nil {
+		return fmt.Errorf("failed to create shortcut manager: %w", err)
+	}
+
+	// Get shortcut info before deleting (for notification)
+	list, _ := mgr.List(userID)
+	var gameName string
+	for _, s := range list {
+		if s.AppID == appID {
+			gameName = s.Name
+			break
+		}
+	}
+
+	// Notify UI about delete start
+	runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
+		"type":     "delete",
+		"status":   "start",
+		"gameName": gameName,
+		"progress": 0,
+		"message":  "Eliminando...",
+	})
+
+	if err := mgr.Delete(userID, appID, ""); err != nil {
+		// Notify UI about error
+		runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
+			"type":     "delete",
+			"status":   "error",
+			"gameName": gameName,
+			"progress": 0,
+			"message":  err.Error(),
+		})
+		return fmt.Errorf("failed to delete shortcut: %w", err)
+	}
+
+	// Notify shortcuts changed
+	runtime.EventsEmit(a.ctx, "shortcuts:changed", nil)
+
+	// Notify UI about progress - restarting Steam
+	runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
+		"type":     "delete",
+		"status":   "progress",
+		"gameName": gameName,
+		"progress": 50,
+		"message":  "Reiniciando Steam...",
+	})
+
+	// Restart Steam to apply changes
+	controller := agentSteam.NewController()
+	result := controller.Restart()
+	log.Printf("Steam restart after delete: %v", result.Message)
+
+	// Notify UI about delete complete
+	runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
+		"type":     "delete",
+		"status":   "complete",
+		"gameName": gameName,
+		"progress": 100,
+		"message":  "Eliminado",
+	})
+
+	log.Printf("Deleted shortcut '%s' (AppID: %d) for user %s", gameName, appID, userID)
+	return nil
 }
 
 // SetAcceptConnections enables or disables new connections

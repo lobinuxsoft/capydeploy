@@ -7,3 +7,4 @@ export { default as Dialog } from './Dialog.svelte';
 export { default as Select } from './Select.svelte';
 export { default as Checkbox } from './Checkbox.svelte';
 export { default as Tabs } from './Tabs.svelte';
+export { default as Toast } from './Toast.svelte';

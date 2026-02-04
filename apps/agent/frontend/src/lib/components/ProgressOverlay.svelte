@@ -96,7 +96,7 @@
 			<div class="space-y-2">
 				<div class="h-2 rounded-full bg-secondary overflow-hidden">
 					<div
-						class="h-full transition-all duration-300 {getStatusColor(operation.status)}"
+						class="h-full transition-all duration-300 {operation.status === 'error' ? 'bg-destructive' : 'progress-gradient'}"
 						style="width: {operation.progress}%"
 					></div>
 				</div>

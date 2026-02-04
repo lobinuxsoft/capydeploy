@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { formatBytes } from '$lib/utils';
+	import { toast } from '$lib/stores/toast';
 	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
@@ -56,11 +57,13 @@
 			cacheEnabled = newValue;
 			if (newValue) {
 				await updateCacheSize();
+				toast.success('Cache activado');
 			} else {
 				cacheSize = '0 B';
+				toast.info('Cache desactivado', 'Las imagenes en cache fueron eliminadas');
 			}
 		} catch (e) {
-			alert('Failed to change cache setting: ' + e);
+			toast.error('Error', String(e));
 		} finally {
 			togglingCache = false;
 		}
@@ -70,26 +73,22 @@
 		saving = true;
 		try {
 			await SetSteamGridDBAPIKey(apiKey);
-			alert('Settings saved successfully');
+			toast.success('Configuracion guardada');
 		} catch (e) {
-			alert('Failed to save settings: ' + e);
+			toast.error('Error al guardar', String(e));
 		} finally {
 			saving = false;
 		}
 	}
 
 	async function clearCache() {
-		if (!confirm('This will delete all cached SteamGridDB images.\nAre you sure?')) {
-			return;
-		}
-
 		clearing = true;
 		try {
 			await ClearImageCache();
 			await updateCacheSize();
-			alert('Cache cleared');
+			toast.success('Cache limpiado');
 		} catch (e) {
-			alert('Failed to clear cache: ' + e);
+			toast.error('Error al limpiar cache', String(e));
 		} finally {
 			clearing = false;
 		}
@@ -99,7 +98,7 @@
 		try {
 			await OpenCacheFolder();
 		} catch (e) {
-			alert('Failed to open cache folder: ' + e);
+			toast.error('Error al abrir carpeta', String(e));
 		}
 	}
 

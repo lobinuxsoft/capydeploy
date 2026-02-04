@@ -2,6 +2,7 @@
 	import { Button, Card } from '$lib/components/ui';
 	import PairingDialog from './PairingDialog.svelte';
 	import { connectionStatus } from '$lib/stores/connection';
+	import { toast } from '$lib/stores/toast';
 	import type { DiscoveredAgent } from '$lib/types';
 	import { Monitor, LogIn, LogOut, RefreshCw, Loader2, Wifi, WifiOff } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
@@ -56,9 +57,10 @@
 		try {
 			await ConnectAgent(agentID);
 			await loadConnectionStatus();
+			toast.success('Conectado');
 		} catch (e) {
 			console.error('Failed to connect:', e);
-			alert('Connection failed: ' + e);
+			toast.error('Error de conexion', String(e));
 		} finally {
 			connecting = null;
 		}

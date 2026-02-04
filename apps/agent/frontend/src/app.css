@@ -77,6 +77,11 @@ body {
 	object-fit: cover;
 }
 
+/* Progress bar gradient */
+.progress-gradient {
+	background: linear-gradient(90deg, #f97316 0%, #fb923c 50%, #06b6d4 100%);
+}
+
 /* Card hover effect */
 .card-hover {
 	transition: all 0.3s ease;

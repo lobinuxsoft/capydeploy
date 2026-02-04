@@ -2,6 +2,7 @@
 	import { Button, Card, Dialog, Input, Progress } from '$lib/components/ui';
 	import { gameSetups, uploadProgress } from '$lib/stores/games';
 	import { connectionStatus } from '$lib/stores/connection';
+	import { toast } from '$lib/stores/toast';
 	import type { GameSetup, UploadProgress, ArtworkSelection } from '$lib/types';
 	import { truncatePath } from '$lib/utils';
 	import { Folder, Upload, Pencil, Trash2, Plus, Image, Loader2 } from 'lucide-svelte';
@@ -46,9 +47,9 @@
 			if (data.done) {
 				uploading = null;
 				if (!data.error) {
-					alert('Upload complete: ' + data.status);
+					toast.success('Subida completada', data.status);
 				} else {
-					alert('Upload failed: ' + data.error);
+					toast.error('Error en la subida', data.error);
 				}
 			}
 		});
@@ -112,7 +113,7 @@
 
 	async function saveSetup() {
 		if (!formName || !formLocalPath || !formExecutable) {
-			alert('Name, Local Folder, and Executable are required');
+			toast.warning('Campos requeridos', 'Nombre, carpeta local y ejecutable son obligatorios');
 			return;
 		}
 
@@ -143,7 +144,7 @@
 			resetForm();
 		} catch (e) {
 			console.error('Failed to save setup:', e);
-			alert('Error: ' + e);
+			toast.error('Error al guardar', String(e));
 		}
 	}
 
@@ -159,18 +160,18 @@
 
 	async function uploadGameHandler(setup: GameSetup) {
 		if (!$connectionStatus.connected) {
-			alert('No device connected');
+			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
 			return;
 		}
 
 		uploading = setup.id;
-		uploadProgress.set({ progress: 0, status: 'Starting upload...', done: false });
+		uploadProgress.set({ progress: 0, status: 'Iniciando subida...', done: false });
 
 		try {
 			await UploadGame(setup.id);
 		} catch (e) {
 			console.error('Failed to start upload:', e);
-			alert('Error: ' + e);
+			toast.error('Error al iniciar subida', String(e));
 			uploading = null;
 			uploadProgress.set(null);
 		}

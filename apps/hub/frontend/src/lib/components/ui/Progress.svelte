@@ -14,7 +14,7 @@
 
 <div class={cn('relative h-2 w-full overflow-hidden rounded-full bg-secondary', className)}>
 	<div
-		class="h-full bg-primary transition-all duration-300 ease-in-out"
+		class="h-full progress-gradient transition-all duration-300 ease-in-out"
 		style="width: {percentage}%"
 	></div>
 </div>
