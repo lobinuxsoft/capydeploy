@@ -2,14 +2,16 @@
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { formatBytes } from '$lib/utils';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive } from 'lucide-svelte';
+	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive, Info } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
 		GetCacheSize, ClearImageCache, OpenCacheFolder,
-		GetImageCacheEnabled, SetImageCacheEnabled
+		GetImageCacheEnabled, SetImageCacheEnabled,
+		GetVersion
 	} from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
+	import type { VersionInfo } from '$lib/types';
 
 	let apiKey = $state('');
 	let cacheEnabled = $state(true);
@@ -17,6 +19,7 @@
 	let saving = $state(false);
 	let clearing = $state(false);
 	let togglingCache = $state(false);
+	let versionInfo = $state<VersionInfo | null>(null);
 
 	async function loadSettings() {
 		if (!browser) return;
@@ -32,6 +35,12 @@
 		} catch (e) {
 			console.error('Failed to load cache setting:', e);
 			cacheEnabled = true;
+		}
+
+		try {
+			versionInfo = await GetVersion();
+		} catch (e) {
+			console.error('Failed to load version:', e);
 		}
 
 		if (cacheEnabled) {
@@ -201,4 +210,38 @@
 		{/if}
 		Save Settings
 	</Button>
+
+	<hr class="border-border" />
+
+	<div>
+		<h3 class="text-lg font-semibold mb-4 gradient-text">About</h3>
+		<div class="p-4 rounded-lg bg-secondary/50">
+			<div class="flex items-center gap-2 mb-3">
+				<Info class="w-5 h-5 text-muted-foreground" />
+				<span class="font-medium">CapyDeploy Hub</span>
+			</div>
+			{#if versionInfo}
+				<div class="space-y-2 text-sm">
+					<div class="flex justify-between">
+						<span class="text-muted-foreground">Version</span>
+						<span class="font-mono">{versionInfo.version}</span>
+					</div>
+					{#if versionInfo.commit && versionInfo.commit !== 'unknown'}
+						<div class="flex justify-between">
+							<span class="text-muted-foreground">Commit</span>
+							<span class="font-mono text-xs">{versionInfo.commit}</span>
+						</div>
+					{/if}
+					{#if versionInfo.buildDate && versionInfo.buildDate !== 'unknown'}
+						<div class="flex justify-between">
+							<span class="text-muted-foreground">Build Date</span>
+							<span class="font-mono text-xs">{versionInfo.buildDate}</span>
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<span class="text-sm text-muted-foreground">Loading version info...</span>
+			{/if}
+		</div>
+	</div>
 </div>

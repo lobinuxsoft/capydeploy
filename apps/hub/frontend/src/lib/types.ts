@@ -1,3 +1,9 @@
+export interface VersionInfo {
+	version: string;
+	commit: string;
+	buildDate: string;
+}
+
 // Agent types (replaces Device types)
 export interface DiscoveredAgent {
 	id: string;
