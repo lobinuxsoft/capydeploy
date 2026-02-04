@@ -23,9 +23,10 @@ interface InstalledGame {
 interface InstalledGamesProps {
   enabled: boolean;
   installPath: string;
+  refreshTrigger?: number;
 }
 
-const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath }) => {
+const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refreshTrigger }) => {
   const [games, setGames] = useState<InstalledGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [uninstalling, setUninstalling] = useState<string | null>(null);
@@ -45,7 +46,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath }) => {
     if (enabled) {
       loadGames();
     }
-  }, [enabled, loadGames, installPath]);
+  }, [enabled, loadGames, installPath, refreshTrigger]);
 
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;

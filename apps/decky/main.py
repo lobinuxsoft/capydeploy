@@ -298,6 +298,8 @@ class WebSocketServer:
                         await self.handle_get_steam_users(websocket, msg_id)
                     elif msg_type == "list_shortcuts":
                         await self.handle_list_shortcuts(websocket, msg_id, payload)
+                    elif msg_type == "delete_game":
+                        await self.handle_delete_game(websocket, msg_id, payload)
                     elif msg_type == "restart_steam":
                         await self.handle_restart_steam(websocket, msg_id)
                     else:
@@ -403,10 +405,97 @@ class WebSocketServer:
         await self.send(websocket, msg_id, "steam_users_response", {"users": proto_users})
 
     async def handle_list_shortcuts(self, websocket, msg_id: str, payload: dict):
-        """Return shortcuts for a Steam user."""
-        user_id = str(payload.get("userId", ""))
-        shortcuts = self.plugin._read_shortcuts_vdf(user_id)
+        """Return shortcuts from tracked data (SteamClient writes VDF lazily)."""
+        tracked = self.plugin.settings.getSetting("tracked_shortcuts", [])
+        shortcuts = []
+        for sc in tracked:
+            shortcuts.append({
+                "appId": sc.get("appId", 0),
+                "name": sc.get("name", ""),
+                "exe": sc.get("exe", ""),
+                "startDir": sc.get("startDir", ""),
+                "launchOptions": "",
+                "lastPlayed": 0,
+            })
         await self.send(websocket, msg_id, "shortcuts_response", {"shortcuts": shortcuts})
+
+    async def handle_delete_game(self, websocket, msg_id: str, payload: dict):
+        """Delete a game completely (like Go agent's handleDeleteGame)."""
+        import shutil
+        import subprocess
+
+        app_id = payload.get("appId", 0)
+        tracked = self.plugin.settings.getSetting("tracked_shortcuts", [])
+
+        # Find game by appId
+        game = None
+        for sc in tracked:
+            if sc.get("appId") == app_id:
+                game = sc
+                break
+
+        if not game:
+            await self.send_error(websocket, msg_id, 404, "game not found")
+            return
+
+        game_name = game.get("name", game.get("gameName", ""))
+
+        # Notify frontend: delete start
+        await self.plugin.notify_frontend("operation_event", {
+            "type": "delete",
+            "status": "start",
+            "gameName": game_name,
+            "progress": 0,
+            "message": "Eliminando...",
+        })
+
+        # Delete game folder
+        start_dir = game.get("startDir", "").strip('"')
+        if start_dir and os.path.isdir(start_dir):
+            try:
+                shutil.rmtree(start_dir)
+                decky.logger.info(f"Deleted game folder: {start_dir}")
+            except Exception as e:
+                decky.logger.error(f"Failed to delete game folder: {e}")
+
+        # Notify frontend to remove Steam shortcut
+        await self.plugin.notify_frontend("remove_shortcut", {"appId": app_id})
+
+        # Remove from tracked list
+        tracked = [sc for sc in tracked if sc.get("appId") != app_id]
+        self.plugin.settings.setSetting("tracked_shortcuts", tracked)
+
+        # Notify progress: restarting Steam
+        await self.plugin.notify_frontend("operation_event", {
+            "type": "delete",
+            "status": "progress",
+            "gameName": game_name,
+            "progress": 50,
+            "message": "Reiniciando Steam...",
+        })
+
+        # Restart Steam
+        steam_restarted = False
+        try:
+            subprocess.Popen(["systemctl", "restart", "steam"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            steam_restarted = True
+        except Exception as e:
+            decky.logger.error(f"Failed to restart Steam: {e}")
+
+        # Notify complete
+        await self.plugin.notify_frontend("operation_event", {
+            "type": "delete",
+            "status": "complete",
+            "gameName": game_name,
+            "progress": 100,
+            "message": "Eliminado",
+        })
+
+        await self.send(websocket, msg_id, "operation_result", {
+            "status": "deleted",
+            "gameName": game_name,
+            "steamRestarted": steam_restarted,
+        })
 
     async def handle_restart_steam(self, websocket, msg_id: str):
         """Restart Steam."""
@@ -606,12 +695,26 @@ class WebSocketServer:
             # Steam adds quotes to exe automatically, but not to startDir
             quoted_start_dir = f'"{session.install_path}"'
 
+            shortcut_name = shortcut_config.get("name", session.game_name)
+
             await self.plugin.notify_frontend("create_shortcut", {
-                "name": shortcut_config.get("name", session.game_name),
+                "name": shortcut_name,
                 "exe": exe_path,
                 "startDir": quoted_start_dir,
                 "artwork": shortcut_config.get("artwork", {}),
             })
+
+            # Pre-track the shortcut (appId will be updated by frontend via register_shortcut)
+            tracked = self.plugin.settings.getSetting("tracked_shortcuts", [])
+            tracked.append({
+                "name": shortcut_name,
+                "exe": exe_path,
+                "startDir": session.install_path,
+                "appId": 0,
+                "gameName": session.game_name,
+                "installedAt": time.time(),
+            })
+            self.plugin.settings.setSetting("tracked_shortcuts", tracked)
 
         await self.plugin.notify_frontend("operation_event", {
             "type": "install",
@@ -964,6 +1067,16 @@ class Plugin:
     async def log_error(self, message: str):
         """Log an error message."""
         decky.logger.error(f"[CapyDeploy] {message}")
+
+    async def register_shortcut(self, game_name: str, app_id: int):
+        """Register a shortcut's appId after frontend creates it via SteamClient."""
+        tracked = self.settings.getSetting("tracked_shortcuts", [])
+        for sc in tracked:
+            if sc.get("appId") == 0 and (sc.get("gameName") == game_name or sc.get("name") == game_name):
+                sc["appId"] = app_id
+                decky.logger.info(f"Registered shortcut: {game_name} -> appId={app_id}")
+                break
+        self.settings.setSetting("tracked_shortcuts", tracked)
 
     async def get_authorized_hubs(self):
         """Get list of authorized hubs."""

@@ -40,6 +40,7 @@ const ASSET_TYPE = {
 const CapyDeployPanel: VFC = () => {
   const [currentOperation, setCurrentOperation] = useState<OperationEvent | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [gamesRefresh, setGamesRefresh] = useState(0);
 
   // Handle shortcut creation using SteamClient API
   const handleShortcutRequest = useCallback(async (config: ShortcutConfig) => {
@@ -55,6 +56,9 @@ const CapyDeployPanel: VFC = () => {
       if (appId) {
         // Set the correct name (sometimes AddShortcut doesn't set it right)
         SteamClient.Apps.SetShortcutName(appId, config.name);
+
+        // Register appId in backend for Hub queries
+        await call<[string, number], void>("register_shortcut", config.name, appId);
 
         // Apply artwork if provided
         if (config.artwork) {
@@ -113,6 +117,7 @@ const CapyDeployPanel: VFC = () => {
           title: event.type === "install" ? "Juego instalado!" : "Juego eliminado",
           body: event.gameName,
         });
+        setGamesRefresh((n) => n + 1);
         // Clear operation after a delay
         setTimeout(() => setCurrentOperation(null), 5000);
       } else if (event.status === "error") {
@@ -132,6 +137,13 @@ const CapyDeployPanel: VFC = () => {
       });
     },
     onShortcutRequest: handleShortcutRequest,
+    onRemoveShortcut: (appId) => {
+      try {
+        SteamClient.Apps.RemoveShortcut(appId);
+      } catch (e) {
+        console.error("Failed to remove shortcut:", e);
+      }
+    },
   });
 
   return (
@@ -182,7 +194,7 @@ const CapyDeployPanel: VFC = () => {
 
       <AuthorizedHubs enabled={enabled} />
 
-      <InstalledGames enabled={enabled} installPath={status?.installPath ?? ""} />
+      <InstalledGames enabled={enabled} installPath={status?.installPath ?? ""} refreshTrigger={gamesRefresh} />
 
       <ProgressPanel operation={currentOperation} uploadProgress={uploadProgress} />
     </div>
