@@ -249,7 +249,7 @@ APPRUN
     echo -e "${YELLOW}[4/5]${NC} Generating AppImage..."
     mkdir -p "$BUILD_DIR"
 
-    APPIMAGE_NAME="CapyDeploy_${APP_NAME^}-${VERSION}-${APPIMAGE_ARCH}.AppImage"
+    APPIMAGE_NAME="CapyDeploy_${APP_NAME^}.AppImage"
 
     # Run appimagetool
     ARCH=$APPIMAGE_ARCH "$APPIMAGETOOL" "$APPDIR" "$BUILD_DIR/$APPIMAGE_NAME" 2>/dev/null
