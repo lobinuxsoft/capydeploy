@@ -1,5 +1,5 @@
-# Build artifacts
-build/
+# Build artifacts (only compiled binaries, not icons)
+**/build/bin/
 *.exe
 *.dll
 *.so
