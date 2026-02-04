@@ -1,202 +1,226 @@
-# Bazzite Devkit
+# CapyDeploy
 
-A cross-platform GUI tool for uploading and managing games on Bazzite/Linux devices. Upload games from your Windows or Linux PC to your handheld device and automatically create Steam shortcuts with custom artwork.
+<div align="center">
+  <img src="docs/mascot.gif" alt="CapyDeploy" width="200">
 
-## Features
+  **Deploy games to your handheld devices with the chill energy of a capybara.**
 
-- **Network Scanner**: Automatically discover SSH-enabled devices on your local network
-- **Device Management**: Save and manage multiple device configurations with SSH credentials
-- **Game Upload**: Upload game folders to remote devices via SFTP
-- **Steam Shortcuts**: Automatically create Steam shortcuts for uploaded games
-- **SteamGridDB Integration**: Select custom artwork (capsules, heroes, logos, icons) with support for animated WebP/GIF
-- **Installed Games Management**: View, manage, and delete games installed on remote devices
-- **Persistent Configuration**: Save device and game setup configurations for reuse
-- **Native Performance**: Built with Wails + Svelte 5 for a lightweight, fast UI
+  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+  [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
+  [![Wails](https://img.shields.io/badge/Wails-v2-red)](https://wails.io/)
+</div>
+
+## Overview
+
+CapyDeploy is a cross-platform tool for uploading and managing games on Steam Deck, Bazzite, and other handheld Linux devices. It uses a **Hub-Agent architecture** where the Hub (your PC) sends commands to the Agent (handheld device) over WebSocket.
+
+### Key Features
+
+- **Auto-Discovery**: Agents broadcast via mDNS. No IP configuration needed.
+- **WebSocket Protocol**: Persistent bidirectional connection with real-time progress.
+- **Secure Pairing**: 6-digit code on first connection. Token stored for future sessions.
+- **Binary Uploads**: Games sent as 1MB chunks. Resume on disconnect.
+- **Steam Integration**: Automatic shortcuts with artwork from SteamGridDB.
+- **Agent Autonomy**: Hub sends simple orders, Agent handles everything internally.
+
+## Architecture
+
+```
+┌─────────────────┐         WebSocket          ┌─────────────────┐
+│                 │◄──────────────────────────►│                 │
+│      Hub        │    Binary chunks + JSON    │     Agent       │
+│    (Your PC)    │                            │   (Handheld)    │
+│                 │         mDNS               │                 │
+└─────────────────┘◄───────────────────────────└─────────────────┘
+                        Discovery
+```
+
+| Component | Role |
+|-----------|------|
+| **Hub** | Desktop app on your PC. Discovers agents, initiates connections, sends games. |
+| **Agent** | Runs on handheld. Receives games, creates Steam shortcuts, applies artwork, restarts Steam. |
 
 ## Requirements
 
-### For Building
-- Go 1.23 or later
+### Building
+- Go 1.21+
 - Bun: https://bun.sh
-  - Windows: `powershell -c "irm bun.sh/install.ps1 | iex"`
-  - Linux/Mac: `curl -fsSL https://bun.sh/install | bash`
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
-- Windows: WebView2 (included in Windows 10+)
-- Linux: `webkit2gtk-4.0`
 
-### For Running
-- Windows 10/11 or Linux
-- Target device must have:
-  - SSH server enabled
-  - Steam installed
+### Platform Dependencies
+
+| Platform | Dependencies |
+|----------|--------------|
+| Fedora/Bazzite | `rpm-ostree install webkit2gtk4.0-devel gtk3-devel` |
+| Ubuntu/Debian | `apt install libwebkit2gtk-4.0-dev libgtk-3-dev` |
+| Arch | `pacman -S webkit2gtk gtk3` |
+| Windows | WebView2 (pre-installed on Win10/11) |
 
 ## Building
 
-### Development Mode
-
 ```bash
-wails dev
+# Clone with submodules
+git clone https://github.com/lobinuxsoft/capydeploy
+cd capydeploy
+git submodule update --init --recursive
+
+# Build Hub (your PC)
+cd apps/hub && ./build.sh
+
+# Build Agent (handheld device)
+cd apps/agent && ./build.sh
 ```
-
-This starts the app in development mode with hot reload.
-
-### Production Build
-
-Use the build scripts:
-
-```bash
-# Windows
-build.bat
-
-# Linux/Mac
-chmod +x build.sh
-./build.sh
-```
-
-Or manually:
-
-```bash
-cd frontend && bun install && cd ..
-wails build
-```
-
-**Note:** Cross-compilation is not supported. Build on the target platform.
 
 ## Usage
 
-### Step 1: Launch the Application
+### 1. Start the Agent (on handheld)
 
-Run `bazzite-devkit` from the build folder.
+```bash
+./capydeploy-agent
+```
 
-### Step 2: Add a Device
+The Agent will:
+- Start WebSocket server on port 9999
+- Broadcast via mDNS for discovery
+- Show system tray icon
 
-1. Go to the **Devices** tab
-2. Click **Scan Network** to find devices with SSH, or click **Add Device** to add manually
-3. Enter the device details:
-   - **Name**: A friendly name for the device
-   - **Host/IP**: The IP address of your device
-   - **Port**: SSH port (default: 22)
-   - **User**: SSH username
-   - **Authentication**: Choose password or SSH key
-4. Click **Save**
+### 2. Start the Hub (on PC)
 
-### Step 3: Connect to the Device
+```bash
+./capydeploy-hub
+```
 
-1. In the Devices list, click the **Connect** button next to your device
-2. Wait for the connection to establish
-3. The status indicator will turn green when connected
+The Hub will:
+- Discover available Agents automatically
+- Show them in the Devices tab
 
-### Step 4: Create a Game Setup
+### 3. Pair the Devices
 
-1. Go to the **Upload Game** tab
-2. Click **New Game Setup**
-3. Fill in the details:
-   - **Game Name**: Name for the game (will be used for the Steam shortcut)
-   - **Local Folder**: Browse to select the game folder on your PC
-   - **Executable**: The main executable file (e.g., `game.x86_64` or `game.sh`)
-   - **Launch Options**: Optional command-line arguments
-   - **Tags**: Optional Steam tags (comma-separated)
-   - **Remote Path**: Where to install on the device (default: `~/devkit-games`)
-   - **Artwork**: Click "Select Artwork" to choose custom images from SteamGridDB
-4. Click **Save Setup**
+1. Click on a discovered Agent in the Hub
+2. A 6-digit pairing code appears on the Agent
+3. Enter the code in the Hub
+4. Done! Token saved for future connections.
 
-### Step 5: Upload the Game
+### 4. Upload Games
 
-1. In the game setups list, click the **Upload** button next to your game
-2. Wait for the upload to complete
-3. The tool will:
-   - Create the remote directory
-   - Upload all game files
-   - Set executable permissions
-   - Create a Steam shortcut with artwork
+1. Go to **Game Setups** tab
+2. Create a new setup with:
+   - Game name
+   - Local folder path
+   - Executable file
+   - Artwork (from SteamGridDB)
+3. Click **Upload**
+4. Agent receives the game, creates shortcut, applies artwork, restarts Steam
 
-### Step 6: Play the Game
+### 5. Manage Games
 
-1. On your device, Steam will auto-restart to load the new shortcut
-2. The game should appear in your library under "Non-Steam Games"
-3. Launch and enjoy!
+- View installed games on the **Installed Games** tab
+- Delete games directly (Agent handles cleanup + Steam restart)
 
-### Managing Installed Games
+## WebSocket API
 
-1. Go to the **Installed Games** tab
-2. Click **Refresh** to see games installed on the connected device
-3. Select a game and click **Delete Game** to remove it (this also removes the Steam shortcut)
+All communication happens over WebSocket at `ws://agent:9999/ws`
 
-### SteamGridDB Artwork
+### Message Format
+```json
+{
+  "id": "unique-message-id",
+  "type": "message_type",
+  "payload": { ... }
+}
+```
 
-1. Go to **Settings** tab
-2. Enter your SteamGridDB API key (get one from [steamgriddb.com](https://www.steamgriddb.com/profile/preferences/api))
-3. Click **Save Settings**
-4. When creating a game setup, click "Select Artwork" to browse and select:
-   - **Capsule**: 600x900 portrait grid
-   - **Wide Capsule**: 920x430 landscape grid
-   - **Hero**: 1920x620 banner image
-   - **Logo**: Game logo with transparency
-   - **Icon**: Square icon
+### Message Types
+
+| Request | Response | Description |
+|---------|----------|-------------|
+| `hub_connected` | `pairing_required` / `pair_success` | Authentication handshake |
+| `get_info` | `info_response` | Agent details |
+| `get_steam_users` | `steam_users_response` | List Steam users |
+| `list_shortcuts` | `shortcuts_response` | List shortcuts |
+| `create_shortcut` | `operation_result` | Create shortcut |
+| `delete_game` | `operation_result` | Delete game (Agent handles everything) |
+| `apply_artwork` | `artwork_response` | Apply artwork |
+| `init_upload` | `upload_response` | Start upload session |
+| `complete_upload` | `upload_response` | Finalize upload |
+
+### Push Events
+
+| Event | Description |
+|-------|-------------|
+| `upload_progress` | Real-time upload progress |
+| `operation_event` | Operation status (delete, install) |
+| `shortcuts_changed` | Shortcut list modified |
 
 ## Configuration
 
-Configuration is stored in:
-- Windows: `%APPDATA%/bazzite-devkit/config.json`
-- Linux: `~/.config/bazzite-devkit/config.json`
+### Hub
+- Windows: `%APPDATA%/capydeploy-hub/`
+- Linux: `~/.config/capydeploy-hub/`
 
-Image cache is stored in:
-- Windows: `%APPDATA%/bazzite-devkit/cache/images/`
-- Linux: `~/.config/bazzite-devkit/cache/images/`
+### Agent
+- Windows: `%APPDATA%/capydeploy-agent/`
+- Linux: `~/.config/capydeploy-agent/`
 
 ## Project Structure
 
 ```
-bazzite-devkit/
-├── main.go                    # Wails entry point
-├── app.go                     # App struct with Go bindings
-├── wails.json                 # Wails configuration
+capydeploy/
+├── apps/
+│   ├── hub/                    # Hub application (PC)
+│   │   ├── app.go              # Wails bindings
+│   │   ├── wsclient/           # WebSocket client
+│   │   ├── modules/            # Platform modules
+│   │   └── frontend/           # Svelte 5 UI
+│   └── agent/                  # Agent application (Handheld)
+│       ├── app.go              # Wails bindings
+│       ├── server/             # HTTP + WebSocket server
+│       ├── shortcuts/          # Steam shortcut manager
+│       ├── artwork/            # Artwork handler
+│       ├── steam/              # Steam controller
+│       └── frontend/           # Svelte 5 UI
+├── pkg/
+│   ├── protocol/               # WebSocket protocol types
+│   ├── discovery/              # mDNS discovery
+│   ├── steam/                  # Steam paths/users
+│   └── transfer/               # Chunked file transfer
 ├── internal/
-│   ├── config/                # Configuration management
-│   ├── device/                # SSH/SFTP client
-│   ├── shortcuts/             # Steam shortcuts management
-│   └── steamgriddb/           # SteamGridDB API client
-├── frontend/
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── components/    # Svelte components
-│   │   │   ├── stores/        # Svelte stores
-│   │   │   └── types.ts       # TypeScript types
-│   │   └── routes/            # SvelteKit routes
-│   ├── package.json
-│   └── vite.config.ts
-├── steam-shortcut-manager/    # Steam shortcut management library
-└── go.mod
+│   └── agent/                  # Agent HTTP client (legacy)
+├── docs/                       # Documentation website
+└── steam-shortcut-manager/     # VDF library (submodule)
 ```
 
-## Troubleshooting
+## Documentation
 
-### Cannot connect to device
-- Ensure SSH is enabled on the target device
-- Verify the IP address and credentials
-- Check that port 22 is not blocked by a firewall
+Full documentation available at: [docs/index.html](docs/index.html)
 
-### Game doesn't appear in Steam
-- Steam will auto-restart after upload to load the shortcut
-- Check that the shortcuts.vdf file was created in `~/.steam/steam/userdata/<user_id>/config/`
+- WebSocket API reference
+- Architecture diagrams
+- Installation guides
+- Donation options (crypto)
 
-### Game won't launch
-- Verify the executable path is correct
-- Ensure the executable has proper permissions (the tool sets these automatically)
-- Check that all required dependencies are installed on the target device
+## Contributing
 
-### Artwork not showing
-- Verify your SteamGridDB API key is correct in Settings
-- Check that artwork was selected before uploading
-- Try clearing the image cache in Settings
+1. Fork the repository
+2. Create a feature branch from `development`
+3. Make your changes
+4. Submit a PR to `development`
 
 ## License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
+## Support
+
+If you find CapyDeploy useful, consider supporting development:
+
+- **BTC**: `bc1qkxy898wa6mz04c9hrjekx6p0yht2ukz56e9xxq`
+- **USDT (TRC20)**: `TF6AXBP3LKBCcbJkLG6RqyMsrPNs2JCpdQ`
+- **USDT (BEP20)**: `0xd8d2Ed67C567CB3Af437f4638d3531e560575A20`
+- **Binance Pay**: `78328894`
+
 ## Credits
 
-- Built with [Wails](https://wails.io/) - Build desktop apps with Go and Web Technologies
-- Frontend with [Svelte 5](https://svelte.dev/) + [Tailwind CSS](https://tailwindcss.com/)
-- Based on [steam-shortcut-manager](https://github.com/shadowblip/steam-shortcut-manager) by ShadowBlip
+- Built with [Wails](https://wails.io/) + [Svelte 5](https://svelte.dev/)
+- Steam shortcut management via [steam-shortcut-manager](https://github.com/shadowblip/steam-shortcut-manager)
 - Artwork from [SteamGridDB](https://www.steamgriddb.com/)
