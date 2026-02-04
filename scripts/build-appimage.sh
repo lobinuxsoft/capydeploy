@@ -137,12 +137,12 @@ install_app() {
     # Create directories
     mkdir -p "$INSTALL_DIR" "$DESKTOP_DIR" "$ICON_DIR"
 
-    # Copy AppImage
+    # Move AppImage
     DEST="$INSTALL_DIR/$(basename "$APPIMAGE")"
     if [ "$APPIMAGE" != "$DEST" ]; then
-        cp "$APPIMAGE" "$DEST"
+        mv "$APPIMAGE" "$DEST"
         chmod +x "$DEST"
-        echo "  Copied to: $DEST"
+        echo "  Moved to: $DEST"
     fi
 
     # Extract and copy icon
