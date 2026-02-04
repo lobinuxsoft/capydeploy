@@ -218,6 +218,8 @@ func (ws *WSServer) handleTextMessage(hub *HubConnection, data []byte) {
 		ws.handleCreateShortcut(hub, &msg)
 	case protocol.MsgTypeDeleteShortcut:
 		ws.handleDeleteShortcut(hub, &msg)
+	case protocol.MsgTypeDeleteGame:
+		ws.handleDeleteGame(hub, &msg)
 	case protocol.MsgTypeApplyArtwork:
 		ws.handleApplyArtwork(hub, &msg)
 	case protocol.MsgTypeRestartSteam:

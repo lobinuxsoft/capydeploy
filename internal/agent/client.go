@@ -505,3 +505,11 @@ func (c *Client) RestartSteam(ctx context.Context) (*RestartSteamResult, error) 
 
 	return &result, nil
 }
+
+// DeleteGameResult contains the result of deleting a game.
+type DeleteGameResult struct {
+	Status         string `json:"status"`
+	GameName       string `json:"gameName"`
+	SteamRestarted bool   `json:"steamRestarted"`
+}
+

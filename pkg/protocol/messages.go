@@ -48,6 +48,7 @@ const (
 	MsgTypeListShortcuts  MessageType = "list_shortcuts"
 	MsgTypeCreateShortcut MessageType = "create_shortcut"
 	MsgTypeDeleteShortcut MessageType = "delete_shortcut"
+	MsgTypeDeleteGame     MessageType = "delete_game" // Agent handles everything internally
 	MsgTypeApplyArtwork   MessageType = "apply_artwork"
 	MsgTypeRestartSteam   MessageType = "restart_steam"
 	MsgTypeInitUpload     MessageType = "init_upload"
@@ -311,6 +312,18 @@ type DeleteShortcutWithRestartRequest struct {
 	UserID       string `json:"userId"`
 	AppID        uint32 `json:"appId"`
 	RestartSteam bool   `json:"restartSteam,omitempty"`
+}
+
+// DeleteGameRequest requests deletion of a game. Agent handles everything internally.
+type DeleteGameRequest struct {
+	AppID uint32 `json:"appId"`
+}
+
+// DeleteGameResponse contains the result of game deletion.
+type DeleteGameResponse struct {
+	Status         string `json:"status"`
+	GameName       string `json:"gameName"`
+	SteamRestarted bool   `json:"steamRestarted"`
 }
 
 // Artwork payloads

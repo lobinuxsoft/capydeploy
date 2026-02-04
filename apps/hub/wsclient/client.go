@@ -711,3 +711,20 @@ func (c *Client) CancelUpload(ctx context.Context, uploadID string) error {
 	})
 	return err
 }
+
+// DeleteGame deletes a game completely. Agent handles everything internally.
+func (c *Client) DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error) {
+	resp, err := c.sendRequest(ctx, protocol.MsgTypeDeleteGame, protocol.DeleteGameRequest{
+		AppID: appID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var result protocol.DeleteGameResponse
+	if err := resp.ParsePayload(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}

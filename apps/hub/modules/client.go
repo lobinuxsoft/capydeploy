@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/lobinuxsoft/capydeploy/internal/agent"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
@@ -71,6 +72,13 @@ func (c *baseClient) ApplyArtwork(ctx context.Context, userID string, appID uint
 
 func (c *baseClient) RestartSteam(ctx context.Context) (*agent.RestartSteamResult, error) {
 	return c.client.RestartSteam(ctx)
+}
+
+// GameManager implementation
+
+func (c *baseClient) DeleteGame(ctx context.Context, appID uint32) (*agent.DeleteGameResult, error) {
+	// DeleteGame is only available via WebSocket - use WSClient instead
+	return nil, fmt.Errorf("DeleteGame requires WebSocket connection")
 }
 
 // FileUploader implementation

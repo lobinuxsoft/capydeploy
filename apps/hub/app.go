@@ -725,7 +725,8 @@ func (a *App) GetInstalledGames(remotePath string) ([]InstalledGame, error) {
 	return games, nil
 }
 
-// DeleteGame deletes a shortcut from the connected agent
+// DeleteGame deletes a game from the connected agent.
+// The Agent handles everything internally (user detection, file deletion, Steam restart).
 func (a *App) DeleteGame(name string, appID uint32) error {
 	a.mu.RLock()
 	if a.connectedAgent == nil {
@@ -735,37 +736,18 @@ func (a *App) DeleteGame(name string, appID uint32) error {
 	client := a.connectedAgent.Client
 	a.mu.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Use longer timeout - Agent needs time for Steam restart
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	// Get Steam users
-	userProvider, ok := modules.AsSteamUserProvider(client)
+	// Use the unified GameManager endpoint - Agent handles everything
+	gameMgr, ok := modules.AsGameManager(client)
 	if !ok {
-		return fmt.Errorf("agent does not support Steam user listing")
+		return fmt.Errorf("agent does not support game management")
 	}
 
-	users, err := userProvider.GetSteamUsers(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get Steam users: %w", err)
-	}
-
-	if len(users) == 0 {
-		return fmt.Errorf("no Steam users found")
-	}
-
-	// Delete shortcut
-	shortcutMgr, ok := modules.AsShortcutManager(client)
-	if !ok {
-		return fmt.Errorf("agent does not support shortcuts")
-	}
-
-	if err := shortcutMgr.DeleteShortcut(ctx, users[0].ID, appID); err != nil {
-		return fmt.Errorf("failed to delete shortcut: %w", err)
-	}
-
-	// Restart Steam
-	if steamCtrl, ok := modules.AsSteamController(client); ok {
-		steamCtrl.RestartSteam(ctx)
+	if _, err := gameMgr.DeleteGame(ctx, appID); err != nil {
+		return fmt.Errorf("failed to delete game: %w", err)
 	}
 
 	return nil

@@ -67,6 +67,13 @@ type SteamController interface {
 	RestartSteam(ctx context.Context) (*agent.RestartSteamResult, error)
 }
 
+// GameManager handles high-level game operations.
+// The Agent handles everything internally (user detection, Steam restart, etc.)
+type GameManager interface {
+	// DeleteGame removes a game completely (shortcut, files, artwork) and restarts Steam.
+	DeleteGame(ctx context.Context, appID uint32) (*agent.DeleteGameResult, error)
+}
+
 // FileUploader handles file upload operations.
 type FileUploader interface {
 	// InitUpload initializes a new upload session.
@@ -94,4 +101,5 @@ type FullPlatformClient interface {
 	ArtworkManager
 	SteamController
 	FileUploader
+	GameManager
 }

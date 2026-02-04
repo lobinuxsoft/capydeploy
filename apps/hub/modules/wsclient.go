@@ -233,3 +233,17 @@ func (c *WSClient) GetUploadStatus(ctx context.Context, uploadID string) (*proto
 	// WS client doesn't have this method directly - uploads use progress events
 	return nil, fmt.Errorf("use progress events for WS uploads")
 }
+
+// GameManager implementation
+
+func (c *WSClient) DeleteGame(ctx context.Context, appID uint32) (*agent.DeleteGameResult, error) {
+	resp, err := c.client.DeleteGame(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+	return &agent.DeleteGameResult{
+		Status:         resp.Status,
+		GameName:       resp.GameName,
+		SteamRestarted: resp.SteamRestarted,
+	}, nil
+}

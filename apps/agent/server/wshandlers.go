@@ -310,6 +310,96 @@ func (ws *WSServer) handleDeleteShortcut(hub *HubConnection, msg *protocol.Messa
 	ws.send(hub, resp)
 }
 
+// handleDeleteGame deletes a game completely. Agent handles everything internally.
+func (ws *WSServer) handleDeleteGame(hub *HubConnection, msg *protocol.Message) {
+	var req protocol.DeleteGameRequest
+	if err := msg.ParsePayload(&req); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeBadRequest, "invalid payload")
+		return
+	}
+
+	// Get Steam users internally - Hub doesn't need to know about this
+	users, err := steam.GetUsers()
+	if err != nil || len(users) == 0 {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, "no Steam users found")
+		return
+	}
+	userID := users[0].ID
+
+	mgr, err := shortcuts.NewManager()
+	if err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
+		return
+	}
+
+	// Get shortcut info before deleting (for notification)
+	list, _ := mgr.List(userID)
+	var gameName string
+	for _, sc := range list {
+		if sc.AppID == req.AppID {
+			gameName = sc.Name
+			break
+		}
+	}
+
+	if gameName == "" {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeNotFound, "game not found")
+		return
+	}
+
+	// Notify UI about delete start
+	ws.server.NotifyOperation("delete", "start", gameName, 0, "Eliminando...")
+	ws.SendEvent(protocol.MsgTypeOperationEvent, protocol.OperationEvent{
+		Type:     "delete",
+		Status:   "start",
+		GameName: gameName,
+		Progress: 0,
+		Message:  "Eliminando...",
+	})
+
+	// Delete shortcut (this also deletes game folder and artwork)
+	if err := mgr.Delete(userID, req.AppID, ""); err != nil {
+		ws.server.NotifyOperation("delete", "error", gameName, 0, err.Error())
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
+		return
+	}
+
+	log.Printf("WS: Deleted game '%s' (AppID: %d) for user %s", gameName, req.AppID, userID)
+	ws.server.NotifyShortcutChange()
+
+	// Notify UI about progress - restarting Steam
+	ws.server.NotifyOperation("delete", "progress", gameName, 50, "Reiniciando Steam...")
+	ws.SendEvent(protocol.MsgTypeOperationEvent, protocol.OperationEvent{
+		Type:     "delete",
+		Status:   "progress",
+		GameName: gameName,
+		Progress: 50,
+		Message:  "Reiniciando Steam...",
+	})
+
+	// Always restart Steam after delete
+	controller := agentSteam.NewController()
+	result := controller.Restart()
+	log.Printf("WS: Steam restart after delete: %v", result.Message)
+
+	// Notify UI about delete complete
+	ws.server.NotifyOperation("delete", "complete", gameName, 100, "Eliminado")
+	ws.SendEvent(protocol.MsgTypeOperationEvent, protocol.OperationEvent{
+		Type:     "delete",
+		Status:   "complete",
+		GameName: gameName,
+		Progress: 100,
+		Message:  "Eliminado",
+	})
+
+	resp, _ := msg.Reply(protocol.MsgTypeOperationResult, protocol.DeleteGameResponse{
+		Status:         "deleted",
+		GameName:       gameName,
+		SteamRestarted: result.Success,
+	})
+	ws.send(hub, resp)
+}
+
 // handleApplyArtwork applies artwork to a shortcut.
 func (ws *WSServer) handleApplyArtwork(hub *HubConnection, msg *protocol.Message) {
 	var req protocol.ApplyArtworkRequest

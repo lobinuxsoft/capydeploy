@@ -38,6 +38,13 @@ func AsSteamUserProvider(client PlatformClient) (SteamUserProvider, bool) {
 	return sup, ok
 }
 
+// AsGameManager checks if the client supports high-level game operations.
+// Returns the GameManager interface and true if supported.
+func AsGameManager(client PlatformClient) (GameManager, bool) {
+	gm, ok := client.(GameManager)
+	return gm, ok
+}
+
 // AsFullClient checks if the client supports all capabilities.
 // Returns the FullPlatformClient interface and true if supported.
 func AsFullClient(client PlatformClient) (FullPlatformClient, bool) {
