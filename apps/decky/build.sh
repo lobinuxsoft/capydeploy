@@ -13,6 +13,33 @@ BUILD_DIR="$OUTPUT_DIR/$PLUGIN_NAME"
 
 echo "=== Building $PLUGIN_NAME v$VERSION ==="
 
+# Detect package manager
+detect_pm() {
+    if command -v pnpm &> /dev/null; then
+        echo "pnpm"
+    elif command -v yarn &> /dev/null; then
+        echo "yarn"
+    elif command -v npm &> /dev/null; then
+        echo "npm"
+    else
+        echo ""
+    fi
+}
+
+PM=$(detect_pm)
+
+if [ -z "$PM" ]; then
+    echo "ERROR: No package manager found (npm, pnpm, or yarn)"
+    echo ""
+    echo "Install Node.js first:"
+    echo "  Option 1: toolbox create dev && toolbox enter dev && sudo dnf install nodejs"
+    echo "  Option 2: rpm-ostree install nodejs && systemctl reboot"
+    echo "  Option 3: curl -fsSL https://fnm.vercel.app/install | bash"
+    exit 1
+fi
+
+echo "Using package manager: $PM"
+
 # Clean previous builds
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$BUILD_DIR"
@@ -20,12 +47,12 @@ mkdir -p "$BUILD_DIR"
 # Install dependencies if needed
 if [ ! -d "node_modules" ]; then
     echo "Installing dependencies..."
-    pnpm install
+    $PM install
 fi
 
 # Build frontend
 echo "Building frontend..."
-pnpm build
+$PM run build
 
 # Copy files to build directory
 echo "Copying files..."
