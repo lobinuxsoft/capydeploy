@@ -679,3 +679,42 @@ class Plugin:
             decky.logger.info(f"Revoked hub: {hub_id}")
             return True
         return False
+
+    async def get_installed_games(self):
+        """Get list of games installed in the install path."""
+        games = []
+        try:
+            if os.path.exists(self.install_path):
+                for name in os.listdir(self.install_path):
+                    game_path = os.path.join(self.install_path, name)
+                    if os.path.isdir(game_path):
+                        # Get folder size
+                        total_size = 0
+                        for dirpath, dirnames, filenames in os.walk(game_path):
+                            for f in filenames:
+                                fp = os.path.join(dirpath, f)
+                                try:
+                                    total_size += os.path.getsize(fp)
+                                except OSError:
+                                    pass
+                        games.append({
+                            "name": name,
+                            "path": game_path,
+                            "size": total_size,
+                        })
+        except Exception as e:
+            decky.logger.error(f"Error listing games: {e}")
+        return games
+
+    async def uninstall_game(self, game_name: str):
+        """Remove a game folder from the install path."""
+        import shutil
+        game_path = os.path.join(self.install_path, game_name)
+        try:
+            if os.path.exists(game_path) and os.path.isdir(game_path):
+                shutil.rmtree(game_path)
+                decky.logger.info(f"Uninstalled game: {game_name}")
+                return True
+        except Exception as e:
+            decky.logger.error(f"Error uninstalling game: {e}")
+        return False

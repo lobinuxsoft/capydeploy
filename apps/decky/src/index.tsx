@@ -10,6 +10,7 @@ import { useState, useCallback, VFC } from "react";
 import { useAgent, ShortcutConfig } from "./hooks/useAgent";
 import StatusPanel from "./components/StatusPanel";
 import AuthorizedHubs from "./components/AuthorizedHubs";
+import InstalledGames from "./components/InstalledGames";
 import ProgressPanel from "./components/ProgressPanel";
 import CapyIcon from "./components/CapyIcon";
 import type { OperationEvent, UploadProgress } from "./types";
@@ -149,9 +150,11 @@ const CapyDeployPanel: VFC = () => {
           src={mascotUrl}
           alt="CapyDeploy"
           style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "50%",
+            width: "64px",
+            height: "64px",
+            borderRadius: "12px",
+            objectFit: "cover",
+            border: "2px solid rgba(89, 191, 64, 0.5)",
           }}
         />
         <div>
@@ -178,6 +181,8 @@ const CapyDeployPanel: VFC = () => {
       />
 
       <AuthorizedHubs enabled={enabled} />
+
+      <InstalledGames enabled={enabled} installPath={status?.installPath ?? ""} />
 
       <ProgressPanel operation={currentOperation} uploadProgress={uploadProgress} />
     </div>
