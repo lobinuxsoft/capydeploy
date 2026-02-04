@@ -47,6 +47,31 @@ class MDNSService:
         except Exception:
             return "127.0.0.1"
 
+    def _detect_platform(self) -> str:
+        """Detect the handheld platform."""
+        # Check for common handheld devices
+        if os.path.exists("/home/deck"):
+            return "steamdeck"
+        if os.path.exists("/usr/share/plymouth/themes/legion-go"):
+            return "legiongologo"
+        if os.path.exists("/usr/share/plymouth/themes/rogally"):
+            return "rogally"
+
+        # Check OS release
+        try:
+            with open("/etc/os-release", "r") as f:
+                content = f.read().lower()
+                if "steamos" in content:
+                    return "steamdeck"
+                if "chimeraos" in content:
+                    return "chimeraos"
+                if "bazzite" in content:
+                    return "bazzite"
+        except Exception:
+            pass
+
+        return "linux"
+
     def start(self):
         """Start advertising via mDNS."""
         try:
@@ -59,10 +84,11 @@ class MDNSService:
             decky.logger.info(f"mDNS will advertise on {local_ip}:{self.port}")
 
             # Build TXT records (same format as Go agent)
+            platform = self._detect_platform()
             properties = {
                 b"id": self.agent_id.encode(),
                 b"name": self.agent_name.encode(),
-                b"platform": b"steamdeck",
+                b"platform": platform.encode(),
                 b"version": PLUGIN_VERSION.encode(),
             }
 
