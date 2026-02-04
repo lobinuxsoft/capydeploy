@@ -42,6 +42,8 @@ export function GetLogos(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):
 
 export function GetSteamGridDBAPIKey():Promise<string>;
 
+export function GetVersion():Promise<main.VersionInfo>;
+
 export function OpenCacheFolder():Promise<void>;
 
 export function OpenCachedImage(arg1:number,arg2:string):Promise<void>;

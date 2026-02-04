@@ -117,6 +117,22 @@ export namespace main {
 	        this.appId = source["appId"];
 	    }
 	}
+	export class VersionInfo {
+	    version: string;
+	    commit: string;
+	    buildDate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VersionInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.commit = source["commit"];
+	        this.buildDate = source["buildDate"];
+	    }
+	}
 
 }
 
