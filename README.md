@@ -5,7 +5,7 @@
 
   **Deploy games to your handheld devices with the chill energy of a capybara.**
 
-  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+  [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
   [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
   [![Wails](https://img.shields.io/badge/Wails-v2-red)](https://wails.io/)
 </div>
@@ -208,7 +208,14 @@ Full documentation available at: [docs/index.html](docs/index.html)
 
 ## License
 
-Apache License 2.0 - See [LICENSE](LICENSE) for details.
+AGPL v3 - See [LICENSE](LICENSE) for details.
+
+This means:
+- ✅ Free to use, modify, and distribute
+- ✅ Contributions welcome
+- ⚠️ Derivatives must use the same license
+- ⚠️ Source code must be provided (even for SaaS)
+- ⚠️ Original authors must be credited
 
 ## Support
 
