@@ -1438,12 +1438,50 @@ cd apps/agent && ./build.sh</code></pre>
   <section id="developers" class="py-20 px-4">
     <div class="max-w-6xl mx-auto">
       <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Adding a New Platform</h2>
-      <p class="text-slate-400 text-center mb-12 max-w-2xl mx-auto">Want to add support for macOS or another platform? Here's what you need to implement.</p>
+      <p class="text-slate-400 text-center mb-12 max-w-2xl mx-auto">Agents report their capabilities to the Hub. Steam is optional — implement only what your platform supports.</p>
 
-      <!-- Overview -->
+      <!-- Capabilities -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
-        <h3 class="text-lg font-semibold mb-4">Platform-Specific Files</h3>
-        <p class="text-slate-400 mb-4">CapyDeploy uses Go build tags to separate platform code. Each platform needs:</p>
+        <h3 class="text-lg font-semibold mb-4">Agent Capabilities</h3>
+        <p class="text-slate-400 mb-4">The Hub dynamically shows/hides UI based on what the Agent reports:</p>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="bg-slate-950 rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-green-400 mb-2">File Capabilities (required)</h4>
+            <div class="space-y-1 text-sm">
+              <div class="flex items-center gap-2"><code class="text-slate-400">file_upload</code><span class="text-slate-500">— Receive game uploads</span></div>
+              <div class="flex items-center gap-2"><code class="text-slate-400">file_list</code><span class="text-slate-500">— List installed games</span></div>
+            </div>
+          </div>
+          <div class="bg-slate-950 rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-water-400 mb-2">Steam Capabilities (optional)</h4>
+            <div class="space-y-1 text-sm">
+              <div class="flex items-center gap-2"><code class="text-slate-400">steam_shortcuts</code><span class="text-slate-500">— Create/delete shortcuts</span></div>
+              <div class="flex items-center gap-2"><code class="text-slate-400">steam_artwork</code><span class="text-slate-500">— Apply artwork</span></div>
+              <div class="flex items-center gap-2"><code class="text-slate-400">steam_users</code><span class="text-slate-500">— List Steam users</span></div>
+              <div class="flex items-center gap-2"><code class="text-slate-400">steam_restart</code><span class="text-slate-500">— Restart Steam</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 grid md:grid-cols-3 gap-3 text-xs">
+          <div class="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
+            <span class="text-green-400 font-semibold">PC + Steam</span>
+            <p class="text-slate-500 mt-1">All capabilities</p>
+          </div>
+          <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-center">
+            <span class="text-yellow-400 font-semibold">PC without Steam</span>
+            <p class="text-slate-500 mt-1">file_upload, file_list</p>
+          </div>
+          <div class="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-center">
+            <span class="text-purple-400 font-semibold">Android (future)</span>
+            <p class="text-slate-500 mt-1">file_upload, file_list</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Platform Files -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+        <h3 class="text-lg font-semibold mb-4">Platform-Specific Files (if using Steam)</h3>
+        <p class="text-slate-400 mb-4">Go build tags separate platform code. Only needed if your platform supports Steam:</p>
         <div class="grid md:grid-cols-3 gap-4">
           <div class="bg-slate-950 rounded-xl p-4">
             <code class="text-capy-400 text-sm">pkg/steam/paths_*.go</code>
