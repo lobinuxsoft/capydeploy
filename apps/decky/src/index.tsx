@@ -97,7 +97,7 @@ const CapyDeployPanel: VFC = () => {
     }
   }, []);
 
-  const { enabled, setEnabled, status, pairingCode } = useAgent({
+  const { enabled, setEnabled, status, pairingCode, refreshStatus } = useAgent({
     onOperation: (event) => {
       setCurrentOperation(event);
 
@@ -174,6 +174,7 @@ const CapyDeployPanel: VFC = () => {
         port={status?.port ?? 9999}
         ip={status?.ip ?? "127.0.0.1"}
         installPath={status?.installPath ?? "~/Games"}
+        onRefresh={refreshStatus}
       />
 
       <AuthorizedHubs enabled={enabled} />

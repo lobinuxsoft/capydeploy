@@ -8,17 +8,31 @@ import {
   PanelSectionRow,
   ToggleField,
   Field,
+  TextField,
+  ButtonItem,
   Focusable,
 } from "@decky/ui";
-import { VFC } from "react";
+import { call, openFilePicker } from "@decky/api";
+import { VFC, useState } from "react";
 import {
   FaPlug,
   FaPlugCircleXmark,
   FaNetworkWired,
   FaComputer,
   FaFolder,
-  FaCircleInfo
+  FaFolderOpen,
+  FaCircleInfo,
+  FaPen,
+  FaCheck,
+  FaXmark,
+  FaKey,
 } from "react-icons/fa6";
+
+// FileSelectionType enum from @decky/api
+const FileSelectionType = {
+  FILE: 0,
+  FOLDER: 1,
+} as const;
 
 interface StatusPanelProps {
   enabled: boolean;
@@ -32,6 +46,7 @@ interface StatusPanelProps {
   port: number;
   ip: string;
   installPath: string;
+  onRefresh: () => void;
 }
 
 const StatusPanel: VFC<StatusPanelProps> = ({
@@ -46,7 +61,59 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   port,
   ip,
   installPath,
+  onRefresh,
 }) => {
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState(agentName);
+  const [savingName, setSavingName] = useState(false);
+
+  const handleSaveName = async () => {
+    if (!newName.trim()) return;
+    setSavingName(true);
+    try {
+      await call<[string], void>("set_agent_name", newName.trim());
+      setEditingName(false);
+      onRefresh();
+    } catch (e) {
+      console.error("Failed to save name:", e);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingName(false);
+    setNewName(agentName);
+  };
+
+  const handleSelectFolder = async () => {
+    try {
+      const result = await openFilePicker(
+        FileSelectionType.FOLDER,
+        installPath || "/home",
+        false, // includeFiles
+        true,  // includeFolders
+      );
+      if (result?.path) {
+        await call<[string], void>("set_install_path", result.path);
+        onRefresh();
+      }
+    } catch (e) {
+      console.error("Failed to select folder:", e);
+    }
+  };
+
+  const getPlatformDisplay = (p: string): string => {
+    const platforms: Record<string, string> = {
+      steamdeck: "Steam Deck",
+      bazzite: "Bazzite",
+      chimeraos: "ChimeraOS",
+      linux: "Linux",
+      windows: "Windows",
+    };
+    return platforms[p.toLowerCase()] || p;
+  };
+
   return (
     <>
       {/* Main Toggle */}
@@ -102,6 +169,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
                 <Field
                   label="Codigo de emparejamiento"
                   description="Ingresa este codigo en el Hub"
+                  icon={<FaKey color="#59bf40" />}
                 >
                   <span
                     style={{
@@ -123,15 +191,53 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
       {/* Agent Info - Always visible */}
       <PanelSection title="Informacion del Agente">
+        {/* Name - Editable */}
         <PanelSectionRow>
-          <Field label="Nombre" icon={<FaComputer />}>
-            <span>{agentName}</span>
-          </Field>
+          {editingName ? (
+            <Field label="Nombre" icon={<FaComputer />}>
+              <Focusable style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <TextField
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  disabled={savingName}
+                  style={{ flex: 1, minWidth: "100px" }}
+                />
+                <ButtonItem
+                  layout="below"
+                  onClick={handleSaveName}
+                  disabled={savingName || !newName.trim()}
+                >
+                  <FaCheck color="#59bf40" />
+                </ButtonItem>
+                <ButtonItem
+                  layout="below"
+                  onClick={handleCancelEdit}
+                  disabled={savingName}
+                >
+                  <FaXmark color="#bf4040" />
+                </ButtonItem>
+              </Focusable>
+            </Field>
+          ) : (
+            <Field
+              label="Nombre"
+              icon={<FaComputer />}
+              onClick={() => {
+                setNewName(agentName);
+                setEditingName(true);
+              }}
+            >
+              <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span>{agentName}</span>
+                <FaPen size={12} style={{ opacity: 0.5 }} />
+              </Focusable>
+            </Field>
+          )}
         </PanelSectionRow>
 
         <PanelSectionRow>
           <Field label="Plataforma">
-            <span style={{ textTransform: "capitalize" }}>{platform}</span>
+            <span>{getPlatformDisplay(platform)}</span>
           </Field>
         </PanelSectionRow>
 
@@ -141,9 +247,17 @@ const StatusPanel: VFC<StatusPanelProps> = ({
           </Field>
         </PanelSectionRow>
 
+        {/* Install Path - Selectable */}
         <PanelSectionRow>
-          <Field label="Ruta de instalacion" icon={<FaFolder />}>
-            <span style={{ fontSize: "0.85em", opacity: 0.8 }}>{installPath}</span>
+          <Field
+            label="Ruta de instalacion"
+            icon={<FaFolder />}
+            onClick={handleSelectFolder}
+          >
+            <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "0.85em", opacity: 0.8 }}>{installPath}</span>
+              <FaFolderOpen size={14} style={{ opacity: 0.5 }} />
+            </Focusable>
           </Field>
         </PanelSectionRow>
       </PanelSection>
@@ -164,6 +278,25 @@ const StatusPanel: VFC<StatusPanelProps> = ({
           </PanelSectionRow>
         </PanelSection>
       )}
+
+      {/* Capabilities */}
+      <PanelSection title="Capacidades">
+        <PanelSectionRow>
+          <Field label="Subida de archivos">
+            <span style={{ color: "#59bf40" }}>Si</span>
+          </Field>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <Field label="Shortcuts de Steam">
+            <span style={{ color: "#59bf40" }}>Si</span>
+          </Field>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <Field label="Artwork de Steam">
+            <span style={{ color: "#59bf40" }}>Si</span>
+          </Field>
+        </PanelSectionRow>
+      </PanelSection>
     </>
   );
 };
