@@ -680,11 +680,17 @@ class WebSocketServer:
 
             shortcut_name = shortcut_config.get("name", session.game_name)
 
+            # Download artwork URLs and encode as base64 for SetCustomArtworkForApp
+            artwork_b64 = {}
+            raw_artwork = shortcut_config.get("artwork", {})
+            if raw_artwork:
+                artwork_b64 = await self.plugin._download_artwork(raw_artwork)
+
             await self.plugin.notify_frontend("create_shortcut", {
                 "name": shortcut_name,
                 "exe": exe_path,
                 "startDir": quoted_start_dir,
-                "artwork": shortcut_config.get("artwork", {}),
+                "artwork": artwork_b64,
             })
 
             # Pre-track the shortcut (appId will be updated by frontend via register_shortcut)
@@ -893,6 +899,48 @@ class Plugin:
 
         # Fallback to Path.home() (may be /root in Decky context)
         return str(Path.home())
+
+    async def _download_artwork(self, artwork: dict) -> dict:
+        """Download artwork URLs and return base64-encoded data with format info."""
+        import base64
+        import ssl
+        import urllib.request
+
+        # Decky runs as root with its own Python — SSL certs may not be configured
+        ssl_ctx = ssl.create_default_context()
+        try:
+            ssl_ctx.load_default_certs()
+        except Exception:
+            pass
+        # Fallback: if cert store is empty, disable verification for CDN downloads
+        if not ssl_ctx.get_ca_certs():
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+
+        result = {}
+        for key in ("grid", "hero", "logo", "icon", "banner"):
+            url = artwork.get(key, "")
+            if not url:
+                continue
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "CapyDeploy/0.1"})
+                with urllib.request.urlopen(req, timeout=15, context=ssl_ctx) as resp:
+                    data = resp.read()
+                    content_type = resp.headers.get("Content-Type", "")
+
+                # Detect format from content-type or URL
+                fmt = "png"
+                if "jpeg" in content_type or "jpg" in content_type or url.endswith(".jpg"):
+                    fmt = "jpg"
+                elif "webp" in content_type or url.endswith(".webp"):
+                    fmt = "png"  # Steam doesn't support webp, but SetCustomArtwork might handle it
+
+                b64 = base64.b64encode(data).decode("ascii")
+                result[key] = {"data": b64, "format": fmt}
+                decky.logger.info(f"Downloaded artwork '{key}': {len(data)} bytes ({fmt})")
+            except Exception as e:
+                decky.logger.error(f"Failed to download artwork '{key}' from {url}: {e}")
+        return result
 
     def _expand_path(self, path: str) -> str:
         """Expand ~ to actual home directory."""

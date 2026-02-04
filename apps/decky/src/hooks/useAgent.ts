@@ -27,15 +27,20 @@ export interface UseAgentOptions {
   onRemoveShortcut?: (appId: number) => void;
 }
 
+interface ArtworkAsset {
+  data: string;
+  format: string;
+}
+
 export interface ShortcutConfig {
   name: string;
   exe: string;
   startDir: string;
   artwork?: {
-    grid?: string;
-    hero?: string;
-    logo?: string;
-    icon?: string;
+    grid?: ArtworkAsset;
+    hero?: ArtworkAsset;
+    logo?: ArtworkAsset;
+    icon?: ArtworkAsset;
   };
 }
 

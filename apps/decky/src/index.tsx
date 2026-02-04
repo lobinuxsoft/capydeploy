@@ -60,31 +60,26 @@ const CapyDeployPanel: VFC = () => {
         // Register appId in backend for Hub queries
         await call<[string, number], void>("register_shortcut", config.name, appId);
 
-        // Apply artwork if provided
+        // Apply artwork if provided (backend sends {data: base64, format: "png"|"jpg"})
         if (config.artwork) {
-          if (config.artwork.grid) {
-            await SteamClient.Apps.SetCustomArtworkForApp(
-              appId,
-              config.artwork.grid,
-              "png",
-              ASSET_TYPE.grid_p
-            );
-          }
-          if (config.artwork.hero) {
-            await SteamClient.Apps.SetCustomArtworkForApp(
-              appId,
-              config.artwork.hero,
-              "png",
-              ASSET_TYPE.hero
-            );
-          }
-          if (config.artwork.logo) {
-            await SteamClient.Apps.SetCustomArtworkForApp(
-              appId,
-              config.artwork.logo,
-              "png",
-              ASSET_TYPE.logo
-            );
+          const artworkEntries: [{ data: string; format: string } | undefined, number][] = [
+            [config.artwork.grid, ASSET_TYPE.grid_p],
+            [config.artwork.hero, ASSET_TYPE.hero],
+            [config.artwork.logo, ASSET_TYPE.logo],
+          ];
+          for (const [art, assetType] of artworkEntries) {
+            if (art?.data) {
+              try {
+                await SteamClient.Apps.SetCustomArtworkForApp(
+                  appId,
+                  art.data,
+                  art.format || "png",
+                  assetType
+                );
+              } catch (e) {
+                console.error(`Failed to apply artwork (type ${assetType}):`, e);
+              }
+            }
           }
         }
 
