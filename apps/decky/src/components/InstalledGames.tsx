@@ -14,6 +14,12 @@ import { call, toaster } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
 import { FaGamepad, FaTrash, FaFolderOpen } from "react-icons/fa6";
 
+declare const SteamClient: {
+  Apps: {
+    RemoveShortcut: (appId: number) => void;
+  };
+};
+
 interface InstalledGame {
   name: string;
   path: string;
@@ -65,8 +71,16 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
         onOK={async () => {
           setUninstalling(game.name);
           try {
-            const success = await call<[string], boolean>("uninstall_game", game.name);
-            if (success) {
+            const result = await call<[string], number | boolean>("uninstall_game", game.name);
+            if (result) {
+              // result is appId (number) or true (boolean) — remove Steam shortcut
+              if (typeof result === "number" && result > 0) {
+                try {
+                  SteamClient.Apps.RemoveShortcut(result);
+                } catch (e) {
+                  console.error("Failed to remove shortcut:", e);
+                }
+              }
               setGames(games.filter((g) => g.name !== game.name));
               toaster.toast({
                 title: "Juego eliminado",

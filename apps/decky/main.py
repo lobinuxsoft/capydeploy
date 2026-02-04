@@ -1111,7 +1111,7 @@ class Plugin:
         return games
 
     async def uninstall_game(self, game_name: str):
-        """Remove a game folder from the install path."""
+        """Remove a game folder and return its appId for shortcut removal."""
         import shutil
         expanded_path = self._expand_path(self.install_path)
         game_path = os.path.join(expanded_path, game_name)
@@ -1119,7 +1119,18 @@ class Plugin:
             if os.path.exists(game_path) and os.path.isdir(game_path):
                 shutil.rmtree(game_path)
                 decky.logger.info(f"Uninstalled game: {game_name}")
-                return True
+
+                # Find and remove from tracked shortcuts, return appId
+                tracked = self.settings.getSetting("tracked_shortcuts", [])
+                app_id = 0
+                for sc in tracked:
+                    if sc.get("gameName") == game_name or sc.get("name") == game_name:
+                        app_id = sc.get("appId", 0)
+                        break
+                tracked = [sc for sc in tracked if not (sc.get("gameName") == game_name or sc.get("name") == game_name)]
+                self.settings.setSetting("tracked_shortcuts", tracked)
+
+                return app_id if app_id else True
         except Exception as e:
             decky.logger.error(f"Error uninstalling game: {e}")
         return False
