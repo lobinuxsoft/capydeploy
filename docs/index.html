@@ -118,6 +118,7 @@
           <a href="#architecture" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">Architecture</a>
           <a href="#api" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">API</a>
           <a href="#install" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">Install</a>
+          <a href="#support" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">Donate</a>
           <a href="https://github.com/lobinuxsoft/capydeploy" target="_blank"
              class="ml-2 px-4 py-2 rounded-lg bg-capy-500 text-white hover:bg-capy-600 transition flex items-center gap-2">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -1432,6 +1433,60 @@ cd apps/agent && ./build.sh</code></pre>
     </div>
   </section>
 
+  <!-- Support Section -->
+  <section id="support" class="py-20 px-4 bg-slate-900/30">
+    <div class="max-w-4xl mx-auto text-center">
+      <h2 class="text-3xl md:text-4xl font-bold mb-4">Support the Project</h2>
+      <p class="text-slate-400 mb-8 max-w-2xl mx-auto">
+        CapyDeploy is free and open source. If you find it useful, consider supporting its development with a donation.
+      </p>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <!-- USDT TRC20 -->
+        <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-water-500/50 transition-all text-center cursor-pointer"
+             onclick="openQRLightbox('donate/usdt-trc20.png', 'USDT (TRC20)', 'TF6AXBP3LKBCcbJkLG6RqyMsrPNs2JCpdQ')">
+          <img src="donate/usdt-trc20.png" alt="USDT TRC20" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+          <h4 class="text-water-400 font-semibold text-sm">USDT (TRC20)</h4>
+          <code class="text-[0.6rem] text-slate-500 break-all block mt-1">TF6AXB...JCpdQ</code>
+        </div>
+
+        <!-- USDT BEP20 -->
+        <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-water-500/50 transition-all text-center cursor-pointer"
+             onclick="openQRLightbox('donate/usdt-bep20.png', 'USDT (BEP20)', '0xd8d2Ed67C567CB3Af437f4638d3531e560575A20')">
+          <img src="donate/usdt-bep20.png" alt="USDT BEP20" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+          <h4 class="text-water-400 font-semibold text-sm">USDT (BEP20)</h4>
+          <code class="text-[0.6rem] text-slate-500 break-all block mt-1">0xd8d2...5A20</code>
+        </div>
+
+        <!-- BTC -->
+        <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-capy-500/50 transition-all text-center cursor-pointer"
+             onclick="openQRLightbox('donate/btc.png', 'Bitcoin (BTC)', 'bc1qkxy898wa6mz04c9hrjekx6p0yht2ukz56e9xxq')">
+          <img src="donate/btc.png" alt="BTC" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+          <h4 class="text-capy-400 font-semibold text-sm">Bitcoin</h4>
+          <code class="text-[0.6rem] text-slate-500 break-all block mt-1">bc1qkx...9xxq</code>
+        </div>
+
+        <!-- Binance Pay -->
+        <div class="group p-4 rounded-xl border border-slate-700 bg-slate-900/50 hover:border-yellow-500/50 transition-all text-center cursor-pointer"
+             onclick="openQRLightbox('donate/binance-pay.jpeg', 'Binance Pay', '78328894')">
+          <img src="donate/binance-pay.jpeg" alt="Binance Pay" class="w-20 h-20 mx-auto mb-3 rounded-lg bg-white p-2 group-hover:scale-105 transition-transform">
+          <h4 class="text-yellow-400 font-semibold text-sm">Binance Pay</h4>
+          <code class="text-[0.6rem] text-slate-500 block mt-1">78328894</code>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-500">Click on any option to view the QR code and full address</p>
+    </div>
+  </section>
+
+  <!-- QR Lightbox -->
+  <div id="qrLightbox" class="fixed inset-0 bg-black/90 z-[100] hidden items-center justify-center flex-col cursor-pointer" onclick="closeQRLightbox()">
+    <img id="qrLightboxImg" src="" alt="QR Code" class="max-w-[80%] max-h-[50%] bg-white p-5 rounded-xl shadow-[0_0_50px_rgba(6,182,212,0.3)]">
+    <div id="qrLightboxTitle" class="text-water-400 text-2xl font-semibold mt-6"></div>
+    <div id="qrLightboxAddress" class="text-white font-mono text-sm mt-3 px-6 py-3 bg-white/10 rounded-lg select-all"></div>
+    <div class="text-slate-500 text-xs mt-4">Click anywhere to close</div>
+  </div>
+
   <!-- Footer -->
   <footer class="py-12 px-4 border-t border-slate-800">
     <div class="max-w-6xl mx-auto">
@@ -1468,6 +1523,29 @@ cd apps/agent && ./build.sh</code></pre>
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       });
+    });
+
+    // QR Lightbox functions
+    function openQRLightbox(imgSrc, title, address) {
+      const lightbox = document.getElementById('qrLightbox');
+      document.getElementById('qrLightboxImg').src = imgSrc;
+      document.getElementById('qrLightboxTitle').textContent = title;
+      document.getElementById('qrLightboxAddress').textContent = address;
+      lightbox.classList.remove('hidden');
+      lightbox.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeQRLightbox() {
+      const lightbox = document.getElementById('qrLightbox');
+      lightbox.classList.add('hidden');
+      lightbox.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeQRLightbox();
     });
   </script>
 </body>
