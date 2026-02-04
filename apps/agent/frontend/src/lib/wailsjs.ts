@@ -2,6 +2,7 @@ import * as App from '$wailsjs/go/main/App';
 import * as runtime from '$wailsjs/runtime/runtime';
 
 // App bindings
+export const GetVersion = App.GetVersion;
 export const GetStatus = App.GetStatus;
 export const GetSteamUsers = App.GetSteamUsers;
 export const GetShortcuts = App.GetShortcuts;

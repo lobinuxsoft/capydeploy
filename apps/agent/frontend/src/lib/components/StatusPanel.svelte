@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
-	import type { AgentStatus } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key } from 'lucide-svelte';
+	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
+	import type { AgentStatus, VersionInfo } from '$lib/types';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
+	let versionInfo = $state<VersionInfo | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let editingName = $state(false);
@@ -19,6 +20,7 @@
 		try {
 			status = await GetStatus();
 			installPath = await GetInstallPath();
+			versionInfo = await GetVersion();
 			error = null;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error loading status';
@@ -201,9 +203,30 @@
 				<span class="text-sm font-medium">{getPlatformIcon(status.platform)}</span>
 			</div>
 
-			<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-				<span class="text-sm">Version</span>
-				<span class="text-sm font-mono">{status.version}</span>
+			<!-- Version Info -->
+			<div class="p-3 rounded-lg bg-secondary/50">
+				<div class="flex items-center gap-2 mb-2">
+					<Info class="w-4 h-4" />
+					<span class="text-sm font-medium">Version</span>
+				</div>
+				<div class="pl-6 space-y-1">
+					<div class="flex justify-between text-sm">
+						<span class="text-muted-foreground">Version</span>
+						<span class="font-mono">{versionInfo?.version ?? status.version}</span>
+					</div>
+					{#if versionInfo?.commit && versionInfo.commit !== 'unknown'}
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">Commit</span>
+							<span class="font-mono text-xs">{versionInfo.commit}</span>
+						</div>
+					{/if}
+					{#if versionInfo?.buildDate && versionInfo.buildDate !== 'unknown'}
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">Build</span>
+							<span class="font-mono text-xs">{versionInfo.buildDate}</span>
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Install Path -->

@@ -26,6 +26,7 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steamgriddb"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
+	"github.com/lobinuxsoft/capydeploy/pkg/version"
 )
 
 // App struct holds the application state
@@ -107,6 +108,9 @@ func NewApp() *App {
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	log.Printf("CapyDeploy Hub %s starting", version.Full())
+
 	// Start continuous discovery in background
 	go a.runDiscovery()
 }
@@ -960,6 +964,26 @@ func (a *App) OpenCachedImage(gameID int, imageURL string) error {
 	}
 
 	return cmd.Start()
+}
+
+// =============================================================================
+// Version
+// =============================================================================
+
+// VersionInfo represents version information for the frontend.
+type VersionInfo struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"buildDate"`
+}
+
+// GetVersion returns the current version information.
+func (a *App) GetVersion() VersionInfo {
+	return VersionInfo{
+		Version:   version.Version,
+		Commit:    version.Commit,
+		BuildDate: version.BuildDate,
+	}
 }
 
 // =============================================================================

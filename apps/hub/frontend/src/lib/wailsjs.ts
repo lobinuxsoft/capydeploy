@@ -33,6 +33,9 @@ export const UploadGame = App.UploadGame;
 export const GetInstalledGames = App.GetInstalledGames;
 export const DeleteGame = App.DeleteGame;
 
+// Version
+export const GetVersion = App.GetVersion;
+
 // Settings functions
 export const GetSteamGridDBAPIKey = App.GetSteamGridDBAPIKey;
 export const SetSteamGridDBAPIKey = App.SetSteamGridDBAPIKey;

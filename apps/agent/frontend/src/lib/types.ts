@@ -1,3 +1,9 @@
+export interface VersionInfo {
+	version: string;
+	commit: string;
+	buildDate: string;
+}
+
 export interface AgentStatus {
 	running: boolean;
 	name: string;

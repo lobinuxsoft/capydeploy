@@ -78,6 +78,10 @@ export function GetSteamGridDBAPIKey() {
   return window['go']['main']['App']['GetSteamGridDBAPIKey']();
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function OpenCacheFolder() {
   return window['go']['main']['App']['OpenCacheFolder']();
 }
