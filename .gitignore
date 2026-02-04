@@ -50,3 +50,4 @@ ehthumbs.db
 # Config files (user-specific)
 config.json
 devices.json
+.claude/
