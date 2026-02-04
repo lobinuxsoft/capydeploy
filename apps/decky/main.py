@@ -402,7 +402,9 @@ class WebSocketServer:
 
         upload_id = f"upload-{int(time.time())}-{random.randint(1000, 9999)}"
         session = UploadSession(upload_id, game_name, total_size, files)
-        session.install_path = os.path.join(self.plugin.install_path, game_name)
+        # Expand path for actual file operations
+        expanded_path = self.plugin._expand_path(self.plugin.install_path)
+        session.install_path = os.path.join(expanded_path, game_name)
         self.uploads[upload_id] = session
 
         # Create install directory
@@ -631,24 +633,30 @@ class Plugin:
     install_path: str
     _frontend_ws = None
 
-    def _get_default_install_path(self) -> str:
-        """Get the default install path, detecting the real user home."""
+    def _get_user_home(self) -> str:
+        """Get the real user home directory (not /root when running as service)."""
         # Try common Steam user homes
         for user_home in ["/home/deck", "/home/lobinux"]:
             if os.path.exists(user_home):
-                return os.path.join(user_home, "Games")
+                return user_home
 
         # Try to find a home with .steam directory
         try:
             for entry in os.listdir("/home"):
                 home_path = f"/home/{entry}"
                 if os.path.isdir(home_path) and os.path.exists(f"{home_path}/.steam"):
-                    return os.path.join(home_path, "Games")
+                    return home_path
         except Exception:
             pass
 
         # Fallback to Path.home() (may be /root in Decky context)
-        return os.path.join(str(Path.home()), "Games")
+        return str(Path.home())
+
+    def _expand_path(self, path: str) -> str:
+        """Expand ~ to actual home directory."""
+        if path.startswith("~/"):
+            return os.path.join(self._get_user_home(), path[2:])
+        return path
 
     async def _main(self):
         """Called when the plugin is loaded."""
@@ -663,10 +671,7 @@ class Plugin:
         # Load settings
         self.agent_name = self.settings.getSetting("agent_name", "Steam Deck")
         self.accept_connections = self.settings.getSetting("accept_connections", True)
-        self.install_path = self.settings.getSetting(
-            "install_path",
-            self._get_default_install_path()
-        )
+        self.install_path = self.settings.getSetting("install_path", "~/Games")
 
         # Get or generate agent ID
         stored_id = self.settings.getSetting("agent_id", None)
@@ -678,8 +683,8 @@ class Plugin:
             self.agent_id = hashlib.sha256(data.encode()).hexdigest()[:8]
             self.settings.setSetting("agent_id", self.agent_id)
 
-        # Ensure install path exists
-        os.makedirs(self.install_path, exist_ok=True)
+        # Ensure install path exists (expand ~ for actual file operations)
+        os.makedirs(self._expand_path(self.install_path), exist_ok=True)
 
         # Start server if enabled
         if self.settings.getSetting("enabled", False):
@@ -794,7 +799,7 @@ class Plugin:
         """Set the install path."""
         self.install_path = path
         self.settings.setSetting("install_path", path)
-        os.makedirs(path, exist_ok=True)
+        os.makedirs(self._expand_path(path), exist_ok=True)
 
     async def log_info(self, message: str):
         """Log an info message."""
@@ -829,10 +834,11 @@ class Plugin:
     async def get_installed_games(self):
         """Get list of games installed in the install path."""
         games = []
+        expanded_path = self._expand_path(self.install_path)
         try:
-            if os.path.exists(self.install_path):
-                for name in os.listdir(self.install_path):
-                    game_path = os.path.join(self.install_path, name)
+            if os.path.exists(expanded_path):
+                for name in os.listdir(expanded_path):
+                    game_path = os.path.join(expanded_path, name)
                     if os.path.isdir(game_path):
                         # Get folder size
                         total_size = 0
@@ -855,7 +861,8 @@ class Plugin:
     async def uninstall_game(self, game_name: str):
         """Remove a game folder from the install path."""
         import shutil
-        game_path = os.path.join(self.install_path, game_name)
+        expanded_path = self._expand_path(self.install_path)
+        game_path = os.path.join(expanded_path, game_name)
         try:
             if os.path.exists(game_path) and os.path.isdir(game_path):
                 shutil.rmtree(game_path)
