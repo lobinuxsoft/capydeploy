@@ -9,7 +9,6 @@ import {
   ToggleField,
   Field,
   TextField,
-  ButtonItem,
   Focusable,
 } from "@decky/ui";
 import { call, openFilePicker } from "@decky/api";
@@ -118,7 +117,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   return (
     <>
       {/* Main Toggle */}
-      <div className="cd-section cd-section-cyan">
+      <div className="cd-section">
       <PanelSection title="Estado">
         <PanelSectionRow>
           <ToggleField
@@ -181,33 +180,33 @@ const StatusPanel: VFC<StatusPanelProps> = ({
       </div>
 
       {/* Agent Info - Always visible */}
-      <div className="cd-section cd-section-capy">
+      <div className="cd-section">
       <PanelSection title="Informacion del Agente">
         {/* Name - Editable */}
         <PanelSectionRow>
           {editingName ? (
             <Field label="Nombre" icon={<FaComputer />}>
-              <Focusable style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <Focusable style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <TextField
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   disabled={savingName}
-                  style={{ flex: 1, minWidth: "100px" }}
+                  style={{ flex: 1, minWidth: 0 }}
                 />
-                <ButtonItem
-                  layout="below"
+                <Focusable
+                  className="cd-icon-btn"
                   onClick={handleSaveName}
-                  disabled={savingName || !newName.trim()}
+                  style={{ opacity: savingName || !newName.trim() ? 0.3 : 1 }}
                 >
-                  <FaCheck color={colors.primary} />
-                </ButtonItem>
-                <ButtonItem
-                  layout="below"
+                  <FaCheck size={14} color={colors.primary} />
+                </Focusable>
+                <Focusable
+                  className="cd-icon-btn"
                   onClick={handleCancelEdit}
-                  disabled={savingName}
+                  style={{ opacity: savingName ? 0.3 : 1 }}
                 >
-                  <FaXmark color={colors.destructive} />
-                </ButtonItem>
+                  <FaXmark size={14} color={colors.destructive} />
+                </Focusable>
               </Focusable>
             </Field>
           ) : (
@@ -257,7 +256,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
       {/* Network Info - Only when enabled */}
       {enabled && (
-        <div className="cd-section cd-section-cyan">
+        <div className="cd-section">
         <PanelSection title="Red">
           <PanelSectionRow>
             <Field label="Puerto" icon={<FaNetworkWired />}>
@@ -275,7 +274,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
       )}
 
       {/* Capabilities */}
-      <div className="cd-section cd-section-mixed">
+      <div className="cd-section">
       <PanelSection title="Capacidades">
         <PanelSectionRow>
           <Field label="Subida de archivos">

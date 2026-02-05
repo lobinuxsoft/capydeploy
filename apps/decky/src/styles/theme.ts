@@ -222,42 +222,16 @@ export function getThemeCSS(): string {
     border-radius: 10px;
     position: relative;
     overflow: hidden;
-  }
-
-  .cd-section-cyan {
     background: linear-gradient(
       135deg,
-      rgba(6, 182, 212, 0.07) 0%,
-      rgba(6, 182, 212, 0.02) 100%
+      rgba(6, 182, 212, 0.12) 0%,
+      rgba(249, 115, 22, 0.04) 50%,
+      rgba(6, 182, 212, 0.08) 100%
     );
-    border: 1px solid rgba(6, 182, 212, 0.12);
+    border: 1px solid rgba(6, 182, 212, 0.2);
     box-shadow:
-      0 1px 8px rgba(6, 182, 212, 0.05),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  }
-
-  .cd-section-capy {
-    background: linear-gradient(
-      135deg,
-      rgba(249, 115, 22, 0.07) 0%,
-      rgba(249, 115, 22, 0.02) 100%
-    );
-    border: 1px solid rgba(249, 115, 22, 0.12);
-    box-shadow:
-      0 1px 8px rgba(249, 115, 22, 0.05),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  }
-
-  .cd-section-mixed {
-    background: linear-gradient(
-      135deg,
-      rgba(249, 115, 22, 0.05) 0%,
-      rgba(6, 182, 212, 0.05) 100%
-    );
-    border: 1px solid rgba(6, 182, 212, 0.1);
-    box-shadow:
-      0 1px 8px rgba(6, 182, 212, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      0 2px 12px rgba(6, 182, 212, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   /* ── Status indicators ──────────────────────────────────── */
@@ -335,6 +309,28 @@ export function getThemeCSS(): string {
 
   .cd-text-disabled {
     color: ${colors.disabled};
+  }
+
+  /* ── Compact icon buttons (edit name actions) ────────────── */
+
+  .cd-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .cd-icon-btn:hover,
+  .cd-icon-btn.gpfocus {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   /* ── Field value styling (for inline spans) ────────────── */

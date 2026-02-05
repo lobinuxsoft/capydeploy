@@ -122,7 +122,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
   if (!enabled) return null;
 
   return (
-    <div className="cd-section cd-section-cyan">
+    <div className="cd-section">
     <PanelSection title="Juegos Instalados">
       {loading ? (
         <PanelSectionRow>

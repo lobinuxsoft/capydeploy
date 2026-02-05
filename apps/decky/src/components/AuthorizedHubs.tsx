@@ -70,7 +70,7 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
   if (!enabled) return null;
 
   return (
-    <div className="cd-section cd-section-capy">
+    <div className="cd-section">
     <PanelSection title="Hubs Autorizados">
       {loading ? (
         <PanelSectionRow>
