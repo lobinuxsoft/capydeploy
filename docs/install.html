@@ -107,6 +107,40 @@ cd apps/agent && ./build.sh</code></pre>
       </div>
     </div>
 
+    <!-- Decky Plugin (Gaming Mode) -->
+    <div class="mt-12">
+      <h3 class="text-2xl font-bold mb-6">Decky Plugin (Gaming Mode)</h3>
+      <p class="text-slate-400 mb-6">Alternative Agent that runs inside <a href="https://github.com/SteamDeckHomebrew/decky-loader" class="text-capy-400 hover:underline">Decky Loader</a> — no Steam restart needed.</p>
+
+      <div class="space-y-6">
+        <div class="flex gap-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-lg font-semibold mb-2">Build & Install</h4>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build (requires Node.js + Python 3)</span>
+cd apps/decky && ./build.sh
+<span class="text-slate-500"># Output: out/CapyDeploy-v0.1.0.zip</span>
+
+<span class="text-slate-500"># Install on handheld:</span>
+<span class="text-slate-500"># Decky Settings > Install Plugin from ZIP</span></code></pre>
+            </div>
+            <div class="mt-4 bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <h5 class="text-sm font-semibold text-capy-400 mb-2">Agent vs Decky Plugin</h5>
+              <div class="text-sm text-slate-400 space-y-1">
+                <div class="flex justify-between"><span>Shortcuts</span><span class="text-slate-300">Instant (SteamClient API)</span></div>
+                <div class="flex justify-between"><span>Artwork</span><span class="text-slate-300">Instant (no file copy)</span></div>
+                <div class="flex justify-between"><span>UI</span><span class="text-slate-300">Quick Access Menu panel</span></div>
+                <div class="flex justify-between"><span>Steam restart</span><span class="text-slate-300">Not needed</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Platform Dependencies -->
     <div class="mt-12 bg-slate-900 border border-slate-800 rounded-2xl p-6">
       <h3 class="text-lg font-semibold mb-4">Platform Dependencies (for building from source)</h3>

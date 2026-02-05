@@ -38,7 +38,8 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 | Component | Role |
 |-----------|------|
 | **Hub** | Desktop app on your PC. Discovers agents, initiates connections, sends games. |
-| **Agent** | Runs on handheld. Receives games, creates Steam shortcuts, applies artwork, restarts Steam. |
+| **Agent** | Runs on handheld (desktop mode). Receives games, creates Steam shortcuts, applies artwork, restarts Steam. |
+| **Decky Plugin** | Runs inside [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) (gaming mode). Same protocol as Agent but uses SteamClient APIs directly — no Steam restart needed. |
 
 ## Requirements
 
@@ -67,9 +68,29 @@ git submodule update --init --recursive
 # Build Hub (your PC)
 cd apps/hub && ./build.sh
 
-# Build Agent (handheld device)
+# Build Agent (handheld - desktop mode)
 cd apps/agent && ./build.sh
+
+# Build Decky Plugin (handheld - gaming mode)
+cd apps/decky && ./build.sh
 ```
+
+### Decky Plugin
+
+The Decky plugin is an alternative Agent for gaming mode. Requires [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) on the handheld.
+
+```bash
+cd apps/decky && ./build.sh
+# Output: out/CapyDeploy-v0.1.0.zip
+# Install via Decky Settings > Install from ZIP
+```
+
+| Feature | Agent (Wails) | Decky Plugin |
+|---------|---------------|--------------|
+| Shortcuts | `shortcuts.vdf` (restart Steam) | `SteamClient.Apps.AddShortcut()` (instant) |
+| Artwork | File copy to `grid/` | `SteamClient.Apps.SetCustomArtworkForApp()` |
+| UI | Standalone window | Quick Access Menu panel |
+| Mode | Desktop | Gaming |
 
 ## AppImage (Linux)
 
@@ -192,6 +213,10 @@ All communication happens over WebSocket at `ws://agent:9999/ws`
 - Windows: `%APPDATA%/capydeploy-agent/`
 - Linux: `~/.config/capydeploy-agent/`
 
+### Decky Plugin
+- Settings: `~/homebrew/settings/capydeploy.json`
+- Logs: `~/homebrew/logs/CapyDeploy/`
+
 ## Project Structure
 
 ```
@@ -202,13 +227,18 @@ capydeploy/
 │   │   ├── wsclient/           # WebSocket client
 │   │   ├── modules/            # Platform modules
 │   │   └── frontend/           # Svelte 5 UI
-│   └── agent/                  # Agent application (Handheld)
-│       ├── app.go              # Wails bindings
-│       ├── server/             # HTTP + WebSocket server
-│       ├── shortcuts/          # Steam shortcut manager
-│       ├── artwork/            # Artwork handler
-│       ├── steam/              # Steam controller
-│       └── frontend/           # Svelte 5 UI
+│   ├── agent/                  # Agent application (Handheld - desktop mode)
+│   │   ├── app.go              # Wails bindings
+│   │   ├── server/             # HTTP + WebSocket server
+│   │   ├── shortcuts/          # Steam shortcut manager
+│   │   ├── artwork/            # Artwork handler
+│   │   ├── steam/              # Steam controller
+│   │   └── frontend/           # Svelte 5 UI
+│   └── decky/                  # Decky Loader plugin (Handheld - gaming mode)
+│       ├── main.py             # Python backend (WS server, pairing, uploads)
+│       ├── src/                # React/TypeScript frontend
+│       ├── plugin.json         # Decky plugin manifest
+│       └── build.sh            # Build + bundle script
 ├── pkg/
 │   ├── protocol/               # WebSocket protocol types
 │   ├── discovery/              # mDNS discovery
@@ -259,5 +289,6 @@ If you find CapyDeploy useful, consider supporting development:
 ## Credits
 
 - Built with [Wails](https://wails.io/) + [Svelte 5](https://svelte.dev/)
+- Decky plugin with [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) + React
 - Steam shortcut management via [steam-shortcut-manager](https://github.com/shadowblip/steam-shortcut-manager)
 - Artwork from [SteamGridDB](https://www.steamgriddb.com/)
