@@ -13,6 +13,7 @@ out/
 __pycache__/
 *.py[cod]
 .venv/
+py_modules/
 
 # IDE
 .idea/
