@@ -11,7 +11,7 @@ import { useAgent, ShortcutConfig } from "./hooks/useAgent";
 import StatusPanel from "./components/StatusPanel";
 import AuthorizedHubs from "./components/AuthorizedHubs";
 import InstalledGames from "./components/InstalledGames";
-import ProgressPanel from "./components/ProgressPanel";
+import ProgressPanel, { ProgressModalContent, progressState } from "./components/ProgressPanel";
 import CapyIcon from "./components/CapyIcon";
 import { getThemeCSS } from "./styles/theme";
 import type { OperationEvent, UploadProgress } from "./types";
@@ -96,11 +96,11 @@ async function handleCreateShortcut(config: ShortcutConfig) {
         }
       }
 
-      toaster.toast({ title: "Shortcut creado!", body: config.name });
+      brandToast({ title: "Shortcut creado!", body: config.name });
     }
   } catch (e) {
     console.error("Failed to create shortcut:", e);
-    toaster.toast({ title: "Error al crear shortcut", body: String(e) });
+    brandToast({ title: "Error al crear shortcut", body: String(e) });
   }
 }
 
@@ -110,6 +110,36 @@ function handleRemoveShortcut(appId: number) {
   } catch (e) {
     console.error("Failed to remove shortcut:", e);
   }
+}
+
+// ── Branded toast helper ────────────────────────────────────────────────────
+
+const toastLogo = (
+  <img
+    src={mascotUrl}
+    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+  />
+);
+
+function brandToast(opts: { title: string; body: string }) {
+  toaster.toast({ ...opts, logo: toastLogo });
+}
+
+// ── Progress modal management ──────────────────────────────────────────────
+
+let progressModalHandle: { Close: () => void } | null = null;
+
+function showProgressModal() {
+  if (!progressModalHandle) {
+    progressModalHandle = showModal(<ProgressModalContent />);
+  }
+}
+
+function closeProgressModal(delay = 3000) {
+  setTimeout(() => {
+    progressModalHandle?.Close();
+    progressModalHandle = null;
+  }, delay);
 }
 
 // ── Centralized background polling (runs even when panel is closed) ────────
@@ -147,24 +177,32 @@ async function pollAllEvents() {
       _uiCallbacks.onOperation?.(event);
 
       if (event.status === "start") {
-        toaster.toast({
+        progressState.update(event, null);
+        showProgressModal();
+        brandToast({
           title: event.type === "install" ? "Instalando juego" : "Eliminando juego",
           body: event.gameName,
         });
       } else if (event.status === "complete") {
-        toaster.toast({
+        progressState.update(event, null);
+        closeProgressModal();
+        brandToast({
           title: event.type === "install" ? "Juego instalado!" : "Juego eliminado",
           body: event.gameName,
         });
       } else if (event.status === "error") {
-        toaster.toast({
+        progressState.update(event, null);
+        closeProgressModal(5000);
+        brandToast({
           title: "Error",
           body: `${event.gameName}: ${event.message}`,
         });
+      } else {
+        progressState.update(event, progressState.progress);
       }
     }
 
-    // ── Upload progress (UI state only, no toast needed) ──
+    // ── Upload progress (UI state + modal update) ──
 
     const progressEvent = await call<[string], { timestamp: number; data: UploadProgress } | null>(
       "get_event",
@@ -172,6 +210,7 @@ async function pollAllEvents() {
     );
     if (progressEvent?.data) {
       _uiCallbacks.onProgress?.(progressEvent.data);
+      progressState.update(progressState.operation, progressEvent.data);
     }
 
     // ── Pairing code (persistent modal, UI state when panel open) ──
@@ -202,7 +241,7 @@ async function pollAllEvents() {
     if (pairingSuccess) {
       _uiCallbacks.onPairingClear?.();
       _uiCallbacks.onRefreshStatus?.();
-      toaster.toast({
+      brandToast({
         title: "Hub vinculado!",
         body: "Emparejamiento exitoso",
       });

@@ -1,11 +1,101 @@
 /**
- * ProgressPanel - Shows current transfer progress.
+ * ProgressPanel - Shows current transfer progress (QAM inline + modal popup).
  */
 
-import { PanelSection, PanelSectionRow, Field, ProgressBarWithInfo } from "@decky/ui";
-import { VFC } from "react";
+import {
+  PanelSection,
+  PanelSectionRow,
+  Field,
+  ProgressBarWithInfo,
+  ModalRoot,
+} from "@decky/ui";
+import { VFC, useState, useEffect } from "react";
 import type { OperationEvent, UploadProgress } from "../types";
-import { colors } from "../styles/theme";
+import { colors, getModalCSS } from "../styles/theme";
+
+import mascotUrl from "../../assets/mascot.gif";
+
+// ── Shared progress state (subscriber pattern for modal live updates) ──────
+
+export const progressState = {
+  operation: null as OperationEvent | null,
+  progress: null as UploadProgress | null,
+  _listeners: new Set<() => void>(),
+
+  update(op: OperationEvent | null, prog: UploadProgress | null) {
+    this.operation = op;
+    this.progress = prog;
+    this._listeners.forEach((l) => l());
+  },
+
+  subscribe(fn: () => void) {
+    this._listeners.add(fn);
+    return () => { this._listeners.delete(fn); };
+  },
+};
+
+// ── Progress modal content (rendered inside showModal) ─────────────────────
+
+export const ProgressModalContent: VFC<{ closeModal?: () => void }> = ({ closeModal }) => {
+  const [, rerender] = useState(0);
+
+  useEffect(() => {
+    return progressState.subscribe(() => rerender((n) => n + 1));
+  }, []);
+
+  const { operation, progress } = progressState;
+  if (!operation) return null;
+
+  const isInstalling = operation.type === "install";
+  const isComplete = operation.status === "complete";
+  const isError = operation.status === "error";
+  const pct = (progress?.percentage ?? operation.progress) || 0;
+
+  const statusText = isError
+    ? `Error: ${operation.message}`
+    : isComplete
+      ? (isInstalling ? "Instalado!" : "Eliminado!")
+      : isInstalling ? "Instalando..." : "Eliminando...";
+
+  const statusClass = isError
+    ? "cd-modal-status cd-modal-status-error"
+    : isComplete
+      ? "cd-modal-status cd-modal-status-done"
+      : "cd-modal-status";
+
+  return (
+    <ModalRoot closeModal={closeModal}>
+      <style>{getModalCSS()}</style>
+      <div className="cd-modal-progress">
+        <img src={mascotUrl} alt="" className="cd-modal-mascot" />
+        <div className="cd-modal-title">
+          {isInstalling ? "Instalando juego" : "Eliminando juego"}
+        </div>
+        <div className="cd-modal-game">{operation.gameName}</div>
+
+        {isComplete && <div className="cd-modal-check">✓</div>}
+
+        {!isComplete && !isError && (
+          <>
+            <div className="cd-progress-bar">
+              <div className="cd-progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="cd-progress-pct">{Math.round(pct)}%</div>
+            {progress && (
+              <div className="cd-progress-bytes">
+                {formatBytes(progress.transferredBytes)} / {formatBytes(progress.totalBytes)}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className={statusClass}>{statusText}</div>
+      </div>
+    </ModalRoot>
+  );
+};
+
+// ── Inline QAM panel (kept for in-panel view) ─────────────────────────────
 
 interface ProgressPanelProps {
   operation: OperationEvent | null;

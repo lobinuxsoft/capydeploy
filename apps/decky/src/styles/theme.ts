@@ -4,7 +4,7 @@
  * Uses inline <style> JSX + Steam class overrides via quickAccessControlsClasses.
  */
 
-import { quickAccessControlsClasses } from "@decky/ui";
+import { quickAccessControlsClasses, gamepadDialogClasses } from "@decky/ui";
 
 // ── Color constants (for react-icons inline `color` prop) ──────────────────
 
@@ -12,25 +12,57 @@ export const colors = {
   primary: "#06b6d4",
   primaryMid: "rgba(6, 182, 212, 0.35)",
   primaryHalf: "rgba(6, 182, 212, 0.5)",
+  capy: "#f97316",
+  capyLight: "#fb923c",
   destructive: "#dc2626",
   disabled: "#94a3b8",
   foreground: "#f1f5f9",
 } as const;
 
+// Brand gradient used across Hub, Agent and Docs
+const GRADIENT = "linear-gradient(90deg, #f97316 0%, #fb923c 40%, #06b6d4 100%)";
+
 // ── CSS builder (called at render time so Steam classes are resolved) ──────
 
 export function getThemeCSS(): string {
   const secTitle = quickAccessControlsClasses?.PanelSectionTitle;
+  const fieldLabel = gamepadDialogClasses?.FieldLabel;
+  const fieldDesc = gamepadDialogClasses?.FieldDescription;
+  const sepStd = gamepadDialogClasses?.WithBottomSeparatorStandard;
 
   return `
   /* ── Steam native overrides (scoped) ──────────────────── */
 
   ${secTitle ? `
   #capydeploy-wrap .${secTitle} {
-    background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #06b6d4 100%) !important;
+    background: ${GRADIENT} !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
+  }
+  ` : ""}
+
+  ${fieldLabel ? `
+  #capydeploy-wrap .${fieldLabel} {
+    color: ${colors.foreground} !important;
+  }
+  ` : ""}
+
+  ${fieldDesc ? `
+  #capydeploy-wrap .${fieldDesc} {
+    color: ${colors.disabled} !important;
+  }
+  ` : ""}
+
+  ${sepStd ? `
+  #capydeploy-wrap .${sepStd} {
+    border-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(249, 115, 22, 0.25) 30%,
+      rgba(6, 182, 212, 0.25) 70%,
+      transparent 100%
+    ) 1 !important;
   }
   ` : ""}
 
@@ -53,7 +85,6 @@ export function getThemeCSS(): string {
     overflow: hidden;
   }
 
-  /* Ambient glow in top-right corner */
   .cd-header::before {
     content: "";
     position: absolute;
@@ -74,7 +105,6 @@ export function getThemeCSS(): string {
     flex-shrink: 0;
   }
 
-  /* Glow aura behind mascot */
   .cd-mascot-wrap::before {
     content: "";
     position: absolute;
@@ -101,7 +131,6 @@ export function getThemeCSS(): string {
     mask-image: radial-gradient(circle, #000 58%, transparent 72%);
   }
 
-  /* Animated conic ring */
   .cd-mascot-wrap::after {
     content: "";
     position: absolute;
@@ -139,7 +168,7 @@ export function getThemeCSS(): string {
   .cd-title {
     font-weight: bold;
     font-size: 1.3em;
-    background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #06b6d4 100%);
+    background: ${GRADIENT};
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -218,6 +247,178 @@ export function getThemeCSS(): string {
 
   .cd-text-disabled {
     color: ${colors.disabled};
+  }
+
+  /* ── Progress modal ─────────────────────────────────────── */
+
+  .cd-modal-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    gap: 12px;
+    min-width: 300px;
+  }
+
+  .cd-modal-mascot {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 78%);
+    mask-image: radial-gradient(circle, #000 60%, transparent 78%);
+  }
+
+  .cd-modal-title {
+    font-weight: bold;
+    font-size: 1.2em;
+    background: ${GRADIENT};
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+  }
+
+  .cd-modal-game {
+    font-size: 1.1em;
+    color: ${colors.foreground};
+    text-align: center;
+  }
+
+  .cd-modal-status {
+    font-size: 0.9em;
+    color: ${colors.disabled};
+    text-align: center;
+  }
+
+  .cd-modal-status-error {
+    color: ${colors.destructive};
+  }
+
+  .cd-modal-status-done {
+    color: ${colors.primary};
+    text-shadow: 0 0 8px ${colors.primaryMid};
+  }
+
+  .cd-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .cd-progress-fill {
+    height: 100%;
+    background: ${GRADIENT};
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .cd-progress-pct {
+    font-family: monospace;
+    font-size: 0.85em;
+    color: ${colors.disabled};
+  }
+
+  .cd-progress-bytes {
+    font-size: 0.8em;
+    color: ${colors.disabled};
+  }
+
+  .cd-modal-check {
+    font-size: 2em;
+    color: ${colors.primary};
+    text-shadow: 0 0 16px ${colors.primaryHalf};
+    animation: cd-check-pop 0.4s ease-out;
+  }
+
+  @keyframes cd-check-pop {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.3); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  `;
+}
+
+// ── Progress modal CSS (self-contained for modal context) ──────────────────
+
+export function getModalCSS(): string {
+  return `
+  .cd-modal-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    gap: 12px;
+    min-width: 300px;
+  }
+  .cd-modal-mascot {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 78%);
+    mask-image: radial-gradient(circle, #000 60%, transparent 78%);
+  }
+  .cd-modal-title {
+    font-weight: bold;
+    font-size: 1.2em;
+    background: ${GRADIENT};
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+  }
+  .cd-modal-game {
+    font-size: 1.1em;
+    color: ${colors.foreground};
+    text-align: center;
+  }
+  .cd-modal-status {
+    font-size: 0.9em;
+    color: ${colors.disabled};
+    text-align: center;
+  }
+  .cd-modal-status-error { color: ${colors.destructive}; }
+  .cd-modal-status-done {
+    color: ${colors.primary};
+    text-shadow: 0 0 8px ${colors.primaryMid};
+  }
+  .cd-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .cd-progress-fill {
+    height: 100%;
+    background: ${GRADIENT};
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+  .cd-progress-pct {
+    font-family: monospace;
+    font-size: 0.85em;
+    color: ${colors.disabled};
+  }
+  .cd-progress-bytes {
+    font-size: 0.8em;
+    color: ${colors.disabled};
+  }
+  .cd-modal-check {
+    font-size: 2em;
+    color: ${colors.primary};
+    text-shadow: 0 0 16px ${colors.primaryHalf};
+    animation: cd-check-pop 0.4s ease-out;
+  }
+  @keyframes cd-check-pop {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.3); }
+    100% { transform: scale(1); opacity: 1; }
   }
   `;
 }

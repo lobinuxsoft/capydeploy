@@ -15,6 +15,15 @@ import { VFC, useState, useEffect, useCallback } from "react";
 import { FaGamepad, FaTrash, FaFolderOpen } from "react-icons/fa6";
 import { colors } from "../styles/theme";
 
+import mascotUrl from "../../assets/mascot.gif";
+
+const toastLogo = (
+  <img
+    src={mascotUrl}
+    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+  />
+);
+
 declare const SteamClient: {
   Apps: {
     RemoveShortcut: (appId: number) => void;
@@ -86,11 +95,13 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
               toaster.toast({
                 title: "Juego eliminado",
                 body: game.name,
+                logo: toastLogo,
               });
             } else {
               toaster.toast({
                 title: "Error",
                 body: `No se pudo eliminar ${game.name}`,
+                logo: toastLogo,
               });
             }
           } catch (e) {
@@ -98,6 +109,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
             toaster.toast({
               title: "Error",
               body: String(e),
+              logo: toastLogo,
             });
           } finally {
             setUninstalling(null);
