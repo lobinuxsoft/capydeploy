@@ -29,6 +29,8 @@ export function getThemeCSS(): string {
   const fieldLabel = gamepadDialogClasses?.FieldLabel;
   const fieldDesc = gamepadDialogClasses?.FieldDescription;
   const sepStd = gamepadDialogClasses?.WithBottomSeparatorStandard;
+  const fieldChildren = gamepadDialogClasses?.FieldChildrenWithIcon;
+  const fieldChildren2 = gamepadDialogClasses?.FieldChildrenInner;
 
   return `
   /* ── Steam native overrides (scoped) ──────────────────── */
@@ -44,7 +46,7 @@ export function getThemeCSS(): string {
 
   ${fieldLabel ? `
   #capydeploy-wrap .${fieldLabel} {
-    color: ${colors.foreground} !important;
+    text-shadow: 0 0 12px rgba(241, 245, 249, 0.15) !important;
   }
   ` : ""}
 
@@ -55,14 +57,28 @@ export function getThemeCSS(): string {
   ` : ""}
 
   ${sepStd ? `
-  #capydeploy-wrap .${sepStd} {
-    border-image: linear-gradient(
+  #capydeploy-wrap .${sepStd}::after {
+    background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(249, 115, 22, 0.25) 30%,
-      rgba(6, 182, 212, 0.25) 70%,
+      rgba(249, 115, 22, 0.3) 30%,
+      rgba(6, 182, 212, 0.3) 70%,
       transparent 100%
-    ) 1 !important;
+    ) !important;
+    height: 1px !important;
+    opacity: 0.8 !important;
+  }
+  ` : ""}
+
+  ${fieldChildren ? `
+  #capydeploy-wrap .${fieldChildren} svg {
+    filter: drop-shadow(0 0 3px ${colors.primaryMid});
+  }
+  ` : ""}
+
+  ${fieldChildren2 ? `
+  #capydeploy-wrap .${fieldChildren2} {
+    color: ${colors.foreground};
   }
   ` : ""}
 
@@ -77,12 +93,16 @@ export function getThemeCSS(): string {
     background: linear-gradient(
       135deg,
       rgba(6, 182, 212, 0.12) 0%,
-      rgba(6, 182, 212, 0.03) 100%
+      rgba(249, 115, 22, 0.04) 50%,
+      rgba(6, 182, 212, 0.08) 100%
     );
-    border: 1px solid rgba(6, 182, 212, 0.18);
+    border: 1px solid rgba(6, 182, 212, 0.2);
     border-radius: 12px;
     position: relative;
     overflow: hidden;
+    box-shadow:
+      0 2px 12px rgba(6, 182, 212, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .cd-header::before {
@@ -90,9 +110,9 @@ export function getThemeCSS(): string {
     position: absolute;
     top: -40%;
     right: -15%;
-    width: 100px;
-    height: 100px;
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -179,6 +199,20 @@ export function getThemeCSS(): string {
     font-size: 0.8em;
     color: ${colors.disabled};
     margin-top: 3px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Accent bar under header ─────────────────────────────── */
+
+  .cd-header::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: ${GRADIENT};
+    opacity: 0.4;
   }
 
   /* ── Status indicators ──────────────────────────────────── */
@@ -233,20 +267,36 @@ export function getThemeCSS(): string {
 
   .cd-mono {
     font-family: monospace;
-    color: ${colors.foreground};
+    color: ${colors.primary};
+    text-shadow: 0 0 6px ${colors.primaryMid};
+    font-weight: 500;
   }
 
   .cd-text-primary {
     color: ${colors.primary};
-    text-shadow: 0 0 6px ${colors.primaryMid};
+    font-weight: bold;
+    text-shadow: 0 0 8px ${colors.primaryMid};
+  }
+
+  .cd-text-capy {
+    color: ${colors.capy};
+    text-shadow: 0 0 6px rgba(249, 115, 22, 0.3);
   }
 
   .cd-text-destructive {
     color: ${colors.destructive};
+    text-shadow: 0 0 4px rgba(220, 38, 38, 0.3);
   }
 
   .cd-text-disabled {
     color: ${colors.disabled};
+  }
+
+  /* ── Field value styling (for inline spans) ────────────── */
+
+  .cd-value {
+    color: ${colors.foreground};
+    text-shadow: 0 0 8px rgba(241, 245, 249, 0.12);
   }
 
   /* ── Progress modal ─────────────────────────────────────── */

@@ -83,7 +83,7 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
             label="Sin hubs"
             icon={<FaShieldHalved style={{ opacity: 0.5 }} />}
           >
-            <span style={{ fontSize: "0.85em", opacity: 0.6 }}>
+            <span className="cd-text-disabled" style={{ fontSize: "0.85em" }}>
               Conecta un Hub para emparejar
             </span>
           </Field>

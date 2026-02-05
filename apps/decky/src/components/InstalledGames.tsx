@@ -135,7 +135,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
             label="Sin juegos"
             icon={<FaFolderOpen style={{ opacity: 0.5 }} />}
           >
-            <span style={{ fontSize: "0.85em", opacity: 0.6 }}>
+            <span className="cd-text-disabled" style={{ fontSize: "0.85em" }}>
               Envia juegos desde el Hub
             </span>
           </Field>

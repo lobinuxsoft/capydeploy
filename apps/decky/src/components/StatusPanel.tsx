@@ -217,7 +217,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
               }}
             >
               <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>{agentName}</span>
+                <span className="cd-value">{agentName}</span>
                 <FaPen size={12} style={{ opacity: 0.5 }} />
               </Focusable>
             </Field>
@@ -226,7 +226,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
         <PanelSectionRow>
           <Field label="Plataforma">
-            <span>{getPlatformDisplay(platform)}</span>
+            <span className="cd-value">{getPlatformDisplay(platform)}</span>
           </Field>
         </PanelSectionRow>
 
@@ -244,7 +244,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
             onClick={handleSelectFolder}
           >
             <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "0.85em", opacity: 0.8 }}>{installPath}</span>
+              <span className="cd-mono" style={{ fontSize: "0.85em" }}>{installPath}</span>
               <FaFolderOpen size={14} style={{ opacity: 0.5 }} />
             </Focusable>
           </Field>
