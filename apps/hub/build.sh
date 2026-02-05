@@ -364,7 +364,8 @@ DESKTOP
 
 uninstall_app() {
     echo "Uninstalling $APP_NAME..."
-    rm -f "$INSTALL_DIR"/*"$APP_NAME"*.AppImage
+    # Remove AppImage (case-insensitive match for CapyDeploy_Hub or capydeploy-hub)
+    find "$INSTALL_DIR" -maxdepth 1 -iname "*capydeploy*hub*.AppImage" -delete 2>/dev/null
     rm -f "$DESKTOP_DIR/$DESKTOP_NAME.desktop"
     rm -f "$ICON_DIR/$DESKTOP_NAME.png"
     echo "Uninstalled."
