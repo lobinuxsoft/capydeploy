@@ -1174,6 +1174,74 @@ class Plugin:
                 break
         self.settings.setSetting("tracked_shortcuts", tracked)
 
+    async def set_shortcut_icon(self, app_id: int, icon_b64: str, icon_format: str) -> bool:
+        """Save icon file and update shortcuts.vdf for a shortcut."""
+        import base64
+
+        try:
+            from vdf import binary_load, binary_dump
+        except ImportError:
+            decky.logger.error("vdf package not found, cannot set shortcut icon")
+            return False
+
+        steam_dir = self._get_steam_dir()
+        if not steam_dir:
+            decky.logger.error("Steam directory not found")
+            return False
+
+        # Find first steam user with shortcuts
+        users = self._get_steam_users()
+        if not users:
+            decky.logger.error("No Steam users found")
+            return False
+        user_id = users[0]["id"]
+
+        # Save icon file to grid directory
+        ext = "jpg" if icon_format == "jpg" else "png"
+        grid_dir = os.path.join(steam_dir, "userdata", user_id, "config", "grid")
+        os.makedirs(grid_dir, exist_ok=True)
+        icon_filename = f"{app_id}_icon.{ext}"
+        icon_path = os.path.join(grid_dir, icon_filename)
+
+        try:
+            icon_data = base64.b64decode(icon_b64)
+            with open(icon_path, "wb") as f:
+                f.write(icon_data)
+            decky.logger.info(f"Saved icon: {icon_path} ({len(icon_data)} bytes)")
+        except Exception as e:
+            decky.logger.error(f"Failed to save icon file: {e}")
+            return False
+
+        # Update shortcuts.vdf to set the icon path
+        vdf_path = os.path.join(steam_dir, "userdata", user_id, "config", "shortcuts.vdf")
+        if not os.path.exists(vdf_path):
+            decky.logger.error(f"shortcuts.vdf not found: {vdf_path}")
+            return False
+
+        try:
+            with open(vdf_path, "rb") as f:
+                data = binary_load(f)
+
+            found = False
+            for shortcut in data.get("shortcuts", {}).values():
+                vdf_appid = (shortcut.get("appid", 0) & 0xFFFFFFFF) | 0x80000000
+                if vdf_appid == app_id:
+                    shortcut["icon"] = icon_path
+                    found = True
+                    break
+
+            if found:
+                with open(vdf_path, "wb") as f:
+                    binary_dump(data, f)
+                decky.logger.info(f"Updated shortcuts.vdf icon for appId={app_id}")
+                return True
+            else:
+                decky.logger.warning(f"Shortcut appId={app_id} not found in shortcuts.vdf")
+                return False
+        except Exception as e:
+            decky.logger.error(f"Failed to update shortcuts.vdf: {e}")
+            return False
+
     async def get_authorized_hubs(self):
         """Get list of authorized hubs."""
         authorized = self.settings.getSetting("authorized_hubs", {})

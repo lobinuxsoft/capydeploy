@@ -77,12 +77,12 @@ async function handleCreateShortcut(config: ShortcutConfig) {
 
       // Apply artwork (backend sends {data: base64, format: "png"|"jpg"})
       if (config.artwork) {
+        // Grid, hero, logo, banner use SetCustomArtworkForApp
         const artworkEntries: [{ data: string; format: string } | undefined, number][] = [
           [config.artwork.grid, ASSET_TYPE.grid_p],
           [config.artwork.hero, ASSET_TYPE.hero],
           [config.artwork.logo, ASSET_TYPE.logo],
           [config.artwork.banner, ASSET_TYPE.grid_l],
-          [config.artwork.icon, ASSET_TYPE.icon],
         ];
         for (const [art, assetType] of artworkEntries) {
           if (art?.data) {
@@ -96,6 +96,20 @@ async function handleCreateShortcut(config: ShortcutConfig) {
             } catch (e) {
               console.error(`Failed to apply artwork (type ${assetType}):`, e);
             }
+          }
+        }
+
+        // Icons require writing to shortcuts.vdf (SetCustomArtworkForApp doesn't work)
+        if (config.artwork.icon?.data) {
+          try {
+            await call<[number, string, string], boolean>(
+              "set_shortcut_icon",
+              appId,
+              config.artwork.icon.data,
+              config.artwork.icon.format || "png"
+            );
+          } catch (e) {
+            console.error("Failed to set shortcut icon:", e);
           }
         }
       }
