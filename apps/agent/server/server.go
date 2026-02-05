@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,33 +34,35 @@ type OperationEvent struct {
 
 // Config holds the agent server configuration.
 type Config struct {
-	Port              int
+	Port              int                                        // Port to listen on (0 = dynamic, OS assigns)
 	Name              string
 	Version           string
 	Platform          string
 	Verbose           bool
-	UploadPath        string                     // Base path for uploaded files (deprecated, use GetInstallPath)
-	AcceptConnections func() bool                // Callback to check if connections are accepted
-	GetInstallPath    func() string              // Callback to get the install path from config
-	OnShortcutChange  func()                     // Callback when shortcuts are created/deleted
-	OnOperation       func(event OperationEvent) // Callback for operation progress
-	OnHubConnect      func(hubID, hubName, hubIP string) // Callback when a Hub connects
-	OnHubDisconnect   func()                     // Callback when the Hub disconnects
-	AuthManager       *auth.Manager              // Authentication manager for pairing
+	UploadPath        string                                     // Base path for uploaded files (deprecated, use GetInstallPath)
+	AcceptConnections func() bool                                // Callback to check if connections are accepted
+	GetInstallPath    func() string                              // Callback to get the install path from config
+	OnShortcutChange  func()                                     // Callback when shortcuts are created/deleted
+	OnOperation       func(event OperationEvent)                 // Callback for operation progress
+	OnHubConnect      func(hubID, hubName, hubIP string)         // Callback when a Hub connects
+	OnHubDisconnect   func()                                     // Callback when the Hub disconnects
+	AuthManager       *auth.Manager                              // Authentication manager for pairing
 	OnPairingCode     func(code string, expiresIn time.Duration) // Callback when pairing code is generated
-	OnPairingSuccess  func()                     // Callback when pairing is successful
+	OnPairingSuccess  func()                                     // Callback when pairing is successful
+	OnPortAssigned    func(port int)                             // Callback when port is assigned (useful for dynamic ports)
 }
 
 // Server is the main agent server that handles WebSocket connections and mDNS discovery.
 type Server struct {
-	cfg       Config
-	id        string
-	httpSrv   *http.Server
-	mdnsSrv   *discovery.Server
-	wsSrv     *WSServer
-	authMgr   *auth.Manager
-	mu        sync.RWMutex
-	startTime time.Time
+	cfg        Config
+	id         string
+	actualPort int // The actual port assigned by the OS (may differ from cfg.Port if 0 was specified)
+	httpSrv    *http.Server
+	mdnsSrv    *discovery.Server
+	wsSrv      *WSServer
+	authMgr    *auth.Manager
+	mu         sync.RWMutex
+	startTime  time.Time
 
 	// Upload management
 	uploadMu sync.RWMutex
@@ -102,6 +105,7 @@ func New(cfg Config) (*Server, error) {
 }
 
 // Run starts the WebSocket server and mDNS discovery.
+// If cfg.Port is 0, the OS will assign an available port dynamically.
 func (s *Server) Run(ctx context.Context) error {
 	s.startTime = time.Now()
 	log.Printf("Upload path: %s", s.cfg.UploadPath)
@@ -115,21 +119,35 @@ func (s *Server) Run(ctx context.Context) error {
 	// Keep legacy HTTP endpoints for backward compatibility during migration
 	s.registerHandlers(mux)
 
+	// Create TCP listener - use :0 for dynamic port assignment
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.cfg.Port))
+	if err != nil {
+		return fmt.Errorf("failed to create listener: %w", err)
+	}
+
+	// Get the actual port assigned by the OS
+	s.actualPort = listener.Addr().(*net.TCPAddr).Port
+	log.Printf("Assigned port: %d", s.actualPort)
+
+	// Notify caller about the assigned port
+	if s.cfg.OnPortAssigned != nil {
+		s.cfg.OnPortAssigned(s.actualPort)
+	}
+
 	s.httpSrv = &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.cfg.Port),
 		Handler:      mux,
-		ReadTimeout:  5 * time.Minute,  // Allow time for chunk uploads
+		ReadTimeout:  5 * time.Minute, // Allow time for chunk uploads
 		WriteTimeout: 5 * time.Minute,
 		IdleTimeout:  2 * time.Minute,
 	}
 
-	// Setup mDNS server
+	// Setup mDNS server with the actual assigned port
 	s.mdnsSrv = discovery.NewServer(discovery.ServiceInfo{
 		ID:       s.id,
 		Name:     s.cfg.Name,
 		Platform: s.cfg.Platform,
 		Version:  s.cfg.Version,
-		Port:     s.cfg.Port,
+		Port:     s.actualPort,
 	})
 
 	// Start mDNS in background
@@ -138,13 +156,13 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.mdnsSrv.Start(); err != nil {
 			errCh <- fmt.Errorf("mDNS server error: %w", err)
 		}
-		log.Printf("mDNS service registered: %s._capydeploy._tcp.local", s.id)
+		log.Printf("mDNS service registered: %s._capydeploy._tcp.local (port %d)", s.id, s.actualPort)
 	}()
 
 	// Start HTTP/WS server in background
 	go func() {
-		log.Printf("WebSocket server listening on :%d/ws", s.cfg.Port)
-		if err := s.httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("WebSocket server listening on :%d/ws", s.actualPort)
+		if err := s.httpSrv.Serve(listener); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("server error: %w", err)
 		}
 	}()
@@ -345,4 +363,10 @@ func (s *Server) SendEvent(msgType protocol.MessageType, payload any) {
 	if s.wsSrv != nil {
 		s.wsSrv.SendEvent(msgType, payload)
 	}
+}
+
+// GetPort returns the actual port the server is listening on.
+// This may differ from the configured port if 0 was specified (dynamic port).
+func (s *Server) GetPort() int {
+	return s.actualPort
 }

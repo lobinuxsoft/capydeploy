@@ -11,7 +11,9 @@ import (
 // ServiceName is the mDNS service type for CapyDeploy agents.
 const ServiceName = "_capydeploy._tcp"
 
-// DefaultPort is the default HTTP port for agent communication.
+// DefaultPort was the default HTTP port for agent communication.
+// Deprecated: Agents now use dynamic ports assigned by the OS.
+// This constant is kept for reference and backwards compatibility with tests.
 const DefaultPort = 8765
 
 // DefaultTTL is the default TTL for mDNS records.

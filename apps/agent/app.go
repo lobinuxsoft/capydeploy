@@ -97,7 +97,7 @@ func NewApp() *App {
 	return &App{
 		configMgr:         cfgMgr,
 		authMgr:           authMgr,
-		port:              discovery.DefaultPort,
+		port:              0, // Dynamic port - OS will assign
 		acceptConnections: true,
 	}
 }
@@ -114,13 +114,8 @@ func (a *App) getName() string {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// Ensure firewall rules exist (Windows only, requires admin first time)
-	if err := firewall.EnsureRules(a.port); err != nil {
-		log.Printf("Warning: could not configure firewall: %v", err)
-		log.Printf("You may need to run the Agent as Administrator once, or manually allow port %d", a.port)
-	}
-
 	// Start the HTTP server in background
+	// Firewall rules are configured after port is assigned (see OnPortAssigned callback)
 	go a.startServer()
 
 	// Start system tray if enabled
@@ -210,6 +205,20 @@ func (a *App) startServer() {
 			if a.tray != nil {
 				a.tray.HidePairingCode()
 			}
+		},
+		OnPortAssigned: func(port int) {
+			a.port = port
+			log.Printf("Port assigned: %d", port)
+
+			// Configure firewall now that we know the port (Windows only)
+			if err := firewall.EnsureRules(port); err != nil {
+				log.Printf("Warning: could not configure firewall: %v", err)
+				log.Printf("You may need to run the Agent as Administrator once")
+			}
+
+			// Emit status update with the actual port
+			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+			a.updateTrayStatus()
 		},
 	}
 

@@ -4,6 +4,7 @@ package firewall
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -14,15 +15,16 @@ const (
 )
 
 // EnsureRules ensures the necessary firewall rules exist for the Agent.
+// Uses program-based rules instead of port-based rules to support dynamic ports.
 // Returns nil if rules exist or were created successfully.
 // Returns an error if rules couldn't be created (e.g., no admin rights).
-func EnsureRules(httpPort int) error {
+func EnsureRules(_ int) error {
 	var errors []string
 
-	// Check/create HTTP rule
+	// Check/create program rule (allows Agent on any port)
 	if !ruleExists(ruleName) {
-		if err := createHTTPRule(httpPort); err != nil {
-			errors = append(errors, fmt.Sprintf("HTTP rule: %v", err))
+		if err := createProgramRule(); err != nil {
+			errors = append(errors, fmt.Sprintf("program rule: %v", err))
 		}
 	}
 
@@ -46,16 +48,21 @@ func ruleExists(name string) bool {
 	return !strings.Contains(string(output), "No rules match")
 }
 
-// createHTTPRule creates a firewall rule for the HTTP server.
-func createHTTPRule(port int) error {
+// createProgramRule creates a firewall rule based on the program executable.
+// This allows dynamic ports without needing to update the firewall rule.
+func createProgramRule() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
 	cmd := exec.Command("netsh", "advfirewall", "firewall", "add", "rule",
 		fmt.Sprintf("name=%s", ruleName),
 		"dir=in",
 		"action=allow",
-		"protocol=TCP",
-		fmt.Sprintf("localport=%d", port),
+		fmt.Sprintf("program=%s", exePath),
 		"profile=any",
-		fmt.Sprintf("description=Allow incoming connections to CapyDeploy Agent on port %d", port),
+		"description=Allow incoming connections to CapyDeploy Agent",
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -90,7 +97,7 @@ func RemoveRules() error {
 	if ruleExists(ruleName) {
 		cmd := exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", fmt.Sprintf("name=%s", ruleName))
 		if output, err := cmd.CombinedOutput(); err != nil {
-			errors = append(errors, fmt.Sprintf("HTTP rule: %v: %s", err, string(output)))
+			errors = append(errors, fmt.Sprintf("program rule: %v: %s", err, string(output)))
 		}
 	}
 

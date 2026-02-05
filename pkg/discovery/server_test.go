@@ -136,7 +136,7 @@ func TestGetLocalIPs(t *testing.T) {
 	}
 }
 
-func TestServer_DefaultPort(t *testing.T) {
+func TestServer_ZeroPortReturnsError(t *testing.T) {
 	info := ServiceInfo{
 		ID:   "test",
 		Name: "Test",
@@ -145,9 +145,11 @@ func TestServer_DefaultPort(t *testing.T) {
 
 	server := NewServer(info)
 
-	// Port should still be 0 until Start() is called
-	if server.info.Port != 0 {
-		t.Errorf("Port should be 0 before Start(), got %d", server.info.Port)
+	// Start() should return an error if port is 0
+	err := server.Start()
+	if err == nil {
+		t.Error("Start() should return error when port is 0")
+		server.Stop()
 	}
 }
 
