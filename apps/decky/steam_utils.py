@@ -26,23 +26,37 @@ def get_local_ip() -> str:
 
 def detect_platform() -> str:
     """Detect the handheld platform."""
-    if os.path.exists("/home/deck"):
-        return "steamdeck"
-    if os.path.exists("/usr/share/plymouth/themes/legion-go"):
-        return "legiongologo"
-    if os.path.exists("/usr/share/plymouth/themes/rogally"):
-        return "rogally"
+    # Check OS release first (most reliable method)
     try:
         with open("/etc/os-release", "r") as f:
             content = f.read().lower()
+            # SteamOS is the real Steam Deck
             if "steamos" in content:
                 return "steamdeck"
             if "chimeraos" in content:
                 return "chimeraos"
+            # Bazzite is NOT a Steam Deck, return linux
             if "bazzite" in content:
-                return "bazzite"
+                return "linux"
     except Exception:
         pass
+
+    # Check for handheld-specific files (fallback)
+    if os.path.exists("/usr/share/plymouth/themes/legion-go"):
+        return "legiongologo"
+    if os.path.exists("/usr/share/plymouth/themes/rogally"):
+        return "rogally"
+
+    # Only check /home/deck if it's a real directory (not a symlink)
+    # This avoids false positives on Bazzite which symlinks /home/deck
+    try:
+        info = os.lstat("/home/deck")
+        import stat
+        if not stat.S_ISLNK(info.st_mode) and stat.S_ISDIR(info.st_mode):
+            return "steamdeck"
+    except Exception:
+        pass
+
     return "linux"
 
 

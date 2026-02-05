@@ -140,10 +140,24 @@ func detectPlatform() string {
 		return runtime.GOOS
 	}
 
-	// Check for common handheld devices (Linux only)
-	if fileExists("/home/deck") {
-		return "steamdeck"
+	// Check OS release first (most reliable method)
+	if data, err := os.ReadFile("/etc/os-release"); err == nil {
+		content := strings.ToLower(string(data))
+		// SteamOS is the real Steam Deck
+		if strings.Contains(content, "steamos") {
+			return "steamdeck"
+		}
+		// ChimeraOS
+		if strings.Contains(content, "chimeraos") {
+			return "chimeraos"
+		}
+		// Bazzite (Fedora-based gaming distro, NOT a Steam Deck)
+		if strings.Contains(content, "bazzite") {
+			return "linux"
+		}
 	}
+
+	// Check for handheld-specific files (fallback)
 	if fileExists("/usr/share/plymouth/themes/legion-go") {
 		return "legiongologo"
 	}
@@ -151,14 +165,11 @@ func detectPlatform() string {
 		return "rogally"
 	}
 
-	// Check OS release for more info
-	if data, err := os.ReadFile("/etc/os-release"); err == nil {
-		content := strings.ToLower(string(data))
-		if strings.Contains(content, "steamos") {
+	// Only check /home/deck if it's a real directory (not a symlink)
+	// This avoids false positives on Bazzite which symlinks /home/deck
+	if info, err := os.Lstat("/home/deck"); err == nil {
+		if info.Mode()&os.ModeSymlink == 0 && info.IsDir() {
 			return "steamdeck"
-		}
-		if strings.Contains(content, "chimeraos") {
-			return "chimeraos"
 		}
 	}
 
