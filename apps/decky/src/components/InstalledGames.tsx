@@ -13,6 +13,7 @@ import {
 import { call, toaster } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
 import { FaGamepad, FaTrash, FaFolderOpen } from "react-icons/fa6";
+import { colors } from "../styles/theme";
 
 declare const SteamClient: {
   Apps: {
@@ -142,7 +143,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
               >
                 <FaTrash
                   style={{
-                    color: uninstalling === game.name ? "#666" : "#bf4040",
+                    color: uninstalling === game.name ? colors.disabled : colors.destructive,
                   }}
                 />
               </ButtonItem>

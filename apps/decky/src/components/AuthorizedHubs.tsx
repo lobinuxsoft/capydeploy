@@ -11,6 +11,7 @@ import {
 import { call } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
 import { FaShieldHalved, FaTrash, FaComputer } from "react-icons/fa6";
+import { colors } from "../styles/theme";
 
 interface AuthorizedHub {
   id: string;
@@ -102,7 +103,7 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
               >
                 <FaTrash
                   style={{
-                    color: revoking === hub.id ? "#666" : "#bf4040",
+                    color: revoking === hub.id ? colors.disabled : colors.destructive,
                   }}
                 />
               </ButtonItem>

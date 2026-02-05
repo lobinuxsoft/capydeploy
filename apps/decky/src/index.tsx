@@ -13,6 +13,7 @@ import AuthorizedHubs from "./components/AuthorizedHubs";
 import InstalledGames from "./components/InstalledGames";
 import ProgressPanel from "./components/ProgressPanel";
 import CapyIcon from "./components/CapyIcon";
+import { getThemeCSS } from "./styles/theme";
 import type { OperationEvent, UploadProgress } from "./types";
 
 // Import mascot
@@ -271,33 +272,17 @@ const CapyDeployPanel: VFC = () => {
   }, [setPairingCode, refreshStatus]);
 
   return (
-    <div>
+    <div id="capydeploy-wrap">
+      <style>{getThemeCSS()}</style>
+
       {/* Header with mascot */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          padding: "12px",
-          marginBottom: "8px",
-        }}
-      >
-        <img
-          src={mascotUrl}
-          alt="CapyDeploy"
-          style={{
-            width: "64px",
-            height: "64px",
-            borderRadius: "12px",
-            objectFit: "cover",
-            border: "2px solid rgba(89, 191, 64, 0.5)",
-          }}
-        />
+      <div className="cd-header">
+        <div className="cd-mascot-wrap">
+          <img src={mascotUrl} alt="CapyDeploy" />
+        </div>
         <div>
-          <div style={{ fontWeight: "bold", fontSize: "1.1em" }}>CapyDeploy</div>
-          <div style={{ fontSize: "0.8em", opacity: 0.7 }}>
-            Recibe juegos desde el Hub
-          </div>
+          <div className="cd-title">CapyDeploy</div>
+          <div className="cd-subtitle">Recibe juegos desde el Hub</div>
         </div>
       </div>
 

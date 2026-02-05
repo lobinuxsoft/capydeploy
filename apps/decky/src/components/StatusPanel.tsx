@@ -27,6 +27,7 @@ import {
   FaXmark,
   FaKey,
 } from "react-icons/fa6";
+import { colors } from "../styles/theme";
 
 // FileSelectionType enum from @decky/api
 const FileSelectionType = {
@@ -135,19 +136,15 @@ const StatusPanel: VFC<StatusPanelProps> = ({
                 label="Conexion"
                 icon={
                   connected ? (
-                    <FaPlug color="#59bf40" />
+                    <FaPlug color={colors.primary} />
                   ) : (
-                    <FaPlugCircleXmark color="#bf4040" />
+                    <FaPlugCircleXmark color={colors.destructive} />
                   )
                 }
               >
                 <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span
-                    style={{
-                      color: connected ? "#59bf40" : "#bf4040",
-                      fontWeight: "bold",
-                    }}
-                  >
+                  <span className={connected ? "cd-status-connected" : "cd-status-disconnected"}>
+                    {connected && <span className="cd-pulse" />}
                     {connected ? "Conectado" : "Esperando Hub..."}
                   </span>
                 </Focusable>
@@ -158,7 +155,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
             {connected && hubName && (
               <PanelSectionRow>
                 <Field label="Hub conectado">
-                  <span style={{ color: "#59bf40" }}>{hubName}</span>
+                  <span className="cd-text-primary">{hubName}</span>
                 </Field>
               </PanelSectionRow>
             )}
@@ -169,17 +166,9 @@ const StatusPanel: VFC<StatusPanelProps> = ({
                 <Field
                   label="Codigo de emparejamiento"
                   description="Ingresa este codigo en el Hub"
-                  icon={<FaKey color="#59bf40" />}
+                  icon={<FaKey color={colors.primary} />}
                 >
-                  <span
-                    style={{
-                      fontSize: "1.5em",
-                      fontFamily: "monospace",
-                      fontWeight: "bold",
-                      letterSpacing: "0.3em",
-                      color: "#59bf40",
-                    }}
-                  >
+                  <span className="cd-pairing-code">
                     {pairingCode}
                   </span>
                 </Field>
@@ -207,14 +196,14 @@ const StatusPanel: VFC<StatusPanelProps> = ({
                   onClick={handleSaveName}
                   disabled={savingName || !newName.trim()}
                 >
-                  <FaCheck color="#59bf40" />
+                  <FaCheck color={colors.primary} />
                 </ButtonItem>
                 <ButtonItem
                   layout="below"
                   onClick={handleCancelEdit}
                   disabled={savingName}
                 >
-                  <FaXmark color="#bf4040" />
+                  <FaXmark color={colors.destructive} />
                 </ButtonItem>
               </Focusable>
             </Field>
@@ -243,7 +232,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
         <PanelSectionRow>
           <Field label="Version" icon={<FaCircleInfo />}>
-            <span style={{ fontFamily: "monospace" }}>{version}</span>
+            <span className="cd-mono">{version}</span>
           </Field>
         </PanelSectionRow>
 
@@ -267,13 +256,13 @@ const StatusPanel: VFC<StatusPanelProps> = ({
         <PanelSection title="Red">
           <PanelSectionRow>
             <Field label="Puerto" icon={<FaNetworkWired />}>
-              <span style={{ fontFamily: "monospace" }}>{port}</span>
+              <span className="cd-mono">{port}</span>
             </Field>
           </PanelSectionRow>
 
           <PanelSectionRow>
             <Field label="IP">
-              <span style={{ fontFamily: "monospace" }}>{ip}</span>
+              <span className="cd-mono">{ip}</span>
             </Field>
           </PanelSectionRow>
         </PanelSection>
@@ -283,17 +272,17 @@ const StatusPanel: VFC<StatusPanelProps> = ({
       <PanelSection title="Capacidades">
         <PanelSectionRow>
           <Field label="Subida de archivos">
-            <span style={{ color: "#59bf40" }}>Si</span>
+            <span className="cd-text-primary">Si</span>
           </Field>
         </PanelSectionRow>
         <PanelSectionRow>
           <Field label="Shortcuts de Steam">
-            <span style={{ color: "#59bf40" }}>Si</span>
+            <span className="cd-text-primary">Si</span>
           </Field>
         </PanelSectionRow>
         <PanelSectionRow>
           <Field label="Artwork de Steam">
-            <span style={{ color: "#59bf40" }}>Si</span>
+            <span className="cd-text-primary">Si</span>
           </Field>
         </PanelSectionRow>
       </PanelSection>

@@ -5,6 +5,7 @@
 import { PanelSection, PanelSectionRow, Field, ProgressBarWithInfo } from "@decky/ui";
 import { VFC } from "react";
 import type { OperationEvent, UploadProgress } from "../types";
+import { colors } from "../styles/theme";
 
 interface ProgressPanelProps {
   operation: OperationEvent | null;
@@ -40,7 +41,7 @@ const ProgressPanel: VFC<ProgressPanelProps> = ({ operation, uploadProgress }) =
         <Field label={operation.gameName} bottomSeparator="none">
           <span
             style={{
-              color: isError ? "#bf4040" : isComplete ? "#59bf40" : "#fff",
+              color: isError ? colors.destructive : isComplete ? colors.primary : colors.foreground,
             }}
           >
             {getStatusText()}
