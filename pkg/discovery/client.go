@@ -126,13 +126,22 @@ func (c *Client) processEntry(entry *zeroconf.ServiceEntry) *DiscoveredAgent {
 		info.Name = entry.HostName
 	}
 
-	// Collect IPs (filter out link-local)
+	// Collect IPs (filter out loopback and link-local)
 	var ips []net.IP
 	for _, ip := range entry.AddrIPv4 {
 		ip4 := ip.To4()
-		if ip4 != nil && !(ip4[0] == 169 && ip4[1] == 254) {
-			ips = append(ips, ip)
+		if ip4 == nil {
+			continue
 		}
+		// Skip loopback (127.x.x.x)
+		if ip4[0] == 127 {
+			continue
+		}
+		// Skip link-local (169.254.x.x / APIPA)
+		if ip4[0] == 169 && ip4[1] == 254 {
+			continue
+		}
+		ips = append(ips, ip)
 	}
 
 	now := time.Now()
