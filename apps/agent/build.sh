@@ -379,28 +379,20 @@ case "$1" in
         ;;
 esac
 
-# Auto-install if not in ~/Applications
-if [[ "$APPIMAGE" != "$INSTALL_DIR"/* ]]; then
-    # Try graphical dialog first, then terminal, then just install
+# Auto-install prompt only when double-clicked (no terminal)
+# If running from terminal, just run the app without prompts
+if [[ "$APPIMAGE" != "$INSTALL_DIR"/* ]] && [ ! -t 0 ]; then
+    # No terminal = likely double-clicked from file manager
     if command -v zenity &>/dev/null; then
         if zenity --question --title="Install $APP_NAME" \
-            --text="Install to ~/Applications and create menu entry?" \
+            --text="Install to ~/.local/bin and create menu entry?" \
             --width=300 2>/dev/null; then
             install_app
             exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
         fi
     elif command -v kdialog &>/dev/null; then
-        if kdialog --yesno "Install to ~/Applications and create menu entry?" \
+        if kdialog --yesno "Install to ~/.local/bin and create menu entry?" \
             --title "Install $APP_NAME" 2>/dev/null; then
-            install_app
-            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
-        fi
-    elif [ -t 0 ]; then
-        echo ""
-        echo "$APP_NAME is not installed."
-        read -p "Install to ~/Applications? [y/N] " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
             install_app
             exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
         fi
