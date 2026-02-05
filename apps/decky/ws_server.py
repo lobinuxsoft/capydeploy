@@ -15,7 +15,7 @@ import decky  # type: ignore
 
 from upload import UploadSession
 from artwork import download_artwork
-from steam_utils import get_steam_users, expand_path
+from steam_utils import get_steam_users, expand_path, fix_permissions
 from pairing import PAIRING_CODE_EXPIRY
 
 if TYPE_CHECKING:
@@ -512,6 +512,9 @@ class WebSocketServer:
 
         session.status = "complete"
         decky.logger.info(f"Upload complete: {session.game_name}")
+
+        # Fix ownership/permissions — Decky runs as root but Steam runs as the real user
+        fix_permissions(session.install_path)
 
         result = {
             "success": True,

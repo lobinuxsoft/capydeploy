@@ -70,6 +70,41 @@ def expand_path(path: str) -> str:
     return path
 
 
+def fix_permissions(path: str) -> None:
+    """Recursively fix ownership and permissions so the real user can access files.
+
+    Decky runs as root but Steam runs as the regular user (e.g. deck).
+    Resolves the real owner from the user home directory.
+    """
+    home = get_user_home()
+    try:
+        stat = os.stat(home)
+        uid, gid = stat.st_uid, stat.st_gid
+    except Exception:
+        return
+
+    for dirpath, dirnames, filenames in os.walk(path):
+        try:
+            os.chown(dirpath, uid, gid)
+            os.chmod(dirpath, 0o755)
+        except Exception:
+            pass
+        for fname in filenames:
+            fpath = os.path.join(dirpath, fname)
+            try:
+                os.chown(fpath, uid, gid)
+                os.chmod(fpath, 0o644)
+            except Exception:
+                pass
+
+    # Make the root directory itself accessible too
+    try:
+        os.chown(path, uid, gid)
+        os.chmod(path, 0o755)
+    except Exception:
+        pass
+
+
 def get_steam_dir() -> Optional[str]:
     """Find Steam installation directory."""
     home = get_user_home()
