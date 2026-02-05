@@ -451,13 +451,29 @@ export function getThemeCSS(): string {
 
 export function getModalCSS(): string {
   return `
+  /* ── Glass backdrop for ModalRoot ────────────────────────── */
+
   .cd-modal-progress {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px;
+    padding: 28px 24px;
     gap: 12px;
-    min-width: 300px;
+    min-width: 320px;
+    background: linear-gradient(
+      135deg,
+      rgba(6, 182, 212, 0.12) 0%,
+      rgba(15, 23, 42, 0.85) 40%,
+      rgba(249, 115, 22, 0.06) 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-radius: 16px;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 0 24px rgba(6, 182, 212, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   .cd-modal-mascot {
     width: 64px;
@@ -624,6 +640,16 @@ export function getModalCSS(): string {
   .cd-modal-btn-secondary:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.14);
     color: ${colors.foreground};
+  }
+
+  .cd-modal-btn-danger {
+    background: linear-gradient(135deg, ${colors.destructive}, #991b1b);
+    color: #fff;
+    border-color: rgba(220, 38, 38, 0.4);
+  }
+
+  .cd-modal-btn-danger:hover:not(:disabled) {
+    box-shadow: 0 0 16px rgba(220, 38, 38, 0.35);
   }
   `;
 }

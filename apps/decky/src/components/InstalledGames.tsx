@@ -7,13 +7,13 @@ import {
   PanelSectionRow,
   Field,
   Focusable,
-  ConfirmModal,
   showModal,
 } from "@decky/ui";
 import { call, toaster } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
 import { FaGamepad, FaTrash, FaFolderOpen } from "react-icons/fa6";
 import { colors } from "../styles/theme";
+import ConfirmActionModal from "./ConfirmActionModal";
 
 import mascotUrl from "../../assets/mascot.gif";
 
@@ -71,50 +71,39 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
+  const doUninstall = async (game: InstalledGame) => {
+    setUninstalling(game.name);
+    try {
+      const result = await call<[string], number | boolean>("uninstall_game", game.name);
+      if (result) {
+        if (typeof result === "number" && result > 0) {
+          try {
+            SteamClient.Apps.RemoveShortcut(result);
+          } catch (e) {
+            console.error("Failed to remove shortcut:", e);
+          }
+        }
+        setGames(games.filter((g) => g.name !== game.name));
+        toaster.toast({ title: "Game removed", body: game.name, logo: toastLogo });
+      } else {
+        toaster.toast({ title: "Error", body: `Failed to remove ${game.name}`, logo: toastLogo });
+      }
+    } catch (e) {
+      console.error("Failed to uninstall:", e);
+      toaster.toast({ title: "Error", body: String(e), logo: toastLogo });
+    } finally {
+      setUninstalling(null);
+    }
+  };
+
   const handleUninstall = (game: InstalledGame) => {
     showModal(
-      <ConfirmModal
-        strTitle="Uninstall game"
-        strDescription={`Remove "${game.name}" (${formatSize(game.size)})? This action cannot be undone.`}
-        strOKButtonText="Remove"
-        strCancelButtonText="Cancel"
-        onOK={async () => {
-          setUninstalling(game.name);
-          try {
-            const result = await call<[string], number | boolean>("uninstall_game", game.name);
-            if (result) {
-              // result is appId (number) or true (boolean) — remove Steam shortcut
-              if (typeof result === "number" && result > 0) {
-                try {
-                  SteamClient.Apps.RemoveShortcut(result);
-                } catch (e) {
-                  console.error("Failed to remove shortcut:", e);
-                }
-              }
-              setGames(games.filter((g) => g.name !== game.name));
-              toaster.toast({
-                title: "Game removed",
-                body: game.name,
-                logo: toastLogo,
-              });
-            } else {
-              toaster.toast({
-                title: "Error",
-                body: `Failed to remove ${game.name}`,
-                logo: toastLogo,
-              });
-            }
-          } catch (e) {
-            console.error("Failed to uninstall:", e);
-            toaster.toast({
-              title: "Error",
-              body: String(e),
-              logo: toastLogo,
-            });
-          } finally {
-            setUninstalling(null);
-          }
-        }}
+      <ConfirmActionModal
+        title="Uninstall game"
+        description={`Remove "${game.name}" (${formatSize(game.size)})? This action cannot be undone.`}
+        confirmText="Remove"
+        destructive
+        onConfirm={() => doUninstall(game)}
       />
     );
   };
