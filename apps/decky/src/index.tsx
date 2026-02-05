@@ -5,7 +5,7 @@
 
 import { definePlugin, staticClasses } from "@decky/ui";
 import { call, toaster } from "@decky/api";
-import { useState, useCallback, VFC } from "react";
+import { useState, useEffect, VFC } from "react";
 
 import { useAgent, ShortcutConfig } from "./hooks/useAgent";
 import StatusPanel from "./components/StatusPanel";
@@ -37,7 +37,28 @@ const ASSET_TYPE = {
   icon: 4,   // Icon
 };
 
-// Background handlers for SteamClient operations (run outside React lifecycle)
+// ── UI callback registry (React registers when panel is open) ──────────────
+
+interface UICallbacks {
+  onOperation?: (event: OperationEvent) => void;
+  onProgress?: (progress: UploadProgress) => void;
+  onPairingCode?: (code: string) => void;
+  onPairingClear?: () => void;
+  onRefreshStatus?: () => void;
+}
+
+let _uiCallbacks: UICallbacks = {};
+
+function registerUICallbacks(cbs: UICallbacks) {
+  _uiCallbacks = cbs;
+}
+
+function unregisterUICallbacks() {
+  _uiCallbacks = {};
+}
+
+// ── Background handlers for SteamClient operations ─────────────────────────
+
 async function handleCreateShortcut(config: ShortcutConfig) {
   try {
     const appId = await SteamClient.Apps.AddShortcut(
@@ -90,11 +111,14 @@ function handleRemoveShortcut(appId: number) {
   }
 }
 
-// Background polling for SteamClient events (runs even when panel is closed)
+// ── Centralized background polling (runs even when panel is closed) ────────
+
 let bgPollInterval: ReturnType<typeof setInterval> | null = null;
 
-async function pollSteamClientEvents() {
+async function pollAllEvents() {
   try {
+    // ── SteamClient operations (critical, must run in background) ──
+
     const shortcutEvent = await call<[string], { timestamp: number; data: ShortcutConfig } | null>(
       "get_event",
       "create_shortcut"
@@ -110,32 +134,16 @@ async function pollSteamClientEvents() {
     if (removeEvent?.data) {
       handleRemoveShortcut(removeEvent.data.appId);
     }
-  } catch (e) {
-    console.error("Background poll error:", e);
-  }
-}
 
-function startBackgroundPolling() {
-  if (!bgPollInterval) {
-    bgPollInterval = setInterval(pollSteamClientEvents, 1000);
-  }
-}
+    // ── Operation events (toasts always, UI state when panel open) ──
 
-function stopBackgroundPolling() {
-  if (bgPollInterval) {
-    clearInterval(bgPollInterval);
-    bgPollInterval = null;
-  }
-}
-
-const CapyDeployPanel: VFC = () => {
-  const [currentOperation, setCurrentOperation] = useState<OperationEvent | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [gamesRefresh, setGamesRefresh] = useState(0);
-
-  const { enabled, setEnabled, status, pairingCode, refreshStatus } = useAgent({
-    onOperation: (event) => {
-      setCurrentOperation(event);
+    const opEvent = await call<[string], { timestamp: number; data: OperationEvent } | null>(
+      "get_event",
+      "operation_event"
+    );
+    if (opEvent?.data) {
+      const event = opEvent.data;
+      _uiCallbacks.onOperation?.(event);
 
       if (event.status === "start") {
         toaster.toast({
@@ -147,25 +155,111 @@ const CapyDeployPanel: VFC = () => {
           title: event.type === "install" ? "Juego instalado!" : "Juego eliminado",
           body: event.gameName,
         });
-        setGamesRefresh((n) => n + 1);
-        setTimeout(() => setCurrentOperation(null), 5000);
       } else if (event.status === "error") {
         toaster.toast({
           title: "Error",
           body: `${event.gameName}: ${event.message}`,
         });
       }
-    },
-    onProgress: (progress) => {
-      setUploadProgress(progress);
-    },
-    onPairingCode: (code) => {
+    }
+
+    // ── Upload progress (UI state only, no toast needed) ──
+
+    const progressEvent = await call<[string], { timestamp: number; data: UploadProgress } | null>(
+      "get_event",
+      "upload_progress"
+    );
+    if (progressEvent?.data) {
+      _uiCallbacks.onProgress?.(progressEvent.data);
+    }
+
+    // ── Pairing code (toast always, UI state when panel open) ──
+
+    const pairingEvent = await call<[string], { timestamp: number; data: { code: string } } | null>(
+      "get_event",
+      "pairing_code"
+    );
+    if (pairingEvent?.data) {
+      _uiCallbacks.onPairingCode?.(pairingEvent.data.code);
       toaster.toast({
         title: "Codigo de emparejamiento",
-        body: code,
+        body: pairingEvent.data.code,
       });
-    },
-  });
+    }
+
+    // ── Pairing success (clear code, refresh status) ──
+
+    const pairingSuccess = await call<[string], { timestamp: number; data: object } | null>(
+      "get_event",
+      "pairing_success"
+    );
+    if (pairingSuccess) {
+      _uiCallbacks.onPairingClear?.();
+      _uiCallbacks.onRefreshStatus?.();
+    }
+
+    // ── Hub connection state changes ──
+
+    const hubConnected = await call<[string], { timestamp: number; data: object } | null>(
+      "get_event",
+      "hub_connected"
+    );
+    if (hubConnected) {
+      _uiCallbacks.onRefreshStatus?.();
+    }
+
+    const hubDisconnected = await call<[string], { timestamp: number; data: object } | null>(
+      "get_event",
+      "hub_disconnected"
+    );
+    if (hubDisconnected) {
+      _uiCallbacks.onRefreshStatus?.();
+    }
+  } catch (e) {
+    console.error("Background poll error:", e);
+  }
+}
+
+function startBackgroundPolling() {
+  if (!bgPollInterval) {
+    bgPollInterval = setInterval(pollAllEvents, 1000);
+  }
+}
+
+function stopBackgroundPolling() {
+  if (bgPollInterval) {
+    clearInterval(bgPollInterval);
+    bgPollInterval = null;
+  }
+}
+
+// ── React UI component ─────────────────────────────────────────────────────
+
+const CapyDeployPanel: VFC = () => {
+  const [currentOperation, setCurrentOperation] = useState<OperationEvent | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [gamesRefresh, setGamesRefresh] = useState(0);
+
+  const { enabled, setEnabled, status, pairingCode, setPairingCode, refreshStatus } = useAgent();
+
+  // Register UI callbacks so background poller can update React state
+  useEffect(() => {
+    registerUICallbacks({
+      onOperation: (event) => {
+        setCurrentOperation(event);
+        if (event.status === "complete") {
+          setGamesRefresh((n) => n + 1);
+          setTimeout(() => setCurrentOperation(null), 5000);
+        }
+      },
+      onProgress: (progress) => setUploadProgress(progress),
+      onPairingCode: (code) => setPairingCode(code),
+      onPairingClear: () => setPairingCode(null),
+      onRefreshStatus: () => refreshStatus(),
+    });
+
+    return () => unregisterUICallbacks();
+  }, [setPairingCode, refreshStatus]);
 
   return (
     <div>
@@ -223,7 +317,6 @@ const CapyDeployPanel: VFC = () => {
 };
 
 export default definePlugin(() => {
-  // Start background polling for SteamClient events (runs even when panel is closed)
   startBackgroundPolling();
 
   return {

@@ -1,11 +1,10 @@
 /**
- * Hook for managing the CapyDeploy Agent backend.
- * Communicates with main.py via Decky's call() API.
+ * Hook for managing the CapyDeploy Agent status and configuration.
+ * Event polling is handled by background poller in index.tsx.
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { call } from "@decky/api";
-import type { OperationEvent, UploadProgress } from "../types";
 
 export interface AgentStatus {
   enabled: boolean;
@@ -17,12 +16,6 @@ export interface AgentStatus {
   version: string;
   port: number;
   ip: string;
-}
-
-export interface UseAgentOptions {
-  onOperation?: (event: OperationEvent) => void;
-  onProgress?: (progress: UploadProgress) => void;
-  onPairingCode?: (code: string) => void;
 }
 
 interface ArtworkAsset {
@@ -48,20 +41,14 @@ export interface UseAgentReturn {
   status: AgentStatus | null;
   refreshStatus: () => Promise<void>;
   pairingCode: string | null;
+  setPairingCode: (code: string | null) => void;
 }
 
-// Polling interval for events (ms)
-const POLL_INTERVAL = 1000;
-
-export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
-  const { onOperation, onProgress, onPairingCode } = options;
-
+export function useAgent(): UseAgentReturn {
   const [enabled, setEnabledState] = useState(false);
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fetch current status from backend
   const refreshStatus = useCallback(async () => {
     try {
       const result = await call<[], AgentStatus>("get_status");
@@ -72,70 +59,6 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
     }
   }, []);
 
-  // Poll for events from backend
-  const pollEvents = useCallback(async () => {
-    try {
-      // Check for operation events
-      const opEvent = await call<[string], { timestamp: number; data: OperationEvent } | null>(
-        "get_event",
-        "operation_event"
-      );
-      if (opEvent?.data) {
-        onOperation?.(opEvent.data);
-      }
-
-      // Check for upload progress
-      const progressEvent = await call<[string], { timestamp: number; data: UploadProgress } | null>(
-        "get_event",
-        "upload_progress"
-      );
-      if (progressEvent?.data) {
-        onProgress?.(progressEvent.data);
-      }
-
-      // Check for pairing code
-      const pairingEvent = await call<[string], { timestamp: number; data: { code: string } } | null>(
-        "get_event",
-        "pairing_code"
-      );
-      if (pairingEvent?.data) {
-        setPairingCode(pairingEvent.data.code);
-        onPairingCode?.(pairingEvent.data.code);
-      }
-
-      // Check for pairing success
-      const pairingSuccess = await call<[string], { timestamp: number; data: object } | null>(
-        "get_event",
-        "pairing_success"
-      );
-      if (pairingSuccess) {
-        setPairingCode(null);
-        refreshStatus();
-      }
-
-      // Check for hub connected/disconnected
-      const hubConnected = await call<[string], { timestamp: number; data: object } | null>(
-        "get_event",
-        "hub_connected"
-      );
-      if (hubConnected) {
-        refreshStatus();
-      }
-
-      const hubDisconnected = await call<[string], { timestamp: number; data: object } | null>(
-        "get_event",
-        "hub_disconnected"
-      );
-      if (hubDisconnected) {
-        refreshStatus();
-      }
-
-    } catch (e) {
-      console.error("Failed to poll events:", e);
-    }
-  }, [onOperation, onProgress, onPairingCode, refreshStatus]);
-
-  // Enable/disable the server
   const setEnabled = useCallback(async (value: boolean) => {
     try {
       await call<[boolean], void>("set_enabled", value);
@@ -151,30 +74,13 @@ export function useAgent(options: UseAgentOptions = {}): UseAgentReturn {
     refreshStatus();
   }, [refreshStatus]);
 
-  // Start/stop polling based on enabled state
-  useEffect(() => {
-    if (enabled) {
-      pollRef.current = setInterval(pollEvents, POLL_INTERVAL);
-    } else {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    }
-
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-      }
-    };
-  }, [enabled, pollEvents]);
-
   return {
     enabled,
     setEnabled,
     status,
     refreshStatus,
     pairingCode,
+    setPairingCode,
   };
 }
 
