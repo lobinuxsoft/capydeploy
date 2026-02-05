@@ -636,16 +636,10 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		}
 	}
 
-	// Build full paths for the shortcut
-	// InstallPath is the parent dir (e.g. ~/Games)
-	// Game files are uploaded to InstallPath/GameName/ (e.g. ~/Games/stellar_delivery/)
-	gameDir := filepath.Join(setup.InstallPath, setup.Name)
-	exePath := filepath.Join(gameDir, setup.Executable)
-
+	// Only send the executable filename — the agent knows its own install path
 	shortcutCfg := &protocol.ShortcutConfig{
 		Name:          setup.Name,
-		Exe:           exePath,
-		StartDir:      gameDir,
+		Exe:           setup.Executable,
 		LaunchOptions: setup.LaunchOptions,
 		Tags:          parseTags(setup.Tags),
 		Artwork:       artworkCfg,
