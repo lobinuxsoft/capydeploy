@@ -27,7 +27,7 @@ export function getThemeCSS(): string {
 
   ${secTitle ? `
   #capydeploy-wrap .${secTitle} {
-    background: linear-gradient(90deg, ${colors.primary}, #67e8f9) !important;
+    background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #06b6d4 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
@@ -139,7 +139,7 @@ export function getThemeCSS(): string {
   .cd-title {
     font-weight: bold;
     font-size: 1.3em;
-    background: linear-gradient(135deg, #67e8f9 0%, ${colors.primary} 45%, #a5f3fc 100%);
+    background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #06b6d4 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
