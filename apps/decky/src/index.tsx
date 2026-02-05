@@ -96,11 +96,11 @@ async function handleCreateShortcut(config: ShortcutConfig) {
         }
       }
 
-      brandToast({ title: "Shortcut creado!", body: config.name });
+      brandToast({ title: "Shortcut created!", body: config.name });
     }
   } catch (e) {
     console.error("Failed to create shortcut:", e);
-    brandToast({ title: "Error al crear shortcut", body: String(e) });
+    brandToast({ title: "Shortcut error", body: String(e) });
   }
 }
 
@@ -180,14 +180,14 @@ async function pollAllEvents() {
         progressState.update(event, null);
         showProgressModal();
         brandToast({
-          title: event.type === "install" ? "Instalando juego" : "Eliminando juego",
+          title: event.type === "install" ? "Installing game" : "Removing game",
           body: event.gameName,
         });
       } else if (event.status === "complete") {
         progressState.update(event, null);
         closeProgressModal();
         brandToast({
-          title: event.type === "install" ? "Juego instalado!" : "Juego eliminado",
+          title: event.type === "install" ? "Game installed!" : "Game removed",
           body: event.gameName,
         });
       } else if (event.status === "error") {
@@ -224,10 +224,10 @@ async function pollAllEvents() {
       _uiCallbacks.onPairingCode?.(code);
       showModal(
         <ConfirmModal
-          strTitle="Codigo de emparejamiento"
-          strDescription={`Ingresa este codigo en el Hub para vincular este dispositivo:\n\n${code}`}
-          strOKButtonText="Entendido"
-          strCancelButtonText="Cerrar"
+          strTitle="Pairing code"
+          strDescription={`Enter this code in the Hub to link this device:\n\n${code}`}
+          strOKButtonText="Got it"
+          strCancelButtonText="Close"
         />
       );
     }
@@ -242,8 +242,8 @@ async function pollAllEvents() {
       _uiCallbacks.onPairingClear?.();
       _uiCallbacks.onRefreshStatus?.();
       brandToast({
-        title: "Hub vinculado!",
-        body: "Emparejamiento exitoso",
+        title: "Hub linked!",
+        body: "Pairing successful",
       });
     }
 
@@ -321,7 +321,7 @@ const CapyDeployPanel: VFC = () => {
         </div>
         <div>
           <div className="cd-title">CapyDeploy</div>
-          <div className="cd-subtitle">Recibe juegos desde el Hub</div>
+          <div className="cd-subtitle">Receive games from the Hub</div>
         </div>
       </div>
 

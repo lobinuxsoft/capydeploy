@@ -116,77 +116,73 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
   return (
     <>
-      {/* Main Toggle */}
       <div className="cd-section">
-      <PanelSection title="Estado">
-        <PanelSectionRow>
-          <ToggleField
-            label="Activar CapyDeploy"
-            description="Recibir juegos desde el Hub"
-            checked={enabled}
-            onChange={onEnabledChange}
-          />
-        </PanelSectionRow>
+        <div className="cd-section-title">Status</div>
+        <PanelSection>
+          <PanelSectionRow>
+            <ToggleField
+              label="Enable CapyDeploy"
+              description="Receive games from the Hub"
+              checked={enabled}
+              onChange={onEnabledChange}
+            />
+          </PanelSectionRow>
 
-        {enabled && (
-          <>
-            {/* Connection Status */}
-            <PanelSectionRow>
-              <Field
-                label="Conexion"
-                icon={
-                  connected ? (
-                    <FaPlug color={colors.primary} />
-                  ) : (
-                    <FaPlugCircleXmark color={colors.destructive} />
-                  )
-                }
-              >
-                <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span className={connected ? "cd-status-connected" : "cd-status-disconnected"}>
-                    {connected && <span className="cd-pulse" />}
-                    {connected ? "Conectado" : "Esperando Hub..."}
-                  </span>
-                </Focusable>
-              </Field>
-            </PanelSectionRow>
-
-            {/* Connected Hub */}
-            {connected && hubName && (
-              <PanelSectionRow>
-                <Field label="Hub conectado">
-                  <span className="cd-text-primary">{hubName}</span>
-                </Field>
-              </PanelSectionRow>
-            )}
-
-            {/* Pairing Code */}
-            {pairingCode && (
+          {enabled && (
+            <>
               <PanelSectionRow>
                 <Field
-                  label="Codigo de emparejamiento"
-                  description="Ingresa este codigo en el Hub"
-                  icon={<FaKey color={colors.primary} />}
+                  label="Connection"
+                  icon={
+                    connected ? (
+                      <FaPlug color={colors.capy} />
+                    ) : (
+                      <FaPlugCircleXmark color={colors.destructive} />
+                    )
+                  }
                 >
-                  <span className="cd-pairing-code">
-                    {pairingCode}
-                  </span>
+                  <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className={connected ? "cd-status-connected" : "cd-status-disconnected"}>
+                      {connected && <span className="cd-pulse" />}
+                      {connected ? "Connected" : "Waiting for Hub..."}
+                    </span>
+                  </Focusable>
                 </Field>
               </PanelSectionRow>
-            )}
-          </>
-        )}
-      </PanelSection>
+
+              {connected && hubName && (
+                <PanelSectionRow>
+                  <Field label="Connected Hub">
+                    <span className="cd-text-primary">{hubName}</span>
+                  </Field>
+                </PanelSectionRow>
+              )}
+
+              {pairingCode && (
+                <PanelSectionRow>
+                  <Field
+                    label="Pairing code"
+                    description="Enter this code in the Hub"
+                    icon={<FaKey color={colors.capy} />}
+                  >
+                    <span className="cd-pairing-code">
+                      {pairingCode}
+                    </span>
+                  </Field>
+                </PanelSectionRow>
+              )}
+            </>
+          )}
+        </PanelSection>
       </div>
 
-      {/* Agent Info - Always visible */}
       <div className="cd-section">
-      <PanelSection title="Informacion del Agente">
-        {/* Name - Editable */}
-        <PanelSectionRow>
-          {editingName ? (
-            <Field label="Nombre" icon={<FaComputer />}>
-              <Focusable style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div className="cd-section-title">Agent Info</div>
+        <PanelSection>
+          <PanelSectionRow>
+            {editingName ? (
+              <Focusable style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 16px" }}>
+                <FaComputer color={colors.capy} style={{ flexShrink: 0 }} />
                 <TextField
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -208,90 +204,88 @@ const StatusPanel: VFC<StatusPanelProps> = ({
                   <FaXmark size={14} color={colors.destructive} />
                 </Focusable>
               </Focusable>
-            </Field>
-          ) : (
-            <Field
-              label="Nombre"
-              icon={<FaComputer />}
-              onClick={() => {
-                setNewName(agentName);
-                setEditingName(true);
-              }}
-            >
-              <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span className="cd-value">{agentName}</span>
-                <FaPen size={12} style={{ opacity: 0.5 }} />
-              </Focusable>
-            </Field>
-          )}
-        </PanelSectionRow>
+            ) : (
+              <Field
+                label="Name"
+                icon={<FaComputer color={colors.capy} />}
+                onClick={() => {
+                  setNewName(agentName);
+                  setEditingName(true);
+                }}
+              >
+                <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span className="cd-value">{agentName}</span>
+                  <FaPen size={12} style={{ opacity: 0.5 }} />
+                </Focusable>
+              </Field>
+            )}
+          </PanelSectionRow>
 
-        <PanelSectionRow>
-          <Field label="Plataforma">
-            <span className="cd-value">{getPlatformDisplay(platform)}</span>
-          </Field>
-        </PanelSectionRow>
-
-        <PanelSectionRow>
-          <Field label="Version" icon={<FaCircleInfo />}>
-            <span className="cd-mono">{version}</span>
-          </Field>
-        </PanelSectionRow>
-
-        {/* Install Path - Selectable */}
-        <PanelSectionRow>
-          <Field
-            label="Ruta de instalacion"
-            icon={<FaFolder />}
-            onClick={handleSelectFolder}
-          >
-            <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span className="cd-mono" style={{ fontSize: "0.85em" }}>{installPath}</span>
-              <FaFolderOpen size={14} style={{ opacity: 0.5 }} />
-            </Focusable>
-          </Field>
-        </PanelSectionRow>
-      </PanelSection>
-      </div>
-
-      {/* Network Info - Only when enabled */}
-      {enabled && (
-        <div className="cd-section">
-        <PanelSection title="Red">
           <PanelSectionRow>
-            <Field label="Puerto" icon={<FaNetworkWired />}>
-              <span className="cd-mono">{port}</span>
+            <Field label="Platform">
+              <span className="cd-value">{getPlatformDisplay(platform)}</span>
             </Field>
           </PanelSectionRow>
 
           <PanelSectionRow>
-            <Field label="IP">
-              <span className="cd-mono">{ip}</span>
+            <Field label="Version" icon={<FaCircleInfo color={colors.capy} />}>
+              <span className="cd-mono">{version}</span>
+            </Field>
+          </PanelSectionRow>
+
+          <PanelSectionRow>
+            <Field
+              label="Install path"
+              icon={<FaFolder color={colors.capy} />}
+              onClick={handleSelectFolder}
+            >
+              <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="cd-mono" style={{ fontSize: "0.85em" }}>{installPath}</span>
+                <FaFolderOpen size={14} style={{ opacity: 0.5 }} />
+              </Focusable>
             </Field>
           </PanelSectionRow>
         </PanelSection>
+      </div>
+
+      {enabled && (
+        <div className="cd-section">
+          <div className="cd-section-title">Network</div>
+          <PanelSection>
+            <PanelSectionRow>
+              <Field label="Port" icon={<FaNetworkWired color={colors.capy} />}>
+                <span className="cd-mono">{port}</span>
+              </Field>
+            </PanelSectionRow>
+
+            <PanelSectionRow>
+              <Field label="IP">
+                <span className="cd-mono">{ip}</span>
+              </Field>
+            </PanelSectionRow>
+          </PanelSection>
         </div>
       )}
 
-      {/* Capabilities */}
       <div className="cd-section">
-      <PanelSection title="Capacidades">
-        <PanelSectionRow>
-          <Field label="Subida de archivos">
-            <span className="cd-text-primary">Si</span>
-          </Field>
-        </PanelSectionRow>
-        <PanelSectionRow>
-          <Field label="Shortcuts de Steam">
-            <span className="cd-text-primary">Si</span>
-          </Field>
-        </PanelSectionRow>
-        <PanelSectionRow>
-          <Field label="Artwork de Steam">
-            <span className="cd-text-primary">Si</span>
-          </Field>
-        </PanelSectionRow>
-      </PanelSection>
+        <div className="cd-section-title">Capabilities</div>
+        <PanelSection>
+          <PanelSectionRow>
+            <Field label="File upload">
+              <span className="cd-text-primary">Yes</span>
+            </Field>
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <Field label="Steam Shortcuts">
+              <span className="cd-text-primary">Yes</span>
+            </Field>
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <Field label="Steam Artwork">
+              <span className="cd-text-primary">Yes</span>
+            </Field>
+          </PanelSectionRow>
+        </PanelSection>
       </div>
     </>
   );

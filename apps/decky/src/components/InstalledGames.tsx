@@ -6,7 +6,7 @@ import {
   PanelSection,
   PanelSectionRow,
   Field,
-  ButtonItem,
+  Focusable,
   ConfirmModal,
   showModal,
 } from "@decky/ui";
@@ -74,10 +74,10 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
   const handleUninstall = (game: InstalledGame) => {
     showModal(
       <ConfirmModal
-        strTitle="Desinstalar juego"
-        strDescription={`¿Eliminar "${game.name}" (${formatSize(game.size)})? Esta accion no se puede deshacer.`}
-        strOKButtonText="Eliminar"
-        strCancelButtonText="Cancelar"
+        strTitle="Uninstall game"
+        strDescription={`Remove "${game.name}" (${formatSize(game.size)})? This action cannot be undone.`}
+        strOKButtonText="Remove"
+        strCancelButtonText="Cancel"
         onOK={async () => {
           setUninstalling(game.name);
           try {
@@ -93,14 +93,14 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
               }
               setGames(games.filter((g) => g.name !== game.name));
               toaster.toast({
-                title: "Juego eliminado",
+                title: "Game removed",
                 body: game.name,
                 logo: toastLogo,
               });
             } else {
               toaster.toast({
                 title: "Error",
-                body: `No se pudo eliminar ${game.name}`,
+                body: `Failed to remove ${game.name}`,
                 logo: toastLogo,
               });
             }
@@ -123,48 +123,45 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
 
   return (
     <div className="cd-section">
-    <PanelSection title="Juegos Instalados">
-      {loading ? (
-        <PanelSectionRow>
-          <Field label="Cargando...">
-            <span style={{ opacity: 0.6 }}>...</span>
-          </Field>
-        </PanelSectionRow>
-      ) : games.length === 0 ? (
-        <PanelSectionRow>
-          <Field
-            label="Sin juegos"
-            icon={<FaFolderOpen style={{ opacity: 0.5 }} />}
-          >
-            <span className="cd-text-disabled" style={{ fontSize: "0.85em" }}>
-              Envia juegos desde el Hub
-            </span>
-          </Field>
-        </PanelSectionRow>
+      <div className="cd-section-title">Installed Games</div>
+      <PanelSection>
+        {loading ? (
+          <PanelSectionRow>
+            <Field label="Loading...">
+              <span style={{ opacity: 0.6 }}>...</span>
+            </Field>
+          </PanelSectionRow>
+        ) : games.length === 0 ? (
+          <PanelSectionRow>
+            <Field
+              label="No games"
+              icon={<FaFolderOpen color={colors.capy} style={{ opacity: 0.5 }} />}
+            >
+              <span className="cd-text-disabled" style={{ fontSize: "0.85em" }}>
+                Send games from the Hub
+              </span>
+            </Field>
+          </PanelSectionRow>
       ) : (
         games.map((game) => (
           <PanelSectionRow key={game.name}>
             <Field
               label={game.name}
               description={formatSize(game.size)}
-              icon={<FaGamepad />}
+              icon={<FaGamepad color={colors.capy} />}
             >
-              <ButtonItem
-                layout="below"
+              <Focusable
+                className="cd-icon-btn"
                 onClick={() => handleUninstall(game)}
-                disabled={uninstalling === game.name}
+                style={{ opacity: uninstalling === game.name ? 0.3 : 1 }}
               >
-                <FaTrash
-                  style={{
-                    color: uninstalling === game.name ? colors.disabled : colors.destructive,
-                  }}
-                />
-              </ButtonItem>
+                <FaTrash size={14} color={colors.destructive} />
+              </Focusable>
             </Field>
           </PanelSectionRow>
         ))
       )}
-    </PanelSection>
+      </PanelSection>
     </div>
   );
 };

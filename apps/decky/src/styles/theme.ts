@@ -44,6 +44,20 @@ export function getThemeCSS(): string {
   }
   ` : ""}
 
+  /* ── Custom section title (replaces PanelSection title) ── */
+
+  .cd-section-title {
+    text-transform: uppercase;
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 12px 16px 4px 16px;
+    background: ${GRADIENT};
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   ${fieldLabel ? `
   #capydeploy-wrap .${fieldLabel} {
     text-shadow: 0 0 12px rgba(241, 245, 249, 0.15) !important;

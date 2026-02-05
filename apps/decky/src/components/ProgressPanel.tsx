@@ -54,8 +54,8 @@ export const ProgressModalContent: VFC<{ closeModal?: () => void }> = ({ closeMo
   const statusText = isError
     ? `Error: ${operation.message}`
     : isComplete
-      ? (isInstalling ? "Instalado!" : "Eliminado!")
-      : isInstalling ? "Instalando..." : "Eliminando...";
+      ? (isInstalling ? "Installed!" : "Removed!")
+      : isInstalling ? "Installing..." : "Removing...";
 
   const statusClass = isError
     ? "cd-modal-status cd-modal-status-error"
@@ -69,7 +69,7 @@ export const ProgressModalContent: VFC<{ closeModal?: () => void }> = ({ closeMo
       <div className="cd-modal-progress">
         <img src={mascotUrl} alt="" className="cd-modal-mascot" />
         <div className="cd-modal-title">
-          {isInstalling ? "Instalando juego" : "Eliminando juego"}
+          {isInstalling ? "Installing game" : "Removing game"}
         </div>
         <div className="cd-modal-game">{operation.gameName}</div>
 
@@ -113,13 +113,13 @@ const ProgressPanel: VFC<ProgressPanelProps> = ({ operation, uploadProgress }) =
 
   const getStatusText = () => {
     if (isError) return `Error: ${operation.message}`;
-    if (isComplete) return isInstalling ? "Instalado!" : "Eliminado!";
-    if (operation.status === "start") return isInstalling ? "Iniciando..." : "Eliminando...";
-    return operation.message || "Procesando...";
+    if (isComplete) return isInstalling ? "Installed!" : "Removed!";
+    if (operation.status === "start") return isInstalling ? "Starting..." : "Removing...";
+    return operation.message || "Processing...";
   };
 
   const getProgress = () => {
-    if (uploadProgress && isInstalling && operation.status === "progress") {
+    if (uploadProgress && isInstalling && !isComplete && !isError) {
       return uploadProgress.percentage;
     }
     return operation.progress;
@@ -127,7 +127,8 @@ const ProgressPanel: VFC<ProgressPanelProps> = ({ operation, uploadProgress }) =
 
   return (
     <div className="cd-section">
-    <PanelSection title={isInstalling ? "Instalando" : "Eliminando"}>
+      <div className="cd-section-title">{isInstalling ? "Installing" : "Removing"}</div>
+      <PanelSection>
       <PanelSectionRow>
         <Field label={operation.gameName} bottomSeparator="none">
           <span
@@ -152,7 +153,7 @@ const ProgressPanel: VFC<ProgressPanelProps> = ({ operation, uploadProgress }) =
           />
         </PanelSectionRow>
       )}
-    </PanelSection>
+      </PanelSection>
     </div>
   );
 };

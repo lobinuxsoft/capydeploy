@@ -6,7 +6,7 @@ import {
   PanelSection,
   PanelSectionRow,
   Field,
-  ButtonItem,
+  Focusable,
 } from "@decky/ui";
 import { call } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
@@ -58,9 +58,9 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
   };
 
   const formatDate = (timestamp: number): string => {
-    if (!timestamp) return "Desconocido";
+    if (!timestamp) return "Unknown";
     const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString("es", {
+    return date.toLocaleDateString("en", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -71,48 +71,45 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
 
   return (
     <div className="cd-section">
-    <PanelSection title="Hubs Autorizados">
-      {loading ? (
-        <PanelSectionRow>
-          <Field label="Cargando...">
-            <span style={{ opacity: 0.6 }}>...</span>
-          </Field>
-        </PanelSectionRow>
-      ) : hubs.length === 0 ? (
-        <PanelSectionRow>
-          <Field
-            label="Sin hubs"
-            icon={<FaShieldHalved style={{ opacity: 0.5 }} />}
-          >
-            <span className="cd-text-disabled" style={{ fontSize: "0.85em" }}>
-              Conecta un Hub para emparejar
-            </span>
-          </Field>
-        </PanelSectionRow>
-      ) : (
-        hubs.map((hub) => (
-          <PanelSectionRow key={hub.id}>
-            <Field
-              label={hub.name}
-              description={`Emparejado: ${formatDate(hub.pairedAt)}`}
-              icon={<FaComputer />}
-            >
-              <ButtonItem
-                layout="below"
-                onClick={() => handleRevoke(hub.id)}
-                disabled={revoking === hub.id}
-              >
-                <FaTrash
-                  style={{
-                    color: revoking === hub.id ? colors.disabled : colors.destructive,
-                  }}
-                />
-              </ButtonItem>
+      <div className="cd-section-title">Authorized Hubs</div>
+      <PanelSection>
+        {loading ? (
+          <PanelSectionRow>
+            <Field label="Loading...">
+              <span style={{ opacity: 0.6 }}>...</span>
             </Field>
           </PanelSectionRow>
-        ))
-      )}
-    </PanelSection>
+        ) : hubs.length === 0 ? (
+          <PanelSectionRow>
+            <Field
+              label="No hubs"
+              icon={<FaShieldHalved color={colors.capy} style={{ opacity: 0.5 }} />}
+            >
+              <span className="cd-text-disabled" style={{ fontSize: "0.85em" }}>
+                Connect a Hub to pair
+              </span>
+            </Field>
+          </PanelSectionRow>
+        ) : (
+          hubs.map((hub) => (
+            <PanelSectionRow key={hub.id}>
+              <Field
+                label={hub.name}
+                description={`Paired: ${formatDate(hub.pairedAt)}`}
+                icon={<FaComputer color={colors.capy} />}
+              >
+                <Focusable
+                  className="cd-icon-btn"
+                  onClick={() => handleRevoke(hub.id)}
+                  style={{ opacity: revoking === hub.id ? 0.3 : 1 }}
+                >
+                  <FaTrash size={14} color={colors.destructive} />
+                </Focusable>
+              </Field>
+            </PanelSectionRow>
+          ))
+        )}
+      </PanelSection>
     </div>
   );
 };
