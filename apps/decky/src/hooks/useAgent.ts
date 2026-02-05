@@ -27,11 +27,11 @@ export interface ShortcutConfig {
   name: string;
   exe: string;
   startDir: string;
+  iconUrl?: string;
   artwork?: {
     grid?: ArtworkAsset;
     hero?: ArtworkAsset;
     logo?: ArtworkAsset;
-    icon?: ArtworkAsset;
     banner?: ArtworkAsset;
   };
 }

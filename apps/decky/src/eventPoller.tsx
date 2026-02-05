@@ -109,18 +109,18 @@ async function handleCreateShortcut(config: ShortcutConfig) {
           }
         }
 
-        // Icons require writing to shortcuts.vdf (SetCustomArtworkForApp doesn't work)
-        if (config.artwork.icon?.data) {
-          try {
-            await call<[number, string, string], boolean>(
-              "set_shortcut_icon",
-              appId,
-              config.artwork.icon.data,
-              config.artwork.icon.format || "png"
-            );
-          } catch (e) {
-            console.error("Failed to set shortcut icon:", e);
-          }
+      }
+
+      // Icons: backend downloads directly from URL (no base64 round-trip)
+      if (config.iconUrl) {
+        try {
+          await call<[number, string], boolean>(
+            "set_shortcut_icon_from_url",
+            appId,
+            config.iconUrl
+          );
+        } catch (e) {
+          console.error("Failed to set shortcut icon:", e);
         }
       }
 

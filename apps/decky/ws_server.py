@@ -533,11 +533,15 @@ class WebSocketServer:
             if raw_artwork:
                 artwork_b64 = await download_artwork(raw_artwork)
 
+            # Pass icon URL directly (backend will download it after shortcut creation)
+            icon_url = raw_artwork.get("icon", "")
+
             await self.plugin.notify_frontend("create_shortcut", {
                 "name": shortcut_name,
                 "exe": exe_path,
                 "startDir": quoted_start_dir,
                 "artwork": artwork_b64,
+                "iconUrl": icon_url,
             })
 
             tracked = self.plugin.settings.getSetting("tracked_shortcuts", [])

@@ -32,7 +32,7 @@ async def download_artwork(artwork: dict) -> dict:
         ssl_ctx.verify_mode = ssl.CERT_NONE
 
     result = {}
-    for key in ("grid", "hero", "logo", "icon", "banner"):
+    for key in ("grid", "hero", "logo", "banner"):
         url = artwork.get(key, "")
         if not url:
             continue
@@ -140,6 +140,109 @@ async def set_shortcut_icon(app_id: int, icon_b64: str, icon_format: str) -> boo
             await asyncio.sleep(delay)
 
     # All retries exhausted — icon file is saved in grid/, Steam restart will pick it up
+    decky.logger.warning(
+        f"Could not update shortcuts.vdf for appId={app_id} after {MAX_ICON_RETRIES} retries. "
+        f"Icon file saved at {icon_path}, will apply on Steam restart."
+    )
+    return False
+
+
+async def set_shortcut_icon_from_url(app_id: int, icon_url: str) -> bool:
+    """Download icon from URL and apply it to a shortcut.
+
+    Downloads directly to the grid directory (no base64 round-trip) and
+    updates shortcuts.vdf. Preserves the original file extension from the URL.
+    """
+    from urllib.parse import urlparse
+
+    try:
+        from vdf import binary_load, binary_dump
+    except ImportError:
+        decky.logger.error("vdf package not found, cannot set shortcut icon")
+        return False
+
+    steam_dir = get_steam_dir()
+    if not steam_dir:
+        decky.logger.error("Steam directory not found")
+        return False
+
+    users = get_steam_users()
+    if not users:
+        decky.logger.error("No Steam users found")
+        return False
+    user_id = users[0]["id"]
+
+    # Determine extension from URL path
+    url_path = urlparse(icon_url).path
+    ext = os.path.splitext(url_path)[1] or ".png"
+
+    grid_dir = os.path.join(steam_dir, "userdata", user_id, "config", "grid")
+    os.makedirs(grid_dir, exist_ok=True)
+    icon_filename = f"{app_id}_icon{ext}"
+    icon_path = os.path.join(grid_dir, icon_filename)
+
+    # Download directly to file
+    ssl_ctx = ssl.create_default_context()
+    try:
+        ssl_ctx.load_default_certs()
+    except Exception:
+        pass
+    if not ssl_ctx.get_ca_certs():
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+
+    try:
+        req = urllib.request.Request(icon_url, headers={"User-Agent": "CapyDeploy/0.1"})
+        with urllib.request.urlopen(req, timeout=15, context=ssl_ctx) as resp:
+            data = resp.read()
+        with open(icon_path, "wb") as f:
+            f.write(data)
+        decky.logger.info(f"Downloaded icon to {icon_path} ({len(data)} bytes)")
+    except Exception as e:
+        decky.logger.error(f"Failed to download icon from {icon_url}: {e}")
+        return False
+
+    # Update shortcuts.vdf with retry
+    vdf_path = os.path.join(steam_dir, "userdata", user_id, "config", "shortcuts.vdf")
+
+    for attempt in range(MAX_ICON_RETRIES):
+        if not os.path.exists(vdf_path):
+            delay = ICON_RETRY_BASE_DELAY * (2 ** attempt)
+            decky.logger.info(
+                f"shortcuts.vdf not found yet, retry {attempt + 1}/{MAX_ICON_RETRIES} in {delay}s"
+            )
+            await asyncio.sleep(delay)
+            continue
+
+        try:
+            with open(vdf_path, "rb") as f:
+                vdf_data = binary_load(f)
+
+            found = False
+            for shortcut in vdf_data.get("shortcuts", {}).values():
+                vdf_appid = (shortcut.get("appid", 0) & 0xFFFFFFFF) | 0x80000000
+                if vdf_appid == app_id:
+                    shortcut["icon"] = icon_path
+                    found = True
+                    break
+
+            if found:
+                with open(vdf_path, "wb") as f:
+                    binary_dump(vdf_data, f)
+                decky.logger.info(f"Updated shortcuts.vdf icon for appId={app_id}")
+                return True
+
+            delay = ICON_RETRY_BASE_DELAY * (2 ** attempt)
+            decky.logger.info(
+                f"Shortcut appId={app_id} not in VDF yet, retry {attempt + 1}/{MAX_ICON_RETRIES} in {delay}s"
+            )
+            await asyncio.sleep(delay)
+
+        except Exception as e:
+            decky.logger.error(f"Failed to update shortcuts.vdf (attempt {attempt + 1}): {e}")
+            delay = ICON_RETRY_BASE_DELAY * (2 ** attempt)
+            await asyncio.sleep(delay)
+
     decky.logger.warning(
         f"Could not update shortcuts.vdf for appId={app_id} after {MAX_ICON_RETRIES} retries. "
         f"Icon file saved at {icon_path}, will apply on Steam restart."

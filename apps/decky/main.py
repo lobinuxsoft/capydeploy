@@ -31,7 +31,7 @@ from steam_utils import (
 from mdns_service import MDNSService
 from pairing import PairingManager
 from upload import UploadSession
-from artwork import download_artwork, set_shortcut_icon
+from artwork import download_artwork, set_shortcut_icon, set_shortcut_icon_from_url
 from ws_server import WebSocketServer, WS_PORT
 
 PLUGIN_VERSION = "0.1.0"
@@ -216,6 +216,10 @@ class Plugin:
     async def set_shortcut_icon(self, app_id: int, icon_b64: str, icon_format: str) -> bool:
         """Save icon file and update shortcuts.vdf for a shortcut."""
         return await set_shortcut_icon(app_id, icon_b64, icon_format)
+
+    async def set_shortcut_icon_from_url(self, app_id: int, icon_url: str) -> bool:
+        """Download icon from URL and apply it to a shortcut."""
+        return await set_shortcut_icon_from_url(app_id, icon_url)
 
     async def get_authorized_hubs(self):
         """Get list of authorized hubs."""
