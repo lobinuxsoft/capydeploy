@@ -37,12 +37,29 @@ func (s *Server) Start() error {
 		"version=" + s.info.Version,
 	}
 
-	// Register service using zeroconf
-	server, err := zeroconf.Register(
+	// Get local IPs, filtering out loopback and link-local
+	ips, err := getLocalIPs()
+	if err != nil || len(ips) == 0 {
+		return fmt.Errorf("no valid network IPs found: %w", err)
+	}
+
+	// Convert to string slice for RegisterProxy
+	ipStrings := make([]string, len(ips))
+	for i, ip := range ips {
+		ipStrings[i] = ip.String()
+	}
+
+	// Get hostname for mDNS
+	hostname := GetHostname()
+
+	// Register service using zeroconf with explicit IPs (no loopback)
+	server, err := zeroconf.RegisterProxy(
 		s.info.ID,      // Instance name
 		ServiceName,    // Service type (_capydeploy._tcp)
 		"local.",       // Domain
 		s.info.Port,    // Port
+		hostname,       // Host
+		ipStrings,      // IPs (filtered, no loopback)
 		txt,            // TXT records
 		nil,            // Interfaces (nil = all)
 	)
