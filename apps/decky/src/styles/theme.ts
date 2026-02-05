@@ -215,6 +215,51 @@ export function getThemeCSS(): string {
     opacity: 0.4;
   }
 
+  /* ── Section glass panels ─────────────────────────────────── */
+
+  .cd-section {
+    margin: 4px 0;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cd-section-cyan {
+    background: linear-gradient(
+      135deg,
+      rgba(6, 182, 212, 0.07) 0%,
+      rgba(6, 182, 212, 0.02) 100%
+    );
+    border: 1px solid rgba(6, 182, 212, 0.12);
+    box-shadow:
+      0 1px 8px rgba(6, 182, 212, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .cd-section-capy {
+    background: linear-gradient(
+      135deg,
+      rgba(249, 115, 22, 0.07) 0%,
+      rgba(249, 115, 22, 0.02) 100%
+    );
+    border: 1px solid rgba(249, 115, 22, 0.12);
+    box-shadow:
+      0 1px 8px rgba(249, 115, 22, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .cd-section-mixed {
+    background: linear-gradient(
+      135deg,
+      rgba(249, 115, 22, 0.05) 0%,
+      rgba(6, 182, 212, 0.05) 100%
+    );
+    border: 1px solid rgba(6, 182, 212, 0.1);
+    box-shadow:
+      0 1px 8px rgba(6, 182, 212, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
   /* ── Status indicators ──────────────────────────────────── */
 
   .cd-status-connected {

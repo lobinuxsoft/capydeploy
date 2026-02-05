@@ -118,6 +118,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   return (
     <>
       {/* Main Toggle */}
+      <div className="cd-section cd-section-cyan">
       <PanelSection title="Estado">
         <PanelSectionRow>
           <ToggleField
@@ -177,8 +178,10 @@ const StatusPanel: VFC<StatusPanelProps> = ({
           </>
         )}
       </PanelSection>
+      </div>
 
       {/* Agent Info - Always visible */}
+      <div className="cd-section cd-section-capy">
       <PanelSection title="Informacion del Agente">
         {/* Name - Editable */}
         <PanelSectionRow>
@@ -250,9 +253,11 @@ const StatusPanel: VFC<StatusPanelProps> = ({
           </Field>
         </PanelSectionRow>
       </PanelSection>
+      </div>
 
       {/* Network Info - Only when enabled */}
       {enabled && (
+        <div className="cd-section cd-section-cyan">
         <PanelSection title="Red">
           <PanelSectionRow>
             <Field label="Puerto" icon={<FaNetworkWired />}>
@@ -266,9 +271,11 @@ const StatusPanel: VFC<StatusPanelProps> = ({
             </Field>
           </PanelSectionRow>
         </PanelSection>
+        </div>
       )}
 
       {/* Capabilities */}
+      <div className="cd-section cd-section-mixed">
       <PanelSection title="Capacidades">
         <PanelSectionRow>
           <Field label="Subida de archivos">
@@ -286,6 +293,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
           </Field>
         </PanelSectionRow>
       </PanelSection>
+      </div>
     </>
   );
 };

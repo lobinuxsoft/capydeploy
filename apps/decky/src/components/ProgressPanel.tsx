@@ -126,6 +126,7 @@ const ProgressPanel: VFC<ProgressPanelProps> = ({ operation, uploadProgress }) =
   };
 
   return (
+    <div className="cd-section cd-section-mixed">
     <PanelSection title={isInstalling ? "Instalando" : "Eliminando"}>
       <PanelSectionRow>
         <Field label={operation.gameName} bottomSeparator="none">
@@ -152,6 +153,7 @@ const ProgressPanel: VFC<ProgressPanelProps> = ({ operation, uploadProgress }) =
         </PanelSectionRow>
       )}
     </PanelSection>
+    </div>
   );
 };
 
