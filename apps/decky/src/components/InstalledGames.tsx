@@ -24,12 +24,6 @@ const toastLogo = (
   />
 );
 
-declare const SteamClient: {
-  Apps: {
-    RemoveShortcut: (appId: number) => void;
-  };
-};
-
 interface InstalledGame {
   name: string;
   path: string;
