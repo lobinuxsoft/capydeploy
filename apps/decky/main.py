@@ -32,7 +32,7 @@ from mdns_service import MDNSService
 from pairing import PairingManager
 from upload import UploadSession
 from artwork import download_artwork, set_shortcut_icon, set_shortcut_icon_from_url
-from ws_server import WebSocketServer, WS_PORT
+from ws_server import WebSocketServer
 
 PLUGIN_VERSION = "0.1.0"
 
@@ -93,8 +93,9 @@ class Plugin:
         if self.settings.getSetting("enabled", False):
             success = await self.ws_server.start()
             if success:
+                # Use the actual port assigned by the OS
                 self.mdns_service = MDNSService(
-                    self.agent_id, self.agent_name, WS_PORT, PLUGIN_VERSION
+                    self.agent_id, self.agent_name, self.ws_server.actual_port, PLUGIN_VERSION
                 )
                 self.mdns_service.start()
             else:
@@ -141,8 +142,9 @@ class Plugin:
             success = await self.ws_server.start()
             if success:
                 if not self.mdns_service:
+                    # Use the actual port assigned by the OS
                     self.mdns_service = MDNSService(
-                        self.agent_id, self.agent_name, WS_PORT, PLUGIN_VERSION
+                        self.agent_id, self.agent_name, self.ws_server.actual_port, PLUGIN_VERSION
                     )
                     self.mdns_service.start()
             else:
@@ -166,7 +168,7 @@ class Plugin:
             "installPath": self.install_path,
             "platform": detect_platform(),
             "version": PLUGIN_VERSION,
-            "port": WS_PORT,
+            "port": self.ws_server.actual_port,
             "ip": get_local_ip(),
         }
 

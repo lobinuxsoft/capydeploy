@@ -21,7 +21,6 @@ from pairing import PAIRING_CODE_EXPIRY
 if TYPE_CHECKING:
     from main import Plugin
 
-WS_PORT = 9999
 CHUNK_SIZE = 1024 * 1024  # 1MB
 
 
@@ -31,6 +30,7 @@ class WebSocketServer:
     def __init__(self, plugin: Plugin):
         self.plugin = plugin
         self.server = None
+        self.actual_port: int = 0  # Assigned by OS after start()
         self.connected_hub: Optional[dict] = None
         self.uploads: dict[str, UploadSession] = {}
         self._send_queue: Optional[asyncio.Queue] = None
@@ -53,14 +53,17 @@ class WebSocketServer:
             return False
 
         try:
+            # Use port 0 for dynamic port assignment by OS
             self.server = await websockets.serve(
                 self.handle_connection,
                 "0.0.0.0",
-                WS_PORT,
+                0,
                 max_size=10 * 1024 * 1024,  # 10MB max message
                 reuse_address=True,
             )
-            decky.logger.info(f"WebSocket server started on port {WS_PORT}")
+            # Get the actual port assigned by the OS
+            self.actual_port = self.server.sockets[0].getsockname()[1]
+            decky.logger.info(f"WebSocket server started on port {self.actual_port}")
             return True
         except Exception as e:
             decky.logger.error(f"Failed to start WebSocket server: {e}")
