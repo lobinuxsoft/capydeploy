@@ -83,12 +83,26 @@ async function handleCreateShortcut(config: ShortcutConfig) {
         for (const [art, assetType] of artworkEntries) {
           if (art?.data) {
             try {
+              await SteamClient.Apps.ClearCustomArtworkForApp(appId, assetType);
+              await new Promise(r => setTimeout(r, 500));
               await SteamClient.Apps.SetCustomArtworkForApp(
                 appId,
                 art.data,
-                (art.format || "png") as "jpg" | "png",
+                "png",
                 assetType
               );
+
+              // Force default logo position to prevent invisible logos
+              if (assetType === ASSET_TYPE.logo) {
+                const appOverview = window.appStore?.GetAppOverviewByAppID(appId);
+                if (appOverview) {
+                  await window.appDetailsStore?.SaveCustomLogoPosition(appOverview as any, {
+                    pinnedPosition: "BottomLeft",
+                    nWidthPct: 50,
+                    nHeightPct: 50,
+                  });
+                }
+              }
             } catch (e) {
               console.error(`Failed to apply artwork (type ${assetType}):`, e);
             }
