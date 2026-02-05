@@ -3,7 +3,7 @@
  * Receive games from your PC and create Steam shortcuts in gaming mode.
  */
 
-import { definePlugin, staticClasses } from "@decky/ui";
+import { definePlugin, staticClasses, showModal, ConfirmModal } from "@decky/ui";
 import { call, toaster } from "@decky/api";
 import { useState, useEffect, VFC } from "react";
 
@@ -173,18 +173,23 @@ async function pollAllEvents() {
       _uiCallbacks.onProgress?.(progressEvent.data);
     }
 
-    // ── Pairing code (toast always, UI state when panel open) ──
+    // ── Pairing code (persistent modal, UI state when panel open) ──
 
     const pairingEvent = await call<[string], { timestamp: number; data: { code: string } } | null>(
       "get_event",
       "pairing_code"
     );
     if (pairingEvent?.data) {
-      _uiCallbacks.onPairingCode?.(pairingEvent.data.code);
-      toaster.toast({
-        title: "Codigo de emparejamiento",
-        body: pairingEvent.data.code,
-      });
+      const code = pairingEvent.data.code;
+      _uiCallbacks.onPairingCode?.(code);
+      showModal(
+        <ConfirmModal
+          strTitle="Codigo de emparejamiento"
+          strDescription={`Ingresa este codigo en el Hub para vincular este dispositivo:\n\n${code}`}
+          strOKButtonText="Entendido"
+          strCancelButtonText="Cerrar"
+        />
+      );
     }
 
     // ── Pairing success (clear code, refresh status) ──
@@ -196,6 +201,10 @@ async function pollAllEvents() {
     if (pairingSuccess) {
       _uiCallbacks.onPairingClear?.();
       _uiCallbacks.onRefreshStatus?.();
+      toaster.toast({
+        title: "Hub vinculado!",
+        body: "Emparejamiento exitoso",
+      });
     }
 
     // ── Hub connection state changes ──
