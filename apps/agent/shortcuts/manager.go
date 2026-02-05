@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -264,8 +265,12 @@ func expandPath(path string) string {
 	return path
 }
 
-// quotePath wraps a path in double quotes for Steam if not already quoted.
+// quotePath wraps a path in double quotes for Steam on Windows.
+// Linux shortcuts must NOT have quotes around paths.
 func quotePath(path string) string {
+	if runtime.GOOS != "windows" {
+		return strings.Trim(path, "\"")
+	}
 	if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
 		return path
 	}
