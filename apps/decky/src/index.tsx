@@ -81,6 +81,8 @@ async function handleCreateShortcut(config: ShortcutConfig) {
           [config.artwork.grid, ASSET_TYPE.grid_p],
           [config.artwork.hero, ASSET_TYPE.hero],
           [config.artwork.logo, ASSET_TYPE.logo],
+          [config.artwork.banner, ASSET_TYPE.grid_l],
+          [config.artwork.icon, ASSET_TYPE.icon],
         ];
         for (const [art, assetType] of artworkEntries) {
           if (art?.data) {

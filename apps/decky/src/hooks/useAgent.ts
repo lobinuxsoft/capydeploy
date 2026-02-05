@@ -32,6 +32,7 @@ export interface ShortcutConfig {
     hero?: ArtworkAsset;
     logo?: ArtworkAsset;
     icon?: ArtworkAsset;
+    banner?: ArtworkAsset;
   };
 }
 
