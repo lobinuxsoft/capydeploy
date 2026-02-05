@@ -15,7 +15,7 @@ import decky  # type: ignore
 
 from upload import UploadSession
 from artwork import download_artwork
-from steam_utils import get_steam_users, expand_path, fix_permissions, detect_executable
+from steam_utils import get_steam_users, expand_path, fix_permissions
 from pairing import PAIRING_CODE_EXPIRY
 
 if TYPE_CHECKING:
@@ -523,12 +523,9 @@ class WebSocketServer:
         }
 
         if create_shortcut and shortcut_config:
-            # Detect executable from actual files on disk
-            exe_path = detect_executable(session.install_path)
-            if not exe_path:
-                # Fallback to Hub-provided name
-                exe_name = os.path.basename(session.executable.replace("\\", "/"))
-                exe_path = os.path.join(session.install_path, exe_name)
+            # Agent calculates all paths — Hub only provides the executable filename
+            exe_name = os.path.basename(session.executable.replace("\\", "/"))
+            exe_path = os.path.join(session.install_path, exe_name)
 
             if os.path.exists(exe_path):
                 os.chmod(exe_path, 0o755)
