@@ -70,6 +70,36 @@ def expand_path(path: str) -> str:
     return path
 
 
+def detect_executable(install_path: str) -> Optional[str]:
+    """Detect the main game executable by scanning files in the install directory.
+
+    Looks for ELF binaries (magic bytes \\x7fELF) that are not shared libraries (.so).
+    If multiple candidates, picks the largest one.
+    """
+    candidates = []
+    for fname in os.listdir(install_path):
+        fpath = os.path.join(install_path, fname)
+        if not os.path.isfile(fpath):
+            continue
+        # Skip shared libraries
+        if ".so" in fname:
+            continue
+        # Check ELF magic bytes
+        try:
+            with open(fpath, "rb") as f:
+                magic = f.read(4)
+            if magic == b"\x7fELF":
+                candidates.append((fpath, os.path.getsize(fpath)))
+        except Exception:
+            pass
+
+    if not candidates:
+        return None
+    # Return the largest ELF binary (main game binary is usually the biggest)
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    return candidates[0][0]
+
+
 def fix_permissions(path: str) -> None:
     """Recursively fix ownership and permissions so the real user can access files.
 
