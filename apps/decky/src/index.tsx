@@ -3,7 +3,7 @@
  * Receive games from your PC and create Steam shortcuts in gaming mode.
  */
 
-import { definePlugin, staticClasses, showModal, ConfirmModal } from "@decky/ui";
+import { definePlugin, staticClasses, showModal } from "@decky/ui";
 import { call, toaster } from "@decky/api";
 import { useState, useEffect, VFC } from "react";
 
@@ -14,6 +14,7 @@ import InstalledGames from "./components/InstalledGames";
 import ProgressPanel, { ProgressModalContent, progressState } from "./components/ProgressPanel";
 import CapyIcon from "./components/CapyIcon";
 import { getThemeCSS } from "./styles/theme";
+import PairingCodeModal from "./components/PairingCodeModal";
 import type { OperationEvent, UploadProgress } from "./types";
 
 // Import mascot
@@ -222,14 +223,7 @@ async function pollAllEvents() {
     if (pairingEvent?.data) {
       const code = pairingEvent.data.code;
       _uiCallbacks.onPairingCode?.(code);
-      showModal(
-        <ConfirmModal
-          strTitle="Pairing code"
-          strDescription={`Enter this code in the Hub to link this device:\n\n${code}`}
-          strOKButtonText="Got it"
-          strCancelButtonText="Close"
-        />
-      );
+      showModal(<PairingCodeModal code={code} />);
     }
 
     // ── Pairing success (clear code, refresh status) ──

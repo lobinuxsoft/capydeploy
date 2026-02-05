@@ -325,7 +325,7 @@ export function getThemeCSS(): string {
     color: ${colors.disabled};
   }
 
-  /* ── Compact icon buttons (edit name actions) ────────────── */
+  /* ── Compact icon buttons (trash, etc.) ───────────────────── */
 
   .cd-icon-btn {
     display: flex;
@@ -524,6 +524,106 @@ export function getModalCSS(): string {
     0% { transform: scale(0); opacity: 0; }
     60% { transform: scale(1.3); }
     100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── Modal subtitle ─────────────────────────────────────── */
+
+  .cd-modal-subtitle {
+    font-size: 0.9em;
+    color: ${colors.disabled};
+    text-align: center;
+  }
+
+  /* ── Pairing code display ───────────────────────────────── */
+
+  .cd-modal-code {
+    font-size: 2.2em;
+    font-family: monospace;
+    font-weight: bold;
+    letter-spacing: 0.35em;
+    text-align: center;
+    padding: 16px 24px;
+    margin: 8px 0;
+    background: ${GRADIENT};
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    border: 1px solid rgba(6, 182, 212, 0.25);
+    border-radius: 10px;
+    position: relative;
+  }
+
+  .cd-modal-code::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: linear-gradient(
+      135deg,
+      rgba(6, 182, 212, 0.08) 0%,
+      rgba(249, 115, 22, 0.04) 50%,
+      rgba(6, 182, 212, 0.06) 100%
+    );
+    z-index: -1;
+  }
+
+  /* ── Modal input wrapper ────────────────────────────────── */
+
+  .cd-modal-input-wrap {
+    width: 100%;
+    margin: 4px 0;
+  }
+
+  .cd-modal-input-wrap input {
+    width: 100% !important;
+    text-align: center;
+    font-size: 1.1em !important;
+  }
+
+  /* ── Modal action buttons ───────────────────────────────── */
+
+  .cd-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cd-modal-btn {
+    padding: 10px 28px;
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+  }
+
+  .cd-modal-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .cd-modal-btn-primary {
+    background: linear-gradient(135deg, ${colors.capy}, ${colors.primary});
+    color: #fff;
+    border-color: rgba(6, 182, 212, 0.3);
+  }
+
+  .cd-modal-btn-primary:hover:not(:disabled) {
+    box-shadow: 0 0 16px ${colors.primaryMid};
+  }
+
+  .cd-modal-btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: ${colors.disabled};
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .cd-modal-btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.14);
+    color: ${colors.foreground};
   }
   `;
 }

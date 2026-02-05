@@ -8,11 +8,11 @@ import {
   PanelSectionRow,
   ToggleField,
   Field,
-  TextField,
   Focusable,
+  showModal,
 } from "@decky/ui";
 import { call, openFilePicker } from "@decky/api";
-import { VFC, useState } from "react";
+import { VFC } from "react";
 import {
   FaPlug,
   FaPlugCircleXmark,
@@ -22,11 +22,10 @@ import {
   FaFolderOpen,
   FaCircleInfo,
   FaPen,
-  FaCheck,
-  FaXmark,
   FaKey,
 } from "react-icons/fa6";
 import { colors } from "../styles/theme";
+import NameEditModal from "./NameEditModal";
 
 // FileSelectionType enum from @decky/api
 const FileSelectionType = {
@@ -63,27 +62,8 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   installPath,
   onRefresh,
 }) => {
-  const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState(agentName);
-  const [savingName, setSavingName] = useState(false);
-
-  const handleSaveName = async () => {
-    if (!newName.trim()) return;
-    setSavingName(true);
-    try {
-      await call<[string], void>("set_agent_name", newName.trim());
-      setEditingName(false);
-      onRefresh();
-    } catch (e) {
-      console.error("Failed to save name:", e);
-    } finally {
-      setSavingName(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingName(false);
-    setNewName(agentName);
+  const handleEditName = () => {
+    showModal(<NameEditModal currentName={agentName} onSaved={onRefresh} />);
   };
 
   const handleSelectFolder = async () => {
@@ -180,45 +160,16 @@ const StatusPanel: VFC<StatusPanelProps> = ({
         <div className="cd-section-title">Agent Info</div>
         <PanelSection>
           <PanelSectionRow>
-            {editingName ? (
-              <Focusable style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 16px" }}>
-                <FaComputer color={colors.capy} style={{ flexShrink: 0 }} />
-                <TextField
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  disabled={savingName}
-                  style={{ flex: 1, minWidth: 0 }}
-                />
-                <Focusable
-                  className="cd-icon-btn"
-                  onClick={handleSaveName}
-                  style={{ opacity: savingName || !newName.trim() ? 0.3 : 1 }}
-                >
-                  <FaCheck size={14} color={colors.primary} />
-                </Focusable>
-                <Focusable
-                  className="cd-icon-btn"
-                  onClick={handleCancelEdit}
-                  style={{ opacity: savingName ? 0.3 : 1 }}
-                >
-                  <FaXmark size={14} color={colors.destructive} />
-                </Focusable>
+            <Field
+              label="Name"
+              icon={<FaComputer color={colors.capy} />}
+              onClick={handleEditName}
+            >
+              <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="cd-value">{agentName}</span>
+                <FaPen size={12} style={{ opacity: 0.5 }} />
               </Focusable>
-            ) : (
-              <Field
-                label="Name"
-                icon={<FaComputer color={colors.capy} />}
-                onClick={() => {
-                  setNewName(agentName);
-                  setEditingName(true);
-                }}
-              >
-                <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span className="cd-value">{agentName}</span>
-                  <FaPen size={12} style={{ opacity: 0.5 }} />
-                </Focusable>
-              </Field>
-            )}
+            </Field>
           </PanelSectionRow>
 
           <PanelSectionRow>
