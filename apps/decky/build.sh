@@ -54,12 +54,19 @@ fi
 echo "Building frontend..."
 $PM run build
 
+# Install Python dependencies into py_modules (bundled with the plugin)
+echo "Installing Python dependencies..."
+rm -rf py_modules
+mkdir -p py_modules
+python3 -m pip install --target py_modules -r requirements.txt --no-cache-dir
+
 # Copy files to build directory
 echo "Copying files..."
 cp plugin.json "$BUILD_DIR/"
 cp package.json "$BUILD_DIR/"
 cp main.py "$BUILD_DIR/"
 cp requirements.txt "$BUILD_DIR/"
+cp -r py_modules "$BUILD_DIR/"
 
 # Copy dist (frontend bundle)
 if [ -d "dist" ]; then

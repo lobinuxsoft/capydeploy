@@ -203,35 +203,59 @@ class WebSocketServer:
         self.uploads: dict[str, UploadSession] = {}
         self._send_queue: Optional[asyncio.Queue] = None
         self._write_task: Optional[asyncio.Task] = None
+        self._active_websocket = None
 
-    async def start(self):
-        """Start the WebSocket server."""
+    async def start(self) -> bool:
+        """Start the WebSocket server. Returns True on success."""
+        if self.server:
+            decky.logger.info("WebSocket server already running")
+            return True
+
         try:
-            # Import here to avoid issues if not available
             import websockets
+        except ImportError:
+            decky.logger.error(
+                "websockets package not found. "
+                "Install it on the device: pip install websockets zeroconf"
+            )
+            return False
 
+        try:
             self.server = await websockets.serve(
                 self.handle_connection,
                 "0.0.0.0",
                 WS_PORT,
                 max_size=10 * 1024 * 1024,  # 10MB max message
+                reuse_address=True,
             )
             decky.logger.info(f"WebSocket server started on port {WS_PORT}")
+            return True
         except Exception as e:
             decky.logger.error(f"Failed to start WebSocket server: {e}")
+            return False
+
+    async def close_connection(self):
+        """Close the active WebSocket connection."""
+        if self._active_websocket:
+            try:
+                await self._active_websocket.close()
+            except Exception:
+                pass
 
     async def stop(self):
         """Stop the WebSocket server."""
+        await self.close_connection()
         if self.server:
             self.server.close()
             await self.server.wait_closed()
+            self.server = None
             decky.logger.info("WebSocket server stopped")
 
-    async def _write_pump(self, websocket):
+    async def _write_pump(self, websocket, send_queue: asyncio.Queue):
         """Dedicated task for writing messages to WebSocket (like Go's writePump)."""
         try:
             while True:
-                msg_data = await self._send_queue.get()
+                msg_data = await send_queue.get()
                 if msg_data is None:  # Shutdown signal
                     break
                 try:
@@ -250,10 +274,13 @@ class WebSocketServer:
         decky.logger.info(f"New connection from {websocket.remote_address}")
         authorized = False
         hub_id = None
+        self._active_websocket = websocket
 
-        # Create send queue and start write pump (like Go's architecture)
-        self._send_queue = asyncio.Queue()
-        self._write_task = asyncio.create_task(self._write_pump(websocket))
+        # Local refs so cleanup works even if a new connection overwrites instance vars
+        send_queue = asyncio.Queue()
+        write_task = asyncio.create_task(self._write_pump(websocket, send_queue))
+        self._send_queue = send_queue
+        self._write_task = write_task
 
         try:
             async for message in websocket:
@@ -313,19 +340,22 @@ class WebSocketServer:
         except Exception as e:
             decky.logger.error(f"Connection error: {e}")
         finally:
-            # Stop write pump
-            if self._send_queue:
-                await self._send_queue.put(None)
-            if self._write_task:
-                self._write_task.cancel()
-                try:
-                    await self._write_task
-                except asyncio.CancelledError:
-                    pass
+            self._active_websocket = None
+
+            # Stop write pump using LOCAL refs (instance vars may belong to a newer connection)
+            await send_queue.put(None)
+            write_task.cancel()
+            try:
+                await write_task
+            except asyncio.CancelledError:
+                pass
 
             if self.connected_hub and self.connected_hub.get("id") == hub_id:
                 self.connected_hub = None
-                await self.plugin.notify_frontend("hub_disconnected", {})
+                try:
+                    await self.plugin.notify_frontend("hub_disconnected", {})
+                except Exception as e:
+                    decky.logger.error(f"Failed to notify hub_disconnected: {e}")
             decky.logger.info(f"Connection closed: {websocket.remote_address}")
 
     async def handle_hub_connected(self, websocket, msg_id: str, payload: dict):
@@ -958,6 +988,12 @@ class Plugin:
         self.ws_server = WebSocketServer(self)
         self.mdns_service = None
 
+        # Clean stale event queues from previous sessions
+        for key in list(self.settings.settings.keys()):
+            if key.startswith("_queue_") or key.startswith("_event_"):
+                del self.settings.settings[key]
+        self.settings.commit()
+
         # Load settings
         self.agent_name = self.settings.getSetting("agent_name", "Steam Deck")
         self.accept_connections = self.settings.getSetting("accept_connections", True)
@@ -978,9 +1014,12 @@ class Plugin:
 
         # Start server if enabled
         if self.settings.getSetting("enabled", False):
-            await self.ws_server.start()
-            self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
-            self.mdns_service.start()
+            success = await self.ws_server.start()
+            if success:
+                self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
+                self.mdns_service.start()
+            else:
+                decky.logger.error("Server failed to start - deps missing?")
 
         decky.logger.info("CapyDeploy plugin loaded")
 
@@ -992,15 +1031,26 @@ class Plugin:
         await self.ws_server.stop()
         decky.logger.info("CapyDeploy plugin unloaded")
 
+    # Events that MUST NOT be lost — use append queue instead of overwrite
+    QUEUED_EVENTS = {
+        "operation_event", "create_shortcut", "remove_shortcut",
+        "pairing_code", "pairing_success", "hub_connected", "hub_disconnected",
+        "server_error",
+    }
+
     async def notify_frontend(self, event: str, data: dict):
-        """Send event to frontend."""
-        # This will be picked up by the frontend via polling or events
+        """Send event to frontend via queue (critical) or overwrite (progress)."""
         decky.logger.info(f"Frontend event: {event} - {data}")
-        # Store for frontend to retrieve
-        self.settings.setSetting(f"_event_{event}", {
-            "timestamp": time.time(),
-            "data": data,
-        })
+        if event in self.QUEUED_EVENTS:
+            queue = self.settings.getSetting(f"_queue_{event}", []) or []
+            queue.append({"timestamp": time.time(), "data": data})
+            self.settings.setSetting(f"_queue_{event}", queue)
+        else:
+            # upload_progress: only latest value matters
+            self.settings.setSetting(f"_event_{event}", {
+                "timestamp": time.time(),
+                "data": data,
+            })
 
     # Frontend API methods
 
@@ -1017,9 +1067,15 @@ class Plugin:
         decky.logger.info(f"set_enabled called with: {enabled}")
         self.settings.setSetting("enabled", enabled)
         if enabled:
-            await self.ws_server.start()
-            self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
-            self.mdns_service.start()
+            success = await self.ws_server.start()
+            if success:
+                if not self.mdns_service:
+                    self.mdns_service = MDNSService(self.agent_id, self.agent_name, WS_PORT)
+                    self.mdns_service.start()
+            else:
+                await self.notify_frontend("server_error", {
+                    "message": "Failed to start server. Missing dependencies?",
+                })
         else:
             if self.mdns_service:
                 self.mdns_service.stop()
@@ -1074,10 +1130,19 @@ class Plugin:
         }
 
     async def get_event(self, event_name: str) -> Optional[dict]:
-        """Get and clear a frontend event."""
-        event = self.settings.getSetting(f"_event_{event_name}", None)
+        """Get and clear a frontend event. Pops from queue for critical events."""
+        # Queue-based events: pop first item
+        queue_key = f"_queue_{event_name}"
+        queue = self.settings.getSetting(queue_key, [])
+        if queue:
+            event = queue.pop(0)
+            self.settings.setSetting(queue_key, queue)
+            return event
+        # Overwrite-based events (upload_progress, etc.)
+        key = f"_event_{event_name}"
+        event = self.settings.getSetting(key, None)
         if event:
-            self.settings.setSetting(f"_event_{event_name}", None)
+            self.settings.setSetting(key, None)
         return event
 
     async def set_agent_name(self, name: str):
@@ -1127,6 +1192,9 @@ class Plugin:
         if hub_id in authorized:
             del authorized[hub_id]
             self.settings.setSetting("authorized_hubs", authorized)
+            # If this hub is currently connected, kick it
+            if self.ws_server.connected_hub and self.ws_server.connected_hub.get("id") == hub_id:
+                await self.ws_server.close_connection()
             decky.logger.info(f"Revoked hub: {hub_id}")
             return True
         return False

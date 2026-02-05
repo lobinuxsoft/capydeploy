@@ -13,6 +13,7 @@ import AuthorizedHubs from "./components/AuthorizedHubs";
 import InstalledGames from "./components/InstalledGames";
 import ProgressPanel, { ProgressModalContent, progressState } from "./components/ProgressPanel";
 import CapyIcon from "./components/CapyIcon";
+import ConfirmActionModal from "./components/ConfirmActionModal";
 import { getThemeCSS } from "./styles/theme";
 import PairingCodeModal from "./components/PairingCodeModal";
 import type { OperationEvent, UploadProgress } from "./types";
@@ -149,61 +150,70 @@ let bgPollInterval: ReturnType<typeof setInterval> | null = null;
 
 async function pollAllEvents() {
   try {
-    // ── SteamClient operations (critical, must run in background) ──
+    // ── SteamClient operations (critical, drain full queue) ──
 
-    const shortcutEvent = await call<[string], { timestamp: number; data: ShortcutConfig } | null>(
-      "get_event",
-      "create_shortcut"
-    );
-    if (shortcutEvent?.data) {
-      handleCreateShortcut(shortcutEvent.data);
-    }
-
-    const removeEvent = await call<[string], { timestamp: number; data: { appId: number } } | null>(
-      "get_event",
-      "remove_shortcut"
-    );
-    if (removeEvent?.data) {
-      handleRemoveShortcut(removeEvent.data.appId);
-    }
-
-    // ── Operation events (toasts always, UI state when panel open) ──
-
-    const opEvent = await call<[string], { timestamp: number; data: OperationEvent } | null>(
-      "get_event",
-      "operation_event"
-    );
-    if (opEvent?.data) {
-      const event = opEvent.data;
-      _uiCallbacks.onOperation?.(event);
-
-      if (event.status === "start") {
-        progressState.update(event, null);
-        showProgressModal();
-        brandToast({
-          title: event.type === "install" ? "Installing game" : "Removing game",
-          body: event.gameName,
-        });
-      } else if (event.status === "complete") {
-        progressState.update(event, null);
-        closeProgressModal();
-        brandToast({
-          title: event.type === "install" ? "Game installed!" : "Game removed",
-          body: event.gameName,
-        });
-      } else if (event.status === "error") {
-        progressState.update(event, null);
-        closeProgressModal(5000);
-        brandToast({
-          title: "Error",
-          body: `${event.gameName}: ${event.message}`,
-        });
-      } else {
-        progressState.update(event, progressState.progress);
+    let shortcutEvent;
+    do {
+      shortcutEvent = await call<[string], { timestamp: number; data: ShortcutConfig } | null>(
+        "get_event",
+        "create_shortcut"
+      );
+      if (shortcutEvent?.data) {
+        handleCreateShortcut(shortcutEvent.data);
       }
-    }
+    } while (shortcutEvent?.data);
 
-    // ── Upload progress (UI state + modal update) ──
+    let removeEvent;
+    do {
+      removeEvent = await call<[string], { timestamp: number; data: { appId: number } } | null>(
+        "get_event",
+        "remove_shortcut"
+      );
+      if (removeEvent?.data) {
+        handleRemoveShortcut(removeEvent.data.appId);
+      }
+    } while (removeEvent?.data);
+
+    // ── Operation events (drain queue: toasts always, UI state when panel open) ──
+
+    let opEvent;
+    do {
+      opEvent = await call<[string], { timestamp: number; data: OperationEvent } | null>(
+        "get_event",
+        "operation_event"
+      );
+      if (opEvent?.data) {
+        const event = opEvent.data;
+        _uiCallbacks.onOperation?.(event);
+
+        if (event.status === "start") {
+          progressState.update(event, null);
+          showProgressModal();
+          brandToast({
+            title: event.type === "install" ? "Installing game" : "Removing game",
+            body: event.gameName,
+          });
+        } else if (event.status === "complete") {
+          progressState.update(event, null);
+          closeProgressModal();
+          brandToast({
+            title: event.type === "install" ? "Game installed!" : "Game removed",
+            body: event.gameName,
+          });
+        } else if (event.status === "error") {
+          progressState.update(event, null);
+          closeProgressModal(5000);
+          brandToast({
+            title: "Error",
+            body: `${event.gameName}: ${event.message}`,
+          });
+        } else {
+          progressState.update(event, progressState.progress);
+        }
+      }
+    } while (opEvent?.data);
+
+    // ── Upload progress (overwrite-based, only latest matters) ──
 
     const progressEvent = await call<[string], { timestamp: number; data: UploadProgress } | null>(
       "get_event",
@@ -214,50 +224,82 @@ async function pollAllEvents() {
       progressState.update(progressState.operation, progressEvent.data);
     }
 
-    // ── Pairing code (persistent modal, UI state when panel open) ──
+    // ── Pairing code (drain queue) ──
 
-    const pairingEvent = await call<[string], { timestamp: number; data: { code: string } } | null>(
-      "get_event",
-      "pairing_code"
-    );
-    if (pairingEvent?.data) {
-      const code = pairingEvent.data.code;
-      _uiCallbacks.onPairingCode?.(code);
-      showModal(<PairingCodeModal code={code} />);
-    }
+    let pairingEvent;
+    do {
+      pairingEvent = await call<[string], { timestamp: number; data: { code: string } } | null>(
+        "get_event",
+        "pairing_code"
+      );
+      if (pairingEvent?.data) {
+        const code = pairingEvent.data.code;
+        _uiCallbacks.onPairingCode?.(code);
+        showModal(<PairingCodeModal code={code} />);
+      }
+    } while (pairingEvent?.data);
 
-    // ── Pairing success (clear code, refresh status) ──
+    // ── Pairing success (drain queue) ──
 
-    const pairingSuccess = await call<[string], { timestamp: number; data: object } | null>(
-      "get_event",
-      "pairing_success"
-    );
-    if (pairingSuccess) {
-      _uiCallbacks.onPairingClear?.();
-      _uiCallbacks.onRefreshStatus?.();
-      brandToast({
-        title: "Hub linked!",
-        body: "Pairing successful",
-      });
-    }
+    let pairingSuccess;
+    do {
+      pairingSuccess = await call<[string], { timestamp: number; data: object } | null>(
+        "get_event",
+        "pairing_success"
+      );
+      if (pairingSuccess?.data) {
+        _uiCallbacks.onPairingClear?.();
+        _uiCallbacks.onRefreshStatus?.();
+        brandToast({
+          title: "Hub linked!",
+          body: "Pairing successful",
+        });
+      }
+    } while (pairingSuccess?.data);
 
-    // ── Hub connection state changes ──
+    // ── Hub connection state changes (drain queue) ──
 
-    const hubConnected = await call<[string], { timestamp: number; data: object } | null>(
-      "get_event",
-      "hub_connected"
-    );
-    if (hubConnected) {
-      _uiCallbacks.onRefreshStatus?.();
-    }
+    let hubConnected;
+    do {
+      hubConnected = await call<[string], { timestamp: number; data: object } | null>(
+        "get_event",
+        "hub_connected"
+      );
+      if (hubConnected?.data) {
+        _uiCallbacks.onRefreshStatus?.();
+      }
+    } while (hubConnected?.data);
 
-    const hubDisconnected = await call<[string], { timestamp: number; data: object } | null>(
-      "get_event",
-      "hub_disconnected"
-    );
-    if (hubDisconnected) {
-      _uiCallbacks.onRefreshStatus?.();
-    }
+    let hubDisconnected;
+    do {
+      hubDisconnected = await call<[string], { timestamp: number; data: object } | null>(
+        "get_event",
+        "hub_disconnected"
+      );
+      if (hubDisconnected?.data) {
+        _uiCallbacks.onRefreshStatus?.();
+      }
+    } while (hubDisconnected?.data);
+
+    // ── Server error (queue-based, show modal) ──
+
+    let serverError;
+    do {
+      serverError = await call<[string], { timestamp: number; data: { message: string } } | null>(
+        "get_event",
+        "server_error"
+      );
+      if (serverError?.data) {
+        showModal(
+          <ConfirmActionModal
+            title="Server Error"
+            description={`${serverError.data.message}\n\nTry reinstalling the plugin or check the logs.`}
+            confirmText="OK"
+            onConfirm={() => {}}
+          />
+        );
+      }
+    } while (serverError?.data);
   } catch (e) {
     console.error("Background poll error:", e);
   }
