@@ -17,6 +17,7 @@ class UploadSession:
         self.current_file: Optional[str] = None
         self.status = "active"
         self.install_path: Optional[str] = None
+        self.executable: Optional[str] = None
 
     def progress(self) -> float:
         if self.total_size == 0:

@@ -365,6 +365,7 @@ class WebSocketServer:
         session = UploadSession(upload_id, game_name, total_size, files)
         expanded = expand_path(self.plugin.install_path)
         session.install_path = os.path.join(expanded, game_name)
+        session.executable = config.get("executable", "")
         self.uploads[upload_id] = session
 
         os.makedirs(session.install_path, exist_ok=True)
@@ -522,7 +523,8 @@ class WebSocketServer:
         }
 
         if create_shortcut and shortcut_config:
-            exe_name = os.path.basename(shortcut_config.get("exe", ""))
+            # Agent calculates all paths — Hub only provides the executable filename
+            exe_name = os.path.basename(session.executable.replace("\\", "/"))
             exe_path = os.path.join(session.install_path, exe_name)
 
             if os.path.exists(exe_path):
