@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Build output
+dist/
+out/
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+py_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Decky
+*.pyi
