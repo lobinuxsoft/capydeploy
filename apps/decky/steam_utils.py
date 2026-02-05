@@ -97,13 +97,6 @@ def fix_permissions(path: str) -> None:
             except Exception:
                 pass
 
-    # Make the root directory itself accessible too
-    try:
-        os.chown(path, uid, gid)
-        os.chmod(path, 0o755)
-    except Exception:
-        pass
-
 
 def get_steam_dir() -> Optional[str]:
     """Find Steam installation directory."""
