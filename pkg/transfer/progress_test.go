@@ -35,7 +35,7 @@ func TestProgressTracker_Track(t *testing.T) {
 
 	got := tracker.GetSession("test-123")
 	if got == nil {
-		t.Error("GetSession() returned nil after Track()")
+		t.Fatal("GetSession() returned nil after Track()")
 	}
 	if got.ID != "test-123" {
 		t.Errorf("Session ID = %q, want %q", got.ID, "test-123")

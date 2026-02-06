@@ -14,20 +14,15 @@ capydeploy-agent
 # Embedded binaries (generated during build)
 internal/embedded/steam-shortcut-manager
 
-# Go
-go.sum
-
 # Frontend - Hub
 apps/hub/frontend/node_modules/
 apps/hub/frontend/dist/
 apps/hub/frontend/.svelte-kit/
-apps/hub/frontend/wailsjs/
 
 # Frontend - Desktop Agent
 apps/agents/desktop/frontend/node_modules/
 apps/agents/desktop/frontend/dist/
 apps/agents/desktop/frontend/.svelte-kit/
-apps/agents/desktop/frontend/wailsjs/
 
 # Decky Agent
 apps/agents/decky/node_modules/
