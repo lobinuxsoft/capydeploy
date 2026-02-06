@@ -36,6 +36,11 @@ export const DeleteGame = App.DeleteGame;
 // Version
 export const GetVersion = App.GetVersion;
 
+// Hub identity functions
+export const GetHubInfo = App.GetHubInfo;
+export const GetHubName = App.GetHubName;
+export const SetHubName = App.SetHubName;
+
 // Settings functions
 export const GetSteamGridDBAPIKey = App.GetSteamGridDBAPIKey;
 export const SetSteamGridDBAPIKey = App.SetSteamGridDBAPIKey;
