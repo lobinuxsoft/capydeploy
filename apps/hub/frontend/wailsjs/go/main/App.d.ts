@@ -22,6 +22,8 @@ export function GetAgentInstallPath():Promise<string>;
 
 export function GetCacheSize():Promise<number>;
 
+export function GetCacheURL(arg1:number,arg2:string):Promise<string>;
+
 export function GetConnectionStatus():Promise<main.ConnectionStatus>;
 
 export function GetDiscoveredAgents():Promise<Array<main.DiscoveredAgentInfo>>;

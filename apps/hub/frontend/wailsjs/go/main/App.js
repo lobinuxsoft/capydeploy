@@ -38,6 +38,10 @@ export function GetCacheSize() {
   return window['go']['main']['App']['GetCacheSize']();
 }
 
+export function GetCacheURL(arg1, arg2) {
+  return window['go']['main']['App']['GetCacheURL'](arg1, arg2);
+}
+
 export function GetConnectionStatus() {
   return window['go']['main']['App']['GetConnectionStatus']();
 }

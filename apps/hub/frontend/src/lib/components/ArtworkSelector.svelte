@@ -16,6 +16,65 @@
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
 
+	// Intersection Observer action - unloads images when out of viewport to save memory
+	// This is critical for animated GIFs/WebPs which consume huge amounts of RAM when decoded
+	let observer: IntersectionObserver | null = null;
+	const observedImages = new Map<HTMLImageElement, string>();
+
+	function getObserver(): IntersectionObserver {
+		if (!observer) {
+			observer = new IntersectionObserver(
+				(entries) => {
+					entries.forEach((entry) => {
+						const img = entry.target as HTMLImageElement;
+						const originalSrc = observedImages.get(img);
+						if (!originalSrc) return;
+
+						if (entry.isIntersecting) {
+							// Entering viewport - load the image
+							if (img.src !== originalSrc) {
+								img.src = originalSrc;
+							}
+						} else {
+							// Leaving viewport - unload to free memory
+							// Use a tiny transparent placeholder
+							img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+						}
+					});
+				},
+				{
+					root: null, // viewport
+					rootMargin: '100px', // Load slightly before visible
+					threshold: 0
+				}
+			);
+		}
+		return observer;
+	}
+
+	function lazyImage(node: HTMLImageElement, src: string) {
+		observedImages.set(node, src);
+		// Start with placeholder, observer will load when visible
+		node.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+		getObserver().observe(node);
+
+		return {
+			update(newSrc: string) {
+				observedImages.set(node, newSrc);
+				// If currently visible, update immediately
+				const rect = node.getBoundingClientRect();
+				const isVisible = rect.top < window.innerHeight + 100 && rect.bottom > -100;
+				if (isVisible) {
+					node.src = newSrc;
+				}
+			},
+			destroy() {
+				observedImages.delete(node);
+				getObserver().unobserve(node);
+			}
+		};
+	}
+
 	interface Props {
 		gameName: string;
 		currentSelection: ArtworkSelection | null;
@@ -477,9 +536,15 @@
 			searchGames();
 		}
 
-		// Cleanup on component destroy - clear all cached data
+		// Cleanup on component destroy - clear all cached data and observer
 		return () => {
 			clearCache();
+			// Disconnect intersection observer
+			if (observer) {
+				observer.disconnect();
+				observer = null;
+			}
+			observedImages.clear();
 		};
 	});
 </script>
@@ -648,10 +713,9 @@
 								onclick={() => selectCapsule(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									use:lazyImage={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-[2/3] object-cover bg-muted"
-									loading="lazy"
 									onerror={(e) => handleImageError(e, img)}
 								/>
 								{#if selected}
@@ -693,10 +757,9 @@
 								onclick={() => selectWide(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									use:lazyImage={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-[460/215] object-cover bg-muted"
-									loading="lazy"
 									onerror={(e) => handleImageError(e, img)}
 								/>
 								{#if selected}
@@ -738,10 +801,9 @@
 								onclick={() => selectHero(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									use:lazyImage={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-[1920/620] object-cover bg-muted"
-									loading="lazy"
 									onerror={(e) => handleImageError(e, img)}
 								/>
 								{#if selected}
@@ -782,10 +844,9 @@
 								onclick={() => selectLogo(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									use:lazyImage={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-square object-contain"
-									loading="lazy"
 									onerror={(e) => handleImageError(e, img)}
 								/>
 								{#if selected}
@@ -823,10 +884,9 @@
 								onclick={() => selectIcon(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									use:lazyImage={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-square object-contain"
-									loading="lazy"
 									onerror={(e) => handleImageError(e, img)}
 								/>
 								{#if selected}
