@@ -4,6 +4,7 @@ run:
     - webkit2_41
 
 linters:
+  disable-all: true
   enable:
     - govet
     - staticcheck

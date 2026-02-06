@@ -12,7 +12,7 @@ export interface AgentStatus {
 	port: number;
 	ips: string[];
 	acceptConnections: boolean;
-	connectedHub: ConnectedHub | null;
+	connectedHub?: ConnectedHub | null;
 }
 
 export interface ConnectedHub {
