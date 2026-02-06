@@ -30,7 +30,7 @@ SOURCE = ROOT_DIR / "docs" / "logo.jpg"
 # Target directories
 TARGETS = [
     ROOT_DIR / "apps" / "hub" / "build",
-    ROOT_DIR / "apps" / "agent" / "build",
+    ROOT_DIR / "apps" / "agents" / "desktop" / "build",
 ]
 
 # ICO sizes (standard multi-resolution)
