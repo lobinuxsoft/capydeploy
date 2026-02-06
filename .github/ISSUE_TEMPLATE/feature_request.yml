@@ -12,11 +12,12 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of Bazzite Devkit would this affect?
+      description: Which part of CapyDeploy would this affect?
       options:
-        - backend (Go code)
-        - frontend (Svelte UI)
-        - ssh/sftp (Connection handling)
+        - hub (Desktop app)
+        - agent (Handheld app)
+        - decky-plugin (Gaming mode)
+        - websocket/discovery (Connection handling)
         - shortcuts (Steam shortcut management)
         - artwork (SteamGridDB integration)
         - build (Build scripts, compilation)
@@ -85,6 +86,6 @@ body:
         **Want to implement this feature?** Great! Please:
         1. Wait for the issue to be discussed and approved
         2. Create a branch: `feature/issue-XX-short-description`
-        3. Submit a PR targeting `master`
+        3. Submit a PR targeting `development`
 
-        See [CONTRIBUTING.md](https://github.com/lobinuxsoft/bazzite-devkit/blob/master/CONTRIBUTING.md) for details.
+        See [CONTRIBUTING.md](https://github.com/lobinuxsoft/capydeploy/blob/development/CONTRIBUTING.md) for details.

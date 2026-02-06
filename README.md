@@ -6,7 +6,7 @@
   **Deploy games to your handheld devices with the chill energy of a capybara.**
 
   [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-  [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
+  [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://go.dev/)
   [![Wails](https://img.shields.io/badge/Wails-v2-red)](https://wails.io/)
 </div>
 
@@ -44,7 +44,7 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 ## Requirements
 
 ### Building
-- Go 1.21+
+- Go 1.24+
 - Bun: https://bun.sh
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 
@@ -65,14 +65,18 @@ git clone https://github.com/lobinuxsoft/capydeploy
 cd capydeploy
 git submodule update --init --recursive
 
-# Build Hub (your PC)
-cd apps/hub && ./build.sh
+# Build everything at once
+./build_all.sh              # Linux
+build_all.bat               # Windows
 
-# Build Agent (handheld - desktop mode)
-cd apps/agents/desktop && ./build.sh
+# Available flags (Linux)
+./build_all.sh --skip-deps  # Skip frontend dependency installation
+./build_all.sh --parallel   # Build components in parallel
 
-# Build Decky Plugin (handheld - gaming mode)
-cd apps/agents/decky && ./build.sh
+# Or build individually
+cd apps/hub && ./build.sh                # Hub (your PC)
+cd apps/agents/desktop && ./build.sh     # Agent (handheld - desktop mode)
+cd apps/agents/decky && ./build.sh       # Decky Plugin (handheld - gaming mode)
 ```
 
 ### Decky Plugin
@@ -81,7 +85,7 @@ The Decky plugin is an alternative Agent for gaming mode. Requires [Decky Loader
 
 ```bash
 cd apps/agents/decky && ./build.sh
-# Output: out/CapyDeploy-v0.1.0.zip
+# Output: dist/decky/CapyDeploy-v0.1.0.zip
 # Install via Decky Settings > Install from ZIP
 ```
 
@@ -94,18 +98,17 @@ cd apps/agents/decky && ./build.sh
 
 ## AppImage (Linux)
 
-For easy distribution on Linux, you can build AppImages:
+For easy distribution on Linux, AppImage packaging is integrated into each app's build script:
 
 ```bash
-# Build both Hub and Agent
-./scripts/build-appimage.sh all
+# Build Hub with AppImage
+cd apps/hub && ./build.sh
 
-# Or build individually
-./scripts/build-appimage.sh hub
-./scripts/build-appimage.sh agent
+# Build Agent with AppImage
+cd apps/agents/desktop && ./build.sh
 ```
 
-Output: `dist/appimage/CapyDeploy_Hub.AppImage` and `CapyDeploy_Agent.AppImage`
+Output: `dist/` directory with `CapyDeploy_Hub.AppImage` and `CapyDeploy_Agent.AppImage`
 
 ### Auto-Installation
 
@@ -187,13 +190,18 @@ All communication happens over WebSocket at `ws://agent:9999/ws`
 |---------|----------|-------------|
 | `hub_connected` | `pairing_required` / `pair_success` | Authentication handshake |
 | `get_info` | `info_response` | Agent details |
+| `get_config` | `config_response` | Get agent configuration |
 | `get_steam_users` | `steam_users_response` | List Steam users |
 | `list_shortcuts` | `shortcuts_response` | List shortcuts |
 | `create_shortcut` | `operation_result` | Create shortcut |
+| `delete_shortcut` | `operation_result` | Delete shortcut by appID |
 | `delete_game` | `operation_result` | Delete game (Agent handles everything) |
 | `apply_artwork` | `artwork_response` | Apply artwork |
+| `restart_steam` | `steam_response` | Restart Steam client |
 | `init_upload` | `upload_response` | Start upload session |
+| `upload_chunk` | `upload_chunk_response` | Send binary chunk |
 | `complete_upload` | `upload_response` | Finalize upload |
+| `cancel_upload` | `operation_result` | Cancel active upload |
 
 ### Push Events
 
@@ -201,7 +209,6 @@ All communication happens over WebSocket at `ws://agent:9999/ws`
 |-------|-------------|
 | `upload_progress` | Real-time upload progress |
 | `operation_event` | Operation status (delete, install) |
-| `shortcuts_changed` | Shortcut list modified |
 
 ## Configuration
 
@@ -227,22 +234,27 @@ capydeploy/
 │   │   ├── wsclient/           # WebSocket client
 │   │   ├── modules/            # Platform modules
 │   │   └── frontend/           # Svelte 5 UI
-│   ├── agent/                  # Agent application (Handheld - desktop mode)
-│   │   ├── app.go              # Wails bindings
-│   │   ├── server/             # HTTP + WebSocket server
-│   │   ├── shortcuts/          # Steam shortcut manager
-│   │   ├── artwork/            # Artwork handler
-│   │   ├── steam/              # Steam controller
-│   │   └── frontend/           # Svelte 5 UI
-│   └── decky/                  # Decky Loader plugin (Handheld - gaming mode)
-│       ├── main.py             # Python backend (WS server, pairing, uploads)
-│       ├── src/                # React/TypeScript frontend
-│       ├── plugin.json         # Decky plugin manifest
-│       └── build.sh            # Build + bundle script
+│   └── agents/
+│       ├── desktop/            # Agent (Handheld - desktop mode)
+│       │   ├── app.go          # Wails bindings
+│       │   ├── server/         # HTTP + WebSocket server
+│       │   ├── shortcuts/      # Steam shortcut manager
+│       │   ├── artwork/        # Artwork handler
+│       │   ├── steam/          # Steam controller
+│       │   ├── auth/           # Pairing & token auth
+│       │   └── frontend/       # Svelte 5 UI
+│       └── decky/              # Decky Loader plugin (gaming mode)
+│           ├── main.py         # Python backend (WS server, pairing, uploads)
+│           ├── src/            # React/TypeScript frontend
+│           ├── plugin.json     # Decky plugin manifest
+│           └── build.sh        # Build + bundle script
 ├── pkg/
 │   ├── protocol/               # WebSocket protocol types
 │   ├── discovery/              # mDNS discovery
 │   ├── steam/                  # Steam paths/users
+│   ├── steamgriddb/            # SteamGridDB API client
+│   ├── config/                 # Configuration management
+│   ├── version/                # Version info
 │   └── transfer/               # Chunked file transfer
 ├── internal/
 │   └── agent/                  # Agent HTTP client (legacy)

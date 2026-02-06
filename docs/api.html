@@ -116,6 +116,12 @@ title: API Reference
               <span class="text-slate-500">Get Agent details and capabilities</span>
             </div>
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-capy-400 font-mono w-40">get_config</code>
+              <span class="text-slate-400">→</span>
+              <code class="text-water-400 font-mono w-40">config_response</code>
+              <span class="text-slate-500">Get agent configuration</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-capy-400 font-mono w-40">get_steam_users</code>
               <span class="text-slate-400">→</span>
               <code class="text-water-400 font-mono w-40">steam_users_response</code>
@@ -193,7 +199,7 @@ JSON header:
   "checksum": "sha256..."
 }</code></pre>
           </div>
-          <div class="grid md:grid-cols-3 gap-4 text-sm">
+          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div class="bg-slate-950 rounded-xl p-4">
               <code class="text-capy-400 font-semibold">init_upload</code>
               <p class="text-slate-500 text-xs mt-1">Initialize upload session</p>
@@ -205,6 +211,10 @@ JSON header:
             <div class="bg-slate-950 rounded-xl p-4">
               <code class="text-capy-400 font-semibold">complete_upload</code>
               <p class="text-slate-500 text-xs mt-1">Finalize and create shortcut</p>
+            </div>
+            <div class="bg-slate-950 rounded-xl p-4">
+              <code class="text-red-400 font-semibold">cancel_upload</code>
+              <p class="text-slate-500 text-xs mt-1">Cancel active upload</p>
             </div>
           </div>
         </div>
@@ -237,10 +247,6 @@ JSON header:
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-pink-400 font-mono w-40">operation_event</code>
               <span class="text-slate-500">Operation progress (delete, install, restart)</span>
-            </div>
-            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
-              <code class="text-pink-400 font-mono w-40">shortcuts_changed</code>
-              <span class="text-slate-500">Shortcut list was modified</span>
             </div>
           </div>
           <div class="mt-4 bg-slate-950 rounded-xl p-4">
@@ -304,9 +310,17 @@ JSON header:
             <code class="text-red-400">406</code>
             <span class="text-slate-400">Connections blocked</span>
           </div>
-          <div class="flex justify-between py-2">
+          <div class="flex justify-between py-2 border-b border-slate-800">
             <code class="text-red-400">409</code>
             <span class="text-slate-400">Hub already connected</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-800">
+            <code class="text-red-400">500</code>
+            <span class="text-slate-400">Internal Server Error</span>
+          </div>
+          <div class="flex justify-between py-2">
+            <code class="text-red-400">501</code>
+            <span class="text-slate-400">Not Implemented</span>
           </div>
         </div>
       </div>
