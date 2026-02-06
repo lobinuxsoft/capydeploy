@@ -12,7 +12,7 @@ import {
   showModal,
 } from "@decky/ui";
 import { call, openFilePicker } from "@decky/api";
-import { VFC } from "react";
+import { VFC, useState } from "react";
 import {
   FaPlug,
   FaPlugCircleXmark,
@@ -23,6 +23,8 @@ import {
   FaCircleInfo,
   FaPen,
   FaKey,
+  FaChevronDown,
+  FaChevronRight,
 } from "react-icons/fa6";
 import { colors } from "../styles/theme";
 import NameEditModal from "./NameEditModal";
@@ -62,6 +64,12 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   installPath,
   onRefresh,
 }) => {
+  // Collapsible section states
+  const [statusExpanded, setStatusExpanded] = useState(true);
+  const [infoExpanded, setInfoExpanded] = useState(true);
+  const [networkExpanded, setNetworkExpanded] = useState(true);
+  const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(true);
+
   const handleEditName = () => {
     showModal(<NameEditModal currentName={agentName} onSaved={onRefresh} />);
   };
@@ -97,68 +105,77 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   return (
     <>
       <div className="cd-section">
-        <div className="cd-section-title">Status</div>
-        <PanelSection>
-          <PanelSectionRow>
-            <ToggleField
-              label="Enable CapyDeploy"
-              description="Receive games from the Hub"
-              checked={enabled}
-              onChange={onEnabledChange}
-            />
-          </PanelSectionRow>
+        <div className="cd-section-title" onClick={() => setStatusExpanded(!statusExpanded)}>
+          {statusExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
+          Status
+        </div>
+        {statusExpanded && (
+          <PanelSection>
+            <PanelSectionRow>
+              <ToggleField
+                label="Enable CapyDeploy"
+                description="Receive games from the Hub"
+                checked={enabled}
+                onChange={onEnabledChange}
+              />
+            </PanelSectionRow>
 
-          {enabled && (
-            <>
-              <PanelSectionRow>
-                <Field
-                  label="Connection"
-                  icon={
-                    connected ? (
-                      <FaPlug color={colors.capy} />
-                    ) : (
-                      <FaPlugCircleXmark color={colors.destructive} />
-                    )
-                  }
-                >
-                  <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span className={connected ? "cd-status-connected" : "cd-status-disconnected"}>
-                      {connected && <span className="cd-pulse" />}
-                      {connected ? "Connected" : "Waiting for Hub..."}
-                    </span>
-                  </Focusable>
-                </Field>
-              </PanelSectionRow>
-
-              {connected && hubName && (
-                <PanelSectionRow>
-                  <Field label="Connected Hub">
-                    <span className="cd-text-primary">{hubName}</span>
-                  </Field>
-                </PanelSectionRow>
-              )}
-
-              {pairingCode && (
+            {enabled && (
+              <>
                 <PanelSectionRow>
                   <Field
-                    label="Pairing code"
-                    description="Enter this code in the Hub"
-                    icon={<FaKey color={colors.capy} />}
+                    label="Connection"
+                    icon={
+                      connected ? (
+                        <FaPlug color={colors.capy} />
+                      ) : (
+                        <FaPlugCircleXmark color={colors.destructive} />
+                      )
+                    }
                   >
-                    <span className="cd-pairing-code">
-                      {pairingCode}
-                    </span>
+                    <Focusable style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span className={connected ? "cd-status-connected" : "cd-status-disconnected"}>
+                        {connected && <span className="cd-pulse" />}
+                        {connected ? "Connected" : "Waiting for Hub..."}
+                      </span>
+                    </Focusable>
                   </Field>
                 </PanelSectionRow>
-              )}
-            </>
-          )}
-        </PanelSection>
+
+                {connected && hubName && (
+                  <PanelSectionRow>
+                    <Field label="Connected Hub">
+                      <span className="cd-text-primary">{hubName}</span>
+                    </Field>
+                  </PanelSectionRow>
+                )}
+
+                {pairingCode && (
+                  <PanelSectionRow>
+                    <Field
+                      label="Pairing code"
+                      description="Enter this code in the Hub"
+                      icon={<FaKey color={colors.capy} />}
+                    >
+                      <span className="cd-pairing-code">
+                        {pairingCode}
+                      </span>
+                    </Field>
+                  </PanelSectionRow>
+                )}
+              </>
+            )}
+          </PanelSection>
+        )}
       </div>
 
       <div className="cd-section">
-        <div className="cd-section-title">Agent Info</div>
-        <PanelSection>
+        <div className="cd-section-title" onClick={() => setInfoExpanded(!infoExpanded)}>
+          {infoExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
+          Agent Info
+        </div>
+        {infoExpanded && (
+          <PanelSection>
           <PanelSectionRow>
             <Field
               label="Name"
@@ -196,47 +213,58 @@ const StatusPanel: VFC<StatusPanelProps> = ({
               </Focusable>
             </Field>
           </PanelSectionRow>
-        </PanelSection>
+          </PanelSection>
+        )}
       </div>
 
       {enabled && (
         <div className="cd-section">
-          <div className="cd-section-title">Network</div>
-          <PanelSection>
-            <PanelSectionRow>
-              <Field label="Port" icon={<FaNetworkWired color={colors.capy} />}>
-                <span className="cd-mono">{port}</span>
-              </Field>
-            </PanelSectionRow>
+          <div className="cd-section-title" onClick={() => setNetworkExpanded(!networkExpanded)}>
+            {networkExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
+            Network
+          </div>
+          {networkExpanded && (
+            <PanelSection>
+              <PanelSectionRow>
+                <Field label="Port" icon={<FaNetworkWired color={colors.capy} />}>
+                  <span className="cd-mono">{port}</span>
+                </Field>
+              </PanelSectionRow>
 
-            <PanelSectionRow>
-              <Field label="IP">
-                <span className="cd-mono">{ip}</span>
-              </Field>
-            </PanelSectionRow>
-          </PanelSection>
+              <PanelSectionRow>
+                <Field label="IP">
+                  <span className="cd-mono">{ip}</span>
+                </Field>
+              </PanelSectionRow>
+            </PanelSection>
+          )}
         </div>
       )}
 
       <div className="cd-section">
-        <div className="cd-section-title">Capabilities</div>
-        <PanelSection>
-          <PanelSectionRow>
-            <Field label="File upload">
-              <span className="cd-text-primary">Yes</span>
-            </Field>
-          </PanelSectionRow>
-          <PanelSectionRow>
-            <Field label="Steam Shortcuts">
-              <span className="cd-text-primary">Yes</span>
-            </Field>
-          </PanelSectionRow>
-          <PanelSectionRow>
-            <Field label="Steam Artwork">
-              <span className="cd-text-primary">Yes</span>
-            </Field>
-          </PanelSectionRow>
-        </PanelSection>
+        <div className="cd-section-title" onClick={() => setCapabilitiesExpanded(!capabilitiesExpanded)}>
+          {capabilitiesExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
+          Capabilities
+        </div>
+        {capabilitiesExpanded && (
+          <PanelSection>
+            <PanelSectionRow>
+              <Field label="File upload">
+                <span className="cd-text-primary">Yes</span>
+              </Field>
+            </PanelSectionRow>
+            <PanelSectionRow>
+              <Field label="Steam Shortcuts">
+                <span className="cd-text-primary">Yes</span>
+              </Field>
+            </PanelSectionRow>
+            <PanelSectionRow>
+              <Field label="Steam Artwork">
+                <span className="cd-text-primary">Yes</span>
+              </Field>
+            </PanelSectionRow>
+          </PanelSection>
+        )}
       </div>
     </>
   );
