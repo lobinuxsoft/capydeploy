@@ -138,194 +138,192 @@
 	}
 </script>
 
-<Card class="p-6">
+<div class="space-y-4">
 	{#if loading}
-		<div class="flex items-center justify-center py-8">
+		<div class="cd-section p-8 flex items-center justify-center">
 			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 		</div>
 	{:else if error}
-		<div class="text-center py-8 text-destructive">
-			<p>{error}</p>
+		<div class="cd-section p-8 text-center">
+			<p class="cd-text-destructive">{error}</p>
 			<Button variant="outline" class="mt-4" onclick={loadStatus}>
 				Reintentar
 			</Button>
 		</div>
 	{:else if status}
-		<div class="space-y-4">
-			<!-- Name -->
-			<div class="p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						<Monitor class="w-4 h-4" />
-						<span class="text-sm">Nombre</span>
-					</div>
-					{#if !editingName}
-						<button
-							type="button"
-							class="flex items-center gap-2 hover:text-primary transition-colors"
-							onclick={startEditName}
-						>
-							<span class="text-sm font-medium">{status.name}</span>
-							<Pencil class="w-3 h-3 text-muted-foreground" />
-						</button>
-					{/if}
+		<!-- Name -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-2">
+					<Monitor class="w-4 h-4 cd-text-disabled" />
+					<span class="text-sm">Nombre</span>
 				</div>
-				{#if editingName}
-					<div class="flex items-center gap-2 mt-2">
-						<Input
-							bind:value={newName}
-							placeholder="Nombre del agente"
-							class="flex-1"
-							disabled={savingName}
-						/>
-						<Button
-							size="icon"
-							variant="ghost"
-							onclick={saveName}
-							disabled={savingName || !newName.trim()}
-						>
-							<Check class="w-4 h-4 text-success" />
-						</Button>
-						<Button
-							size="icon"
-							variant="ghost"
-							onclick={cancelEditName}
-							disabled={savingName}
-						>
-							<X class="w-4 h-4 text-destructive" />
-						</Button>
-					</div>
-				{/if}
-			</div>
-
-			<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-				<span class="text-sm">Plataforma</span>
-				<span class="text-sm font-medium">{getPlatformIcon(status.platform)}</span>
-			</div>
-
-			<!-- Version Info -->
-			<div class="p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center gap-2 mb-2">
-					<Info class="w-4 h-4" />
-					<span class="text-sm font-medium">Version</span>
-				</div>
-				<div class="pl-6 space-y-1">
-					<div class="flex justify-between text-sm">
-						<span class="text-muted-foreground">Version</span>
-						<span class="font-mono">{versionInfo?.version ?? status.version}</span>
-					</div>
-					{#if versionInfo?.commit && versionInfo.commit !== 'unknown'}
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Commit</span>
-							<span class="font-mono text-xs">{versionInfo.commit}</span>
-						</div>
-					{/if}
-					{#if versionInfo?.buildDate && versionInfo.buildDate !== 'unknown'}
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Build</span>
-							<span class="font-mono text-xs">{versionInfo.buildDate}</span>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Install Path -->
-			<div class="p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						<Folder class="w-4 h-4" />
-						<span class="text-sm">Ruta de instalación</span>
-					</div>
+				{#if !editingName}
 					<button
 						type="button"
-						class="p-1 hover:bg-secondary rounded transition-colors"
-						onclick={selectFolder}
-						title="Cambiar carpeta"
+						class="flex items-center gap-2 hover:text-primary transition-colors"
+						onclick={startEditName}
 					>
-						<FolderOpen class="w-4 h-4 text-muted-foreground hover:text-primary" />
+						<span class="cd-value font-medium">{status.name}</span>
+						<Pencil class="w-3 h-3 cd-text-disabled" />
 					</button>
-				</div>
-				<p class="text-xs font-mono text-muted-foreground mt-2 pl-6 break-all">
-					{installPath || '~/Games'}
-				</p>
+				{/if}
 			</div>
-
-			<!-- Network Info -->
-			<div class="p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center gap-2 mb-2">
-					<Wifi class="w-4 h-4" />
-					<span class="text-sm font-medium">Red</span>
-				</div>
-				<div class="pl-6 space-y-1">
-					<div class="flex justify-between text-sm">
-						<span class="text-muted-foreground">Puerto</span>
-						<span class="font-mono">{status.port}</span>
-					</div>
-					{#each status.ips as ip}
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">IP</span>
-							<span class="font-mono">{ip}</span>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Pairing Code (shown when a Hub requests pairing) -->
-			{#if pairingCode}
-				<div class="cd-section p-4">
-					<div class="flex items-center gap-2 mb-3">
-						<span class="cd-pulse"></span>
-						<Key class="w-5 h-5 cd-text-primary" />
-						<span class="cd-section-title">Código de Emparejamiento</span>
-					</div>
-					<div class="text-center">
-						<p class="cd-pairing-code">
-							{pairingCode}
-						</p>
-						<p class="text-xs cd-text-disabled mt-3">
-							Ingresa este código en el Hub para autorizar la conexión
-						</p>
-					</div>
+			{#if editingName}
+				<div class="flex items-center gap-2 mt-2">
+					<Input
+						bind:value={newName}
+						placeholder="Nombre del agente"
+						class="flex-1"
+						disabled={savingName}
+					/>
+					<Button
+						size="icon"
+						variant="ghost"
+						onclick={saveName}
+						disabled={savingName || !newName.trim()}
+					>
+						<Check class="w-4 h-4 text-success" />
+					</Button>
+					<Button
+						size="icon"
+						variant="ghost"
+						onclick={cancelEditName}
+						disabled={savingName}
+					>
+						<X class="w-4 h-4 text-destructive" />
+					</Button>
 				</div>
 			{/if}
+		</div>
 
-			<!-- Connection Status -->
-			<div class="p-3 rounded-lg bg-secondary/50">
-				<div class="flex items-center justify-between mb-3">
-					<div class="flex items-center gap-2">
-						{#if status.acceptConnections}
-							<Wifi class="w-4 h-4 text-success" />
-						{:else}
-							<WifiOff class="w-4 h-4 text-destructive" />
-						{/if}
-						<span class="text-sm font-medium">Conexiones</span>
-					</div>
-					<Badge variant={status.acceptConnections ? 'success' : 'warning'}>
-						{status.acceptConnections ? 'Aceptando' : 'Bloqueadas'}
-					</Badge>
+		<div class="cd-section p-4 flex items-center justify-between">
+			<span class="text-sm">Plataforma</span>
+			<span class="cd-value font-medium">{getPlatformIcon(status.platform)}</span>
+		</div>
+
+		<!-- Version Info -->
+		<div class="cd-section p-4">
+			<div class="flex items-center gap-2 mb-2">
+				<Info class="w-4 h-4 cd-text-disabled" />
+				<span class="cd-section-title">Version</span>
+			</div>
+			<div class="pl-6 space-y-1">
+				<div class="flex justify-between text-sm">
+					<span class="cd-text-disabled">Version</span>
+					<span class="cd-mono">{versionInfo?.version ?? status.version}</span>
 				</div>
-
-				{#if status.connectedHub}
-					<div class="flex items-center gap-2 p-3 mb-3 cd-section">
-						<span class="cd-pulse"></span>
-						<Monitor class="w-4 h-4 cd-text-primary" />
-						<span class="cd-status-connected">{status.connectedHub.name}</span>
-						<span class="text-xs cd-text-disabled">({status.connectedHub.ip})</span>
+				{#if versionInfo?.commit && versionInfo.commit !== 'unknown'}
+					<div class="flex justify-between text-sm">
+						<span class="cd-text-disabled">Commit</span>
+						<span class="cd-mono text-xs">{versionInfo.commit}</span>
 					</div>
-				{:else if !status.acceptConnections}
-					<p class="text-xs text-muted-foreground mb-3">
-						El Hub puede ver este agente pero no puede realizar operaciones
-					</p>
 				{/if}
-
-				<Button
-					variant={status.acceptConnections ? 'destructive' : 'default'}
-					class="w-full"
-					onclick={toggleConnections}
-				>
-					{status.acceptConnections ? 'Bloquear Operaciones' : 'Permitir Operaciones'}
-				</Button>
+				{#if versionInfo?.buildDate && versionInfo.buildDate !== 'unknown'}
+					<div class="flex justify-between text-sm">
+						<span class="cd-text-disabled">Build</span>
+						<span class="cd-mono text-xs">{versionInfo.buildDate}</span>
+					</div>
+				{/if}
 			</div>
 		</div>
+
+		<!-- Install Path -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-2">
+					<Folder class="w-4 h-4 cd-text-disabled" />
+					<span class="text-sm">Ruta de instalación</span>
+				</div>
+				<button
+					type="button"
+					class="p-1 hover:bg-secondary rounded transition-colors"
+					onclick={selectFolder}
+					title="Cambiar carpeta"
+				>
+					<FolderOpen class="w-4 h-4 cd-text-disabled hover:text-primary" />
+				</button>
+			</div>
+			<p class="cd-mono text-xs mt-2 pl-6 break-all">
+				{installPath || '~/Games'}
+			</p>
+		</div>
+
+		<!-- Network Info -->
+		<div class="cd-section p-4">
+			<div class="flex items-center gap-2 mb-2">
+				<Wifi class="w-4 h-4 cd-text-disabled" />
+				<span class="cd-section-title">Red</span>
+			</div>
+			<div class="pl-6 space-y-1">
+				<div class="flex justify-between text-sm">
+					<span class="cd-text-disabled">Puerto</span>
+					<span class="cd-mono">{status.port}</span>
+				</div>
+				{#each status.ips as ip}
+					<div class="flex justify-between text-sm">
+						<span class="cd-text-disabled">IP</span>
+						<span class="cd-mono">{ip}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+
+		<!-- Pairing Code (shown when a Hub requests pairing) -->
+		{#if pairingCode}
+			<div class="cd-section p-4">
+				<div class="flex items-center gap-2 mb-3">
+					<span class="cd-pulse"></span>
+					<Key class="w-5 h-5 cd-text-primary" />
+					<span class="cd-section-title">Código de Emparejamiento</span>
+				</div>
+				<div class="text-center">
+					<p class="cd-pairing-code">
+						{pairingCode}
+					</p>
+					<p class="text-xs cd-text-disabled mt-3">
+						Ingresa este código en el Hub para autorizar la conexión
+					</p>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Connection Status -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between mb-3">
+				<div class="flex items-center gap-2">
+					{#if status.acceptConnections}
+						<Wifi class="w-4 h-4 cd-text-primary" />
+					{:else}
+						<WifiOff class="w-4 h-4 cd-text-destructive" />
+					{/if}
+					<span class="cd-section-title">Conexiones</span>
+				</div>
+				<Badge variant={status.acceptConnections ? 'success' : 'warning'}>
+					{status.acceptConnections ? 'Aceptando' : 'Bloqueadas'}
+				</Badge>
+			</div>
+
+			{#if status.connectedHub}
+				<div class="flex items-center gap-2 p-3 mb-3 rounded-lg bg-primary/10 border border-primary/30">
+					<span class="cd-pulse"></span>
+					<Monitor class="w-4 h-4 cd-text-primary" />
+					<span class="cd-status-connected">{status.connectedHub.name}</span>
+					<span class="text-xs cd-text-disabled">({status.connectedHub.ip})</span>
+				</div>
+			{:else if !status.acceptConnections}
+				<p class="text-xs cd-text-disabled mb-3">
+					El Hub puede ver este agente pero no puede realizar operaciones
+				</p>
+			{/if}
+
+			<Button
+				variant={status.acceptConnections ? 'destructive' : 'gradient'}
+				class="w-full"
+				onclick={toggleConnections}
+			>
+				{status.acceptConnections ? 'Bloquear Operaciones' : 'Permitir Operaciones'}
+			</Button>
+		</div>
 	{/if}
-</Card>
+</div>

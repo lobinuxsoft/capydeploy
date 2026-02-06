@@ -98,37 +98,37 @@
 	});
 </script>
 
-<Card class="p-4">
+<div class="cd-section p-4">
 	<div class="flex items-center gap-2 mb-4">
-		<ShieldCheck class="w-5 h-5 text-primary" />
-		<h3 class="font-semibold gradient-text">Hubs Autorizados</h3>
+		<ShieldCheck class="w-5 h-5 cd-text-primary" />
+		<h3 class="cd-section-title">Hubs Autorizados</h3>
 	</div>
 
 	{#if loading}
-		<p class="text-sm text-muted-foreground">Cargando...</p>
+		<p class="text-sm cd-text-disabled">Cargando...</p>
 	{:else if hubs.length === 0}
-		<p class="text-sm text-muted-foreground">
+		<p class="text-sm cd-text-disabled">
 			Ningun Hub autorizado aun. Conecta un Hub para iniciar el emparejamiento.
 		</p>
 	{:else}
 		<div class="space-y-2">
 			{#each hubs as hub}
-				<div class="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+				<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
 					<div class="flex items-center gap-3">
-						<Monitor class="w-5 h-5 text-muted-foreground" />
+						<Monitor class="w-5 h-5 cd-text-disabled" />
 						<div>
-							<div class="font-medium flex items-center gap-2">
+							<div class="cd-value font-medium flex items-center gap-2">
 								{hub.name}
 								{#if hub.platform}
-									<span class="text-xs text-muted-foreground" title={getPlatformName(hub.platform)}>
+									<span class="text-xs cd-text-disabled" title={getPlatformName(hub.platform)}>
 										{getPlatformIcon(hub.platform)}
 									</span>
 								{/if}
 							</div>
-							<div class="text-xs text-muted-foreground">
+							<div class="text-xs cd-text-capy">
 								Emparejado: {formatDate(hub.pairedAt)}
 							</div>
-							<div class="text-xs text-muted-foreground">
+							<div class="text-xs cd-text-disabled">
 								Ultimo uso: {formatDate(hub.lastSeen)}
 							</div>
 						</div>
@@ -145,4 +145,4 @@
 			{/each}
 		</div>
 	{/if}
-</Card>
+</div>
