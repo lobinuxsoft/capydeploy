@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +17,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/lobinuxsoft/capydeploy/apps/hub/auth"
+	hubconfig "github.com/lobinuxsoft/capydeploy/apps/hub/config"
 	"github.com/lobinuxsoft/capydeploy/apps/hub/modules"
 	"github.com/lobinuxsoft/capydeploy/apps/hub/wsclient"
 	"github.com/lobinuxsoft/capydeploy/pkg/config"
@@ -26,6 +25,7 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steamgriddb"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
+	"github.com/lobinuxsoft/capydeploy/pkg/version"
 )
 
 // App struct holds the application state
@@ -37,6 +37,7 @@ type App struct {
 	discoveredCache map[string]*discovery.DiscoveredAgent
 	mu              sync.RWMutex
 	tokenStore      *auth.TokenStore
+	configMgr       *hubconfig.Manager
 }
 
 // ConnectedAgent represents a connected agent with its client
@@ -97,16 +98,25 @@ func NewApp() *App {
 		log.Printf("Warning: failed to initialize token store: %v", err)
 	}
 
+	configMgr, err := hubconfig.NewManager()
+	if err != nil {
+		log.Printf("Warning: failed to initialize config manager: %v", err)
+	}
+
 	return &App{
 		discoveryClient: discovery.NewClient(),
 		discoveredCache: make(map[string]*discovery.DiscoveredAgent),
 		tokenStore:      tokenStore,
+		configMgr:       configMgr,
 	}
 }
 
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	log.Printf("CapyDeploy Hub %s starting", version.Full())
+
 	// Start continuous discovery in background
 	go a.runDiscovery()
 }
@@ -222,17 +232,30 @@ func (a *App) ConnectAgent(agentID string) error {
 	var wsClient *modules.WSClient
 	var err error
 
+	// Get hub name from config (fallback to default)
+	hubName := "CapyDeploy Hub"
+	hubPlatform := ""
+	if a.configMgr != nil {
+		hubName = a.configMgr.GetName()
+		hubPlatform = a.configMgr.GetPlatform()
+	}
+
 	if a.tokenStore != nil {
 		wsClient, err = modules.WSClientFromAgentWithAuth(
 			agent,
-			"CapyDeploy Hub",
-			"1.0.0",
+			hubName,
+			version.Version,
 			a.tokenStore.GetHubID(),
 			a.tokenStore.GetToken,
 			a.tokenStore.SaveToken,
 		)
 	} else {
-		wsClient, err = modules.WSClientFromAgent(agent, "CapyDeploy Hub", "1.0.0")
+		wsClient, err = modules.WSClientFromAgent(agent, hubName, version.Version)
+	}
+
+	// Set hub platform for agent to store
+	if wsClient != nil && hubPlatform != "" {
+		wsClient.SetPlatform(hubPlatform)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create WS client: %w", err)
@@ -632,16 +655,10 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		}
 	}
 
-	// Build full paths for the shortcut
-	// InstallPath is the parent dir (e.g. ~/Games)
-	// Game files are uploaded to InstallPath/GameName/ (e.g. ~/Games/stellar_delivery/)
-	gameDir := filepath.Join(setup.InstallPath, setup.Name)
-	exePath := filepath.Join(gameDir, setup.Executable)
-
+	// Only send the executable filename — the agent knows its own install path
 	shortcutCfg := &protocol.ShortcutConfig{
 		Name:          setup.Name,
-		Exe:           exePath,
-		StartDir:      gameDir,
+		Exe:           setup.Executable,
 		LaunchOptions: setup.LaunchOptions,
 		Tags:          parseTags(setup.Tags),
 		Artwork:       artworkCfg,
@@ -874,92 +891,67 @@ func (a *App) GetIcons(gameID int, filters steamgriddb.ImageFilters, page int) (
 	return client.GetIcons(gameID, &filters, page)
 }
 
-// ProxyImage fetches an image from URL and returns it as a base64 data URL (no cache)
-func (a *App) ProxyImage(imageURL string) (string, error) {
-	return a.ProxyImageCached(0, imageURL)
+// =============================================================================
+// Version
+// =============================================================================
+
+// VersionInfo represents version information for the frontend.
+type VersionInfo struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"buildDate"`
 }
 
-// ProxyImageCached fetches an image from URL with caching support
-func (a *App) ProxyImageCached(gameID int, imageURL string) (string, error) {
-	if imageURL == "" {
-		return "", fmt.Errorf("empty URL")
+// GetVersion returns the current version information.
+func (a *App) GetVersion() VersionInfo {
+	return VersionInfo{
+		Version:   version.Version,
+		Commit:    version.Commit,
+		BuildDate: version.BuildDate,
 	}
-
-	// Check if caching is enabled
-	cacheEnabled, _ := config.GetImageCacheEnabled()
-
-	// Try to get from cache first (only if gameID is provided and cache enabled)
-	if gameID > 0 && cacheEnabled {
-		if data, contentType, err := steamgriddb.GetCachedImage(gameID, imageURL); err == nil {
-			base64Data := base64.StdEncoding.EncodeToString(data)
-			return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
-		}
-	}
-
-	// Download from URL
-	resp, err := http.Get(imageURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read image: %w", err)
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		if strings.HasSuffix(strings.ToLower(imageURL), ".png") {
-			contentType = "image/png"
-		} else if strings.HasSuffix(strings.ToLower(imageURL), ".webp") {
-			contentType = "image/webp"
-		} else if strings.HasSuffix(strings.ToLower(imageURL), ".gif") {
-			contentType = "image/gif"
-		} else {
-			contentType = "image/jpeg"
-		}
-	}
-
-	// Save to cache (only if gameID is provided and cache enabled)
-	if gameID > 0 && cacheEnabled {
-		if err := steamgriddb.SaveImageToCache(gameID, imageURL, data, contentType); err != nil {
-			log.Printf("Failed to cache image: %v", err)
-		}
-	}
-
-	base64Data := base64.StdEncoding.EncodeToString(data)
-	return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
 }
 
-// OpenCachedImage opens a cached image with the system's default image viewer
-func (a *App) OpenCachedImage(gameID int, imageURL string) error {
-	if gameID <= 0 || imageURL == "" {
-		return fmt.Errorf("invalid gameID or imageURL")
-	}
+// =============================================================================
+// Hub Identity
+// =============================================================================
 
-	// Get the cached file path
-	filePath, err := steamgriddb.GetCachedImagePath(gameID, imageURL)
-	if err != nil {
-		return fmt.Errorf("image not in cache: %w", err)
-	}
+// HubInfo represents the Hub's identity information.
+type HubInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+}
 
-	// Open with system's default image viewer
-	var cmd *exec.Cmd
-	switch goruntime.GOOS {
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", filePath)
-	case "darwin":
-		cmd = exec.Command("open", filePath)
-	default: // linux and others
-		cmd = exec.Command("xdg-open", filePath)
+// GetHubInfo returns the Hub's identity information.
+func (a *App) GetHubInfo() HubInfo {
+	if a.configMgr == nil {
+		return HubInfo{
+			ID:       "",
+			Name:     "CapyDeploy Hub",
+			Platform: goruntime.GOOS,
+		}
 	}
+	return HubInfo{
+		ID:       a.configMgr.GetID(),
+		Name:     a.configMgr.GetName(),
+		Platform: a.configMgr.GetPlatform(),
+	}
+}
 
-	return cmd.Start()
+// GetHubName returns the Hub's display name.
+func (a *App) GetHubName() string {
+	if a.configMgr == nil {
+		return "CapyDeploy Hub"
+	}
+	return a.configMgr.GetName()
+}
+
+// SetHubName sets the Hub's display name.
+func (a *App) SetHubName(name string) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("config manager not initialized")
+	}
+	return a.configMgr.SetName(name)
 }
 
 // =============================================================================

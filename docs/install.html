@@ -35,7 +35,7 @@ git submodule update --init --recursive
 cd apps/hub && ./build.sh
 
 <span class="text-slate-500"># Build Agent (handheld)</span>
-cd apps/agent && ./build.sh</code></pre>
+cd apps/agents/desktop && ./build.sh</code></pre>
           </div>
         </div>
       </div>
@@ -58,9 +58,91 @@ cd apps/agent && ./build.sh</code></pre>
       </div>
     </div>
 
+    <!-- AppImage (Linux) -->
+    <div class="mt-12">
+      <h3 class="text-2xl font-bold mb-6">AppImage (Linux)</h3>
+      <p class="text-slate-400 mb-6">For easy distribution on Linux without dependencies.</p>
+
+      <div class="space-y-6">
+        <!-- Build AppImage -->
+        <div class="flex gap-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-lg font-semibold mb-2">Build AppImage</h4>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build Hub (includes AppImage)</span>
+cd apps/hub && ./build.sh
+
+<span class="text-slate-500"># Build Agent (includes AppImage)</span>
+cd apps/agents/desktop && ./build.sh</code></pre>
+            </div>
+            <p class="text-slate-500 text-sm mt-2">Output: <code class="text-capy-400">dist/appimage/CapyDeploy_Hub.AppImage</code></p>
+          </div>
+        </div>
+
+        <!-- Auto-Install -->
+        <div class="flex gap-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-lg font-semibold mb-2">Auto-Installation</h4>
+            <p class="text-slate-400 mb-3">Double-click the AppImage and it will prompt to install:</p>
+            <ul class="text-slate-400 text-sm space-y-1 mb-4">
+              <li>• Moves to <code class="text-capy-400">~/.local/bin/</code></li>
+              <li>• Creates desktop entry in <code class="text-capy-400">~/.local/share/applications/</code></li>
+              <li>• Copies icon to <code class="text-capy-400">~/.local/share/icons/</code></li>
+            </ul>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Command line options</span>
+./CapyDeploy_Agent.AppImage --install    <span class="text-slate-500"># Install manually</span>
+./CapyDeploy_Agent.AppImage --uninstall  <span class="text-slate-500"># Remove</span>
+./CapyDeploy_Agent.AppImage --help       <span class="text-slate-500"># Show options</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decky Plugin (Gaming Mode) -->
+    <div class="mt-12">
+      <h3 class="text-2xl font-bold mb-6">Decky Plugin (Gaming Mode)</h3>
+      <p class="text-slate-400 mb-6">Alternative Agent that runs inside <a href="https://github.com/SteamDeckHomebrew/decky-loader" class="text-capy-400 hover:underline">Decky Loader</a> — no Steam restart needed.</p>
+
+      <div class="space-y-6">
+        <div class="flex gap-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-lg font-semibold mb-2">Build & Install</h4>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build (requires Node.js + Python 3)</span>
+cd apps/agents/decky && ./build.sh
+<span class="text-slate-500"># Output: out/CapyDeploy-v0.1.0.zip</span>
+
+<span class="text-slate-500"># Install on handheld:</span>
+<span class="text-slate-500"># Decky Settings > Install Plugin from ZIP</span></code></pre>
+            </div>
+            <div class="mt-4 bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <h5 class="text-sm font-semibold text-capy-400 mb-2">Agent vs Decky Plugin</h5>
+              <div class="text-sm text-slate-400 space-y-1">
+                <div class="flex justify-between"><span>Shortcuts</span><span class="text-slate-300">Instant (SteamClient API)</span></div>
+                <div class="flex justify-between"><span>Artwork</span><span class="text-slate-300">Instant (no file copy)</span></div>
+                <div class="flex justify-between"><span>UI</span><span class="text-slate-300">Quick Access Menu panel</span></div>
+                <div class="flex justify-between"><span>Steam restart</span><span class="text-slate-300">Not needed</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Platform Dependencies -->
     <div class="mt-12 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h3 class="text-lg font-semibold mb-4">Platform Dependencies</h3>
+      <h3 class="text-lg font-semibold mb-4">Platform Dependencies (for building from source)</h3>
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-capy-400 mb-2">Fedora / Bazzite</h4>

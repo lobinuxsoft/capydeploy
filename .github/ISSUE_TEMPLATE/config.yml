@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & Help
-    url: https://github.com/lobinuxsoft/bazzite-devkit/discussions/categories/q-a
+    url: https://github.com/lobinuxsoft/capydeploy/discussions/categories/q-a
     about: Ask questions and get help from the community
   - name: Ideas & Feedback
-    url: https://github.com/lobinuxsoft/bazzite-devkit/discussions/categories/ideas
+    url: https://github.com/lobinuxsoft/capydeploy/discussions/categories/ideas
     about: Share ideas and feedback before creating a formal feature request

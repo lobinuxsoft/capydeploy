@@ -18,6 +18,11 @@ NC='\033[0m' # No Color
 MODE="production"
 SKIP_DEPS=0
 
+# Project directories
+ROOT_DIR="$(cd ../.. && pwd)"
+DIST_DIR="$ROOT_DIR/dist"
+TOOLS_DIR="$ROOT_DIR/.tools"
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -56,7 +61,7 @@ done
 # Check required tools
 # ============================================
 
-echo -e "${YELLOW}[1/4]${NC} Checking required tools..."
+echo -e "${YELLOW}[1/7]${NC} Checking required tools..."
 echo
 
 # Check Go
@@ -116,7 +121,7 @@ echo
 # ============================================
 
 if [ $SKIP_DEPS -eq 0 ]; then
-    echo -e "${YELLOW}[2/4]${NC} Installing frontend dependencies..."
+    echo -e "${YELLOW}[2/7]${NC} Installing frontend dependencies..."
     cd frontend
     bun install
     if [ $? -ne 0 ]; then
@@ -128,15 +133,76 @@ if [ $SKIP_DEPS -eq 0 ]; then
     echo "  Dependencies installed."
     echo
 else
-    echo -e "${YELLOW}[2/4]${NC} Skipping frontend dependencies (--skip-deps)"
+    echo -e "${YELLOW}[2/7]${NC} Skipping frontend dependencies (--skip-deps)"
     echo
 fi
+
+# ============================================
+# Generate icons (production only)
+# ============================================
+
+if [ "$MODE" = "production" ]; then
+    echo -e "${YELLOW}[3/7]${NC} Generating application icons..."
+    echo
+
+    ICON_SCRIPT="../../scripts/generate-icons.py"
+    if [ -f "$ICON_SCRIPT" ]; then
+        if command -v python3 &> /dev/null; then
+            python3 "$ICON_SCRIPT"
+        elif command -v python &> /dev/null; then
+            python "$ICON_SCRIPT"
+        else
+            echo -e "  ${YELLOW}[WARN]${NC} Python not found, skipping icon generation."
+            echo "  Install Python 3 + Pillow to generate icons."
+        fi
+    else
+        echo -e "  ${YELLOW}[WARN]${NC} Icon script not found: $ICON_SCRIPT"
+    fi
+    echo
+else
+    echo -e "${YELLOW}[3/7]${NC} Skipping icon generation (dev mode)"
+    echo
+fi
+
+# ============================================
+# Version info (SemVer from git)
+# ============================================
+
+echo -e "${YELLOW}[4/7]${NC} Collecting version info..."
+echo
+
+# Base version (must match pkg/version/version.go)
+BASE_VERSION="0.1.0"
+
+# Get commit hash
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Check if we're on an exact version tag (v0.1.0, v1.0.0, etc.)
+EXACT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+
+if [[ "$EXACT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # Release build: use tag version (strip 'v' prefix)
+    VERSION="${EXACT_TAG#v}"
+else
+    # Development build: version-dev+commit
+    VERSION="${BASE_VERSION}-dev+${COMMIT}"
+fi
+
+echo "  Version:    $VERSION"
+echo "  Commit:     $COMMIT"
+echo "  Build Date: $BUILD_DATE"
+echo
+
+LDFLAGS="-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION"
+LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT"
+LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE"
 
 # ============================================
 # Build embedded binary (steam-shortcut-manager for Linux)
 # ============================================
 
-echo -e "${YELLOW}[3/5]${NC} Building embedded steam-shortcut-manager (Linux)..."
+echo -e "${YELLOW}[5/7]${NC} Building embedded steam-shortcut-manager (Linux)..."
 echo
 
 pushd ../../steam-shortcut-manager > /dev/null
@@ -156,16 +222,16 @@ echo
 # ============================================
 
 if [ "$MODE" = "dev" ]; then
-    echo -e "${YELLOW}[4/5]${NC} Starting development server..."
+    echo -e "${YELLOW}[6/7]${NC} Starting development server..."
     echo
     echo "  Press Ctrl+C to stop."
     echo
-    wails dev -tags webkit2_41
+    wails dev -tags webkit2_41 -ldflags "$LDFLAGS"
 else
-    echo -e "${YELLOW}[4/5]${NC} Building production binary..."
+    echo -e "${YELLOW}[6/7]${NC} Building production binary..."
     echo
 
-    if ! wails build -clean -tags webkit2_41; then
+    if ! wails build -clean -tags webkit2_41 -ldflags "$LDFLAGS"; then
         echo
         echo "============================================"
         echo -e "  ${RED}BUILD FAILED${NC}"
@@ -174,27 +240,265 @@ else
     fi
 
     echo
+    echo -e "  ${GREEN}Wails build complete${NC}"
+    echo
+
+    # ============================================
+    # Copy binary to dist/
+    # ============================================
+
+    mkdir -p "$DIST_DIR/linux"
+    cp "build/bin/capydeploy-hub" "$DIST_DIR/linux/"
+    echo "  Copied to: $DIST_DIR/linux/capydeploy-hub"
+    echo
+
+    # ============================================
+    # Cross-compile for Windows (if mingw available)
+    # ============================================
+
+    if command -v x86_64-w64-mingw32-gcc &> /dev/null; then
+        echo "  Cross-compiling for Windows..."
+        if wails build -platform windows/amd64 -clean -ldflags "$LDFLAGS" 2>/dev/null; then
+            mkdir -p "$DIST_DIR/windows"
+            cp "build/bin/capydeploy-hub.exe" "$DIST_DIR/windows/"
+            echo "  Copied to: $DIST_DIR/windows/capydeploy-hub.exe"
+        else
+            echo -e "  ${YELLOW}[WARN]${NC} Windows cross-compile failed, skipping"
+        fi
+        echo
+    else
+        echo -e "  ${YELLOW}[INFO]${NC} mingw-w64 not found, skipping Windows build"
+        echo "  Install with: rpm-ostree install mingw64-gcc"
+        echo
+    fi
+
+    # ============================================
+    # Generate AppImage (Linux only)
+    # ============================================
+
+    echo -e "${YELLOW}[7/7]${NC} Generating AppImage..."
+    echo
+
+    APPIMAGE_DIR="$DIST_DIR/appimage"
+
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64) APPIMAGE_ARCH="x86_64" ;;
+        aarch64) APPIMAGE_ARCH="aarch64" ;;
+        *)
+            echo -e "  ${YELLOW}[WARN]${NC} Unsupported architecture for AppImage: $ARCH"
+            echo "  Skipping AppImage generation."
+            echo
+            # Still show binary output
+            if [ -f "$DIST_DIR/linux/capydeploy-hub" ]; then
+                SIZE=$(stat -f%z "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || stat -c%s "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || echo "0")
+                SIZE_MB=$((SIZE / 1048576))
+                echo "  Binary: $DIST_DIR/linux/capydeploy-hub (${SIZE_MB} MB)"
+            fi
+            echo
+            echo "Done!"
+            exit 0
+            ;;
+    esac
+
+    # Download appimagetool if needed
+    APPIMAGETOOL="$TOOLS_DIR/appimagetool-$APPIMAGE_ARCH.AppImage"
+
+    if [ ! -f "$APPIMAGETOOL" ]; then
+        echo "  Downloading appimagetool..."
+        mkdir -p "$TOOLS_DIR"
+        curl -L -o "$APPIMAGETOOL" \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$APPIMAGE_ARCH.AppImage"
+        chmod +x "$APPIMAGETOOL"
+        echo -e "  ${GREEN}Downloaded${NC}"
+    else
+        echo "  appimagetool already available"
+    fi
+
+    # Create AppDir
+    APPDIR="$APPIMAGE_DIR/hub.AppDir"
+    BINARY_NAME="capydeploy-hub"
+    DESKTOP_NAME="capydeploy-hub"
+
+    rm -rf "$APPDIR"
+    mkdir -p "$APPDIR/usr/bin"
+
+    # Copy binary
+    cp "build/bin/$BINARY_NAME" "$APPDIR/usr/bin/"
+
+    # Copy icon
+    cp "build/appicon.png" "$APPDIR/$DESKTOP_NAME.png"
+
+    # Create .desktop file
+    cat > "$APPDIR/$DESKTOP_NAME.desktop" << DESKTOP
+[Desktop Entry]
+Name=CapyDeploy Hub
+Comment=Deploy games to Steam Deck and Linux devices
+Exec=$BINARY_NAME
+Icon=$DESKTOP_NAME
+Type=Application
+Categories=Game;Development;
+Terminal=false
+DESKTOP
+
+    # Create AppRun
+    cat > "$APPDIR/AppRun" << 'APPRUN'
+#!/bin/bash
+SELF=$(readlink -f "$0")
+HERE=${SELF%/*}
+APPIMAGE="${APPIMAGE:-$SELF}"
+APP_NAME="BINARY_NAME"
+DESKTOP_NAME="DESKTOP_FILE"
+INSTALL_DIR="$HOME/.local/bin"
+DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons"
+
+install_app() {
+    echo "Installing $APP_NAME..."
+
+    # Create directories
+    mkdir -p "$INSTALL_DIR" "$DESKTOP_DIR" "$ICON_DIR"
+
+    # Move AppImage
+    DEST="$INSTALL_DIR/$(basename "$APPIMAGE")"
+    if [ "$APPIMAGE" != "$DEST" ]; then
+        mv "$APPIMAGE" "$DEST"
+        chmod +x "$DEST"
+        echo "  Moved to: $DEST"
+    fi
+
+    # Extract and copy icon
+    "$DEST" --appimage-extract "$DESKTOP_NAME.png" >/dev/null 2>&1
+    if [ -f "squashfs-root/$DESKTOP_NAME.png" ]; then
+        cp "squashfs-root/$DESKTOP_NAME.png" "$ICON_DIR/$DESKTOP_NAME.png"
+        rm -rf squashfs-root
+        echo "  Icon installed"
+    fi
+
+    # Create .desktop file (uses --run to skip install check)
+    cat > "$DESKTOP_DIR/$DESKTOP_NAME.desktop" << DESKTOP
+[Desktop Entry]
+Name=APP_DISPLAY_NAME
+Comment=Deploy games to Steam Deck and Linux devices
+Exec=$DEST --run
+Icon=$ICON_DIR/$DESKTOP_NAME.png
+Type=Application
+Categories=Game;Development;
+Terminal=false
+DESKTOP
+    echo "  Desktop entry created"
+    echo ""
+    echo "Installation complete! You can find the app in your application menu."
+}
+
+uninstall_app() {
+    echo "Uninstalling $APP_NAME..."
+    # Remove AppImage (case-insensitive match for CapyDeploy_Hub or capydeploy-hub)
+    find "$INSTALL_DIR" -maxdepth 1 -iname "*capydeploy*hub*.AppImage" -delete 2>/dev/null
+    rm -f "$DESKTOP_DIR/$DESKTOP_NAME.desktop"
+    rm -f "$ICON_DIR/$DESKTOP_NAME.png"
+    echo "Uninstalled."
+}
+
+# Handle special arguments
+case "$1" in
+    --install)
+        install_app
+        exit 0
+        ;;
+    --uninstall)
+        uninstall_app
+        exit 0
+        ;;
+    --run)
+        # Skip install check, just run (used by .desktop)
+        shift
+        export PATH="${HERE}/usr/bin:${PATH}"
+        exec "${HERE}/usr/bin/BINARY_NAME" "$@"
+        ;;
+    --help)
+        echo "Usage: $(basename "$APPIMAGE") [OPTIONS]"
+        echo ""
+        echo "Options:"
+        echo "  --install     Install to ~/Applications and create desktop entry"
+        echo "  --uninstall   Remove installation"
+        echo "  --run         Run without install check (used by .desktop)"
+        echo "  --help        Show this help"
+        exit 0
+        ;;
+esac
+
+# Auto-install prompt only when double-clicked (no terminal)
+# If running from terminal, just run the app without prompts
+if [[ "$APPIMAGE" != "$INSTALL_DIR"/* ]] && [ ! -t 0 ]; then
+    # No terminal = likely double-clicked from file manager
+    if command -v zenity &>/dev/null; then
+        if zenity --question --title="Install $APP_NAME" \
+            --text="Install to ~/.local/bin and create menu entry?" \
+            --width=300 2>/dev/null; then
+            install_app
+            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
+        fi
+    elif command -v kdialog &>/dev/null; then
+        if kdialog --yesno "Install to ~/.local/bin and create menu entry?" \
+            --title "Install $APP_NAME" 2>/dev/null; then
+            install_app
+            exec "$INSTALL_DIR/$(basename "$APPIMAGE")" --run "$@"
+        fi
+    fi
+fi
+
+# Run the app
+export PATH="${HERE}/usr/bin:${PATH}"
+exec "${HERE}/usr/bin/BINARY_NAME" "$@"
+APPRUN
+    sed -i "s/BINARY_NAME/$BINARY_NAME/g" "$APPDIR/AppRun"
+    sed -i "s/DESKTOP_FILE/$DESKTOP_NAME/g" "$APPDIR/AppRun"
+    sed -i "s/APP_DISPLAY_NAME/CapyDeploy Hub/g" "$APPDIR/AppRun"
+    chmod +x "$APPDIR/AppRun"
+
+    echo -e "  ${GREEN}AppDir created${NC}"
+
+    # Build AppImage
+    mkdir -p "$APPIMAGE_DIR"
+    APPIMAGE_NAME="CapyDeploy_Hub.AppImage"
+
+    ARCH=$APPIMAGE_ARCH "$APPIMAGETOOL" "$APPDIR" "$APPIMAGE_DIR/$APPIMAGE_NAME" 2>/dev/null
+
+    echo -e "  ${GREEN}AppImage created: $APPIMAGE_NAME${NC}"
+
+    # Cleanup AppDir
+    rm -rf "$APPDIR"
+
+    echo
     echo "============================================"
     echo -e "  ${GREEN}BUILD SUCCESSFUL${NC}"
     echo "============================================"
     echo
 
-    # Show result
-    echo -e "${YELLOW}[5/5]${NC} Build output:"
+    # Show results
+    echo "  Output directory: $DIST_DIR"
     echo
 
-    BINARY="build/bin/capydeploy-hub"
-    if [ -f "$BINARY" ]; then
-        SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || echo "0")
-        SIZE_KB=$((SIZE / 1024))
+    if [ -f "$DIST_DIR/linux/capydeploy-hub" ]; then
+        SIZE=$(stat -f%z "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || stat -c%s "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || echo "0")
         SIZE_MB=$((SIZE / 1048576))
-        echo "  File: $BINARY"
-        echo "  Size: ${SIZE_MB} MB (${SIZE_KB} KB)"
-    elif [ -d "build/bin" ]; then
-        echo "  Output directory: build/bin/"
-        ls -lh build/bin/
+        echo "  Linux:    $DIST_DIR/linux/capydeploy-hub (${SIZE_MB} MB)"
+    fi
+
+    if [ -f "$DIST_DIR/windows/capydeploy-hub.exe" ]; then
+        SIZE=$(stat -f%z "$DIST_DIR/windows/capydeploy-hub.exe" 2>/dev/null || stat -c%s "$DIST_DIR/windows/capydeploy-hub.exe" 2>/dev/null || echo "0")
+        SIZE_MB=$((SIZE / 1048576))
+        echo "  Windows:  $DIST_DIR/windows/capydeploy-hub.exe (${SIZE_MB} MB)"
+    fi
+
+    APPIMAGE_FILE="$APPIMAGE_DIR/$APPIMAGE_NAME"
+    if [ -f "$APPIMAGE_FILE" ]; then
+        SIZE=$(stat -f%z "$APPIMAGE_FILE" 2>/dev/null || stat -c%s "$APPIMAGE_FILE" 2>/dev/null || echo "0")
+        SIZE_MB=$((SIZE / 1048576))
+        echo "  AppImage: $APPIMAGE_FILE (${SIZE_MB} MB)"
     fi
 
     echo
-    echo "Done! Run with: ./build/bin/capydeploy-hub"
+    echo "Done!"
 fi

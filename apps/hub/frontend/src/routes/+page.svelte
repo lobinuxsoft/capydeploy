@@ -31,15 +31,18 @@
 </script>
 
 <div class="min-h-screen text-foreground">
-	<!-- Header with mascot and connection status -->
-	<div class="flex items-center justify-between px-4 py-3 glass-card border-b border-border">
-		<div class="flex items-center gap-3">
-			<div class="mini-mascot">
+	<!-- Header with mascot and connection status (Decky style) -->
+	<div class="m-4 mb-0">
+		<div class="cd-header">
+			<div class="cd-mascot-wrap">
 				<img src="/mascot.gif" alt="CapyDeploy" />
 			</div>
-			<h1 class="text-lg font-bold gradient-text">CapyDeploy Hub</h1>
+			<div class="flex-1">
+				<h1 class="cd-title">CapyDeploy Hub</h1>
+				<p class="cd-subtitle">Manage and deploy games to your devices</p>
+			</div>
+			<ConnectionStatus />
 		</div>
-		<ConnectionStatus />
 	</div>
 
 	<!-- Main content -->

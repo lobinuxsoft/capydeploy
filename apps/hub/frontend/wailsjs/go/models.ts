@@ -99,6 +99,22 @@ export namespace main {
 	        this.online = source["online"];
 	    }
 	}
+	export class HubInfo {
+	    id: string;
+	    name: string;
+	    platform: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HubInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.platform = source["platform"];
+	    }
+	}
 	export class InstalledGame {
 	    name: string;
 	    path: string;
@@ -115,6 +131,22 @@ export namespace main {
 	        this.path = source["path"];
 	        this.size = source["size"];
 	        this.appId = source["appId"];
+	    }
+	}
+	export class VersionInfo {
+	    version: string;
+	    commit: string;
+	    buildDate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VersionInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.commit = source["commit"];
+	        this.buildDate = source["buildDate"];
 	    }
 	}
 

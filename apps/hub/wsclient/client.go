@@ -23,11 +23,12 @@ var (
 
 // Client is a WebSocket client for communicating with a CapyDeploy Agent.
 type Client struct {
-	url        string
-	hubName    string
-	hubVersion string
-	hubID      string
-	agentID    string
+	url         string
+	hubName     string
+	hubVersion  string
+	hubPlatform string
+	hubID       string
+	agentID     string
 
 	mu        sync.RWMutex
 	conn      *websocket.Conn
@@ -66,6 +67,13 @@ func (c *Client) SetAuth(hubID, agentID string, getToken func(string) string, sa
 	c.agentID = agentID
 	c.getToken = getToken
 	c.saveToken = saveToken
+}
+
+// SetPlatform sets the hub platform to be sent during connection.
+func (c *Client) SetPlatform(platform string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hubPlatform = platform
 }
 
 // SetPairingCallback sets the callback for when pairing is required.
@@ -116,6 +124,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 	c.authToken = token
 	hubID := c.hubID
+	hubPlatform := c.hubPlatform
 	c.mu.Unlock()
 
 	// Start goroutines
@@ -124,10 +133,11 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	// Send handshake with auth info
 	resp, err := c.sendRequest(ctx, protocol.MsgTypeHubConnected, protocol.HubConnectedRequest{
-		Name:    c.hubName,
-		Version: c.hubVersion,
-		HubID:   hubID,
-		Token:   token,
+		Name:     c.hubName,
+		Version:  c.hubVersion,
+		Platform: hubPlatform,
+		HubID:    hubID,
+		Token:    token,
 	})
 	if err != nil {
 		c.Close()

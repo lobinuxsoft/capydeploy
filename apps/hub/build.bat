@@ -26,7 +26,7 @@ goto :parse_args
 :: Check required tools
 :: ============================================
 
-echo [1/4] Checking required tools...
+echo [1/6] Checking required tools...
 echo.
 
 :: Check Go
@@ -81,7 +81,7 @@ echo.
 :: ============================================
 
 if %SKIP_DEPS%==0 (
-    echo [2/4] Installing frontend dependencies...
+    echo [2/6] Installing frontend dependencies...
     cd frontend
     call bun install
     if %ERRORLEVEL% neq 0 (
@@ -93,7 +93,32 @@ if %SKIP_DEPS%==0 (
     echo   Dependencies installed.
     echo.
 ) else (
-    echo [2/4] Skipping frontend dependencies ^(--skip-deps^)
+    echo [2/6] Skipping frontend dependencies ^(--skip-deps^)
+    echo.
+)
+
+:: ============================================
+:: Generate icons (production only)
+:: ============================================
+
+if "%MODE%"=="production" (
+    echo [3/6] Generating application icons...
+    echo.
+
+    if exist "..\..\scripts\generate-icons.py" (
+        where python >nul 2>&1
+        if %ERRORLEVEL% equ 0 (
+            python ..\..\scripts\generate-icons.py
+        ) else (
+            echo   [WARN] Python not found, skipping icon generation.
+            echo   Install Python 3 + Pillow to generate icons.
+        )
+    ) else (
+        echo   [WARN] Icon script not found: ..\..\scripts\generate-icons.py
+    )
+    echo.
+) else (
+    echo [3/6] Skipping icon generation ^(dev mode^)
     echo.
 )
 
@@ -101,7 +126,7 @@ if %SKIP_DEPS%==0 (
 :: Build embedded binary (steam-shortcut-manager for Linux)
 :: ============================================
 
-echo [3/5] Building embedded steam-shortcut-manager (Linux)...
+echo [4/6] Building embedded steam-shortcut-manager (Linux)...
 echo.
 
 :: Cross-compile steam-shortcut-manager for Linux
@@ -130,13 +155,13 @@ echo.
 :: ============================================
 
 if "%MODE%"=="dev" (
-    echo [4/5] Starting development server...
+    echo [5/6] Starting development server...
     echo.
     echo   Press Ctrl+C to stop.
     echo.
     wails dev
 ) else (
-    echo [4/5] Building production binary...
+    echo [5/6] Building production binary...
     echo.
 
     wails build -clean
@@ -155,7 +180,7 @@ if "%MODE%"=="dev" (
     echo.
 
     :: Show result
-    echo [5/5] Build output:
+    echo [6/6] Build output:
     echo.
 
     if exist "build\bin\capydeploy-hub.exe" (

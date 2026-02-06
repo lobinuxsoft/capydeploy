@@ -58,6 +58,14 @@ export function GetHeroes(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetHeroes'](arg1, arg2, arg3);
 }
 
+export function GetHubInfo() {
+  return window['go']['main']['App']['GetHubInfo']();
+}
+
+export function GetHubName() {
+  return window['go']['main']['App']['GetHubName']();
+}
+
 export function GetIcons(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetIcons'](arg1, arg2, arg3);
 }
@@ -78,20 +86,12 @@ export function GetSteamGridDBAPIKey() {
   return window['go']['main']['App']['GetSteamGridDBAPIKey']();
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function OpenCacheFolder() {
   return window['go']['main']['App']['OpenCacheFolder']();
-}
-
-export function OpenCachedImage(arg1, arg2) {
-  return window['go']['main']['App']['OpenCachedImage'](arg1, arg2);
-}
-
-export function ProxyImage(arg1) {
-  return window['go']['main']['App']['ProxyImage'](arg1);
-}
-
-export function ProxyImageCached(arg1, arg2) {
-  return window['go']['main']['App']['ProxyImageCached'](arg1, arg2);
 }
 
 export function RefreshDiscovery() {
@@ -108,6 +108,10 @@ export function SearchGames(arg1) {
 
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SetHubName(arg1) {
+  return window['go']['main']['App']['SetHubName'](arg1);
 }
 
 export function SetImageCacheEnabled(arg1) {

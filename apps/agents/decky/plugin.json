@@ -1,0 +1,11 @@
+{
+  "api_version": 2,
+  "name": "CapyDeploy",
+  "author": "lobinuxsoft",
+  "flags": ["root"],
+  "publish": {
+    "tags": ["games", "utility", "shortcuts"],
+    "description": "Receive games from your PC and create Steam shortcuts automatically. No restart needed.",
+    "image": "https://raw.githubusercontent.com/lobinuxsoft/capydeploy/main/docs/logo.jpg"
+  }
+}

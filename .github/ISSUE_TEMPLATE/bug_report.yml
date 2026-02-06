@@ -12,11 +12,12 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of Bazzite Devkit is affected?
+      description: Which part of CapyDeploy is affected?
       options:
-        - backend (Go code)
-        - frontend (Svelte UI)
-        - ssh/sftp (Connection handling)
+        - hub (Desktop app)
+        - agent (Handheld app)
+        - decky-plugin (Gaming mode)
+        - websocket/discovery (Connection handling)
         - shortcuts (Steam shortcut management)
         - artwork (SteamGridDB integration)
         - build (Build scripts, compilation)
@@ -52,7 +53,7 @@ body:
       description: Please provide your environment details
       value: |
         - OS: [e.g., Windows 11, Ubuntu 22.04]
-        - Bazzite Devkit version: [e.g., 1.0.0]
+        - CapyDeploy version: [e.g., 1.0.0]
         - Remote device: [e.g., Steam Deck, Bazzite on OneXFly]
     validations:
       required: true
@@ -83,6 +84,6 @@ body:
         **Want to contribute a fix?** Great! Please:
         1. Wait for the issue to be triaged and assigned to you
         2. Create a branch: `fix/issue-XX-short-description`
-        3. Submit a PR targeting `master`
+        3. Submit a PR targeting `development`
 
-        See [CONTRIBUTING.md](https://github.com/lobinuxsoft/bazzite-devkit/blob/master/CONTRIBUTING.md) for details.
+        See [CONTRIBUTING.md](https://github.com/lobinuxsoft/capydeploy/blob/development/CONTRIBUTING.md) for details.

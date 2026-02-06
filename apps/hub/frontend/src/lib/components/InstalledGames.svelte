@@ -14,17 +14,17 @@
 
 	async function refreshGames() {
 		if (!$connectionStatus.connected) {
-			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
+			toast.warning('No connection', 'Connect to a device first');
 			return;
 		}
 
 		loading = true;
-		statusMessage = 'Buscando juegos...';
+		statusMessage = 'Searching for games...';
 		try {
 			// Get install path from agent
 			installPath = await GetAgentInstallPath();
 			games = await GetInstalledGames('');
-			statusMessage = `${games.length} juegos encontrados`;
+			statusMessage = `${games.length} games found`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
 			toast.error('Error', String(e));
@@ -36,18 +36,18 @@
 
 	async function deleteGame(game: InstalledGame) {
 		if (!$connectionStatus.connected) {
-			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
+			toast.warning('No connection', 'Connect to a device first');
 			return;
 		}
 
 		deleting = game.name;
-		statusMessage = `Eliminando ${game.name}...`;
+		statusMessage = `Deleting ${game.name}...`;
 		try {
 			await DeleteGame(game.name, game.appId || 0);
 			await refreshGames();
-			toast.success('Juego eliminado', game.name);
+			toast.success('Game deleted', game.name);
 		} catch (e) {
-			toast.error('Error al eliminar', String(e));
+			toast.error('Error deleting', String(e));
 			statusMessage = `Error: ${e}`;
 		} finally {
 			deleting = null;
@@ -57,13 +57,13 @@
 
 <div class="space-y-4">
 	{#if installPath}
-		<p class="text-sm text-muted-foreground">
-			Install path: <span class="font-mono">{installPath}</span>
+		<p class="text-sm cd-text-disabled">
+			Install path: <span class="cd-mono">{installPath}</span>
 		</p>
 	{/if}
 
 	<div class="flex gap-2">
-		<Button onclick={refreshGames} disabled={loading || !$connectionStatus.connected}>
+		<Button variant="gradient" onclick={refreshGames} disabled={loading || !$connectionStatus.connected}>
 			{#if loading}
 				<Loader2 class="w-4 h-4 mr-2 animate-spin" />
 				Loading...
@@ -74,23 +74,23 @@
 		</Button>
 	</div>
 
-	<p class="text-sm text-muted-foreground">{statusMessage}</p>
+	<p class="text-sm cd-text-disabled">{statusMessage}</p>
 
 	<div class="space-y-2">
 		{#each games as game}
 			{@const isDeleting = deleting === game.name}
-			<Card class="p-4">
+			<div class="cd-section p-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-3">
-						<Folder class="w-6 h-6 text-muted-foreground" />
+						<Folder class="w-6 h-6 cd-text-disabled" />
 						<div>
-							<div class="font-medium">{game.name}</div>
-							<div class="text-sm text-muted-foreground">{game.path}</div>
+							<div class="font-medium cd-value">{game.name}</div>
+							<div class="text-sm cd-text-disabled">{game.path}</div>
 						</div>
 					</div>
 					<div class="flex items-center gap-3">
 						{#if game.size && game.size !== 'N/A'}
-							<span class="text-sm text-muted-foreground">{game.size}</span>
+							<span class="text-sm cd-mono">{game.size}</span>
 						{/if}
 						<Button
 							variant="ghost"
@@ -107,11 +107,11 @@
 						</Button>
 					</div>
 				</div>
-			</Card>
+			</div>
 		{/each}
 
 		{#if games.length === 0 && !loading}
-			<div class="text-center text-muted-foreground py-8">
+			<div class="cd-section p-8 text-center cd-text-disabled">
 				{$connectionStatus.connected
 					? 'No games found. Click Refresh to scan the device.'
 					: 'Connect to a device to view installed games.'}

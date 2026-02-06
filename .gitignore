@@ -1,5 +1,9 @@
-# Build artifacts
-build/
+# Build artifacts (only compiled binaries, not icons)
+**/build/bin/
+dist/
+
+# Tools (downloaded during build)
+.tools/
 *.exe
 *.dll
 *.so
@@ -17,12 +21,20 @@ go.sum
 apps/hub/frontend/node_modules/
 apps/hub/frontend/dist/
 apps/hub/frontend/.svelte-kit/
+apps/hub/frontend/wailsjs/
 
-# Frontend - Agent
-apps/agent/frontend/node_modules/
-apps/agent/frontend/dist/
-apps/agent/frontend/.svelte-kit/
-apps/agent/frontend/wailsjs/
+# Frontend - Desktop Agent
+apps/agents/desktop/frontend/node_modules/
+apps/agents/desktop/frontend/dist/
+apps/agents/desktop/frontend/.svelte-kit/
+apps/agents/desktop/frontend/wailsjs/
+
+# Decky Agent
+apps/agents/decky/node_modules/
+apps/agents/decky/dist/
+apps/agents/decky/out/
+apps/agents/decky/py_modules/
+apps/agents/decky/__pycache__/
 
 # Docs (Docus/Nuxt)
 docs/node_modules/

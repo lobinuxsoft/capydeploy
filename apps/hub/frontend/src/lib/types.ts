@@ -1,3 +1,15 @@
+export interface VersionInfo {
+	version: string;
+	commit: string;
+	buildDate: string;
+}
+
+export interface HubInfo {
+	id: string;
+	name: string;
+	platform: string;
+}
+
 // Agent types (replaces Device types)
 export interface DiscoveredAgent {
 	id: string;

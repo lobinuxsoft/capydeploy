@@ -1,4 +1,4 @@
-# Contributing to Bazzite Devkit
+# Contributing to CapyDeploy
 
 Thank you for your interest in contributing! This document outlines our development workflow and standards.
 
@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This document outlines our developm
 
 | Item | Value |
 |------|-------|
-| PRs target | `master` branch |
+| PRs target | `development` branch |
 | Commit language | Spanish |
 | Commit format | [Conventional Commits](https://www.conventionalcommits.org/) |
 | Code comments | English |
@@ -16,7 +16,7 @@ Thank you for your interest in contributing! This document outlines our developm
 **Always create an issue before coding.**
 
 ```
-Create Issue → Create Branch → Develop → PR to master → Close Issue
+Create Issue → Create Branch → Develop → PR to development → Close Issue
 ```
 
 This ensures work is tracked, discussed, and properly scoped before implementation begins.
@@ -40,9 +40,9 @@ Write commits in **Spanish** using Conventional Commits format:
 
 ```
 feat: agregar caché de artwork
-fix: corregir conexión SSH en Windows
+fix: corregir conexión WebSocket en Windows
 docs: actualizar guía de instalación
-refactor: simplificar cliente SFTP
+refactor: simplificar protocolo de transferencia
 test: agregar tests para shortcuts
 chore: actualizar dependencias
 ```
@@ -61,14 +61,14 @@ chore: actualizar dependencias
 
 ## Pull Requests
 
-1. **Target branch**: `master`
+1. **Target branch**: `development`
 2. **Title**: Clear description of the change
 3. **Body**: Reference the issue with `Closes #XX`
 4. **Size**: Keep PRs focused and reviewable
 
 ```bash
 # Example PR creation
-gh pr create --base master --title "feat: add artwork cache" --body "Closes #42"
+gh pr create --base development --title "feat: add artwork cache" --body "Closes #42"
 ```
 
 ## Code Standards
@@ -97,22 +97,22 @@ gh pr create --base master --title "feat: add artwork cache" --body "Closes #42"
 - **Comments**: Write in English
 - **Type hints**: Always use them (TypeScript)
 - **Error handling**: Wrap errors with context in Go
-- **Security**: Never log passwords or SSH keys
+- **Security**: Never log credentials or pairing tokens
 
 ## Building the Project
 
 **Always use the build scripts. Never run build tools directly.**
 
 ```bash
-# Linux/macOS
-./build.sh
+# Linux/macOS — build all components
+./build_all.sh
 
-# Windows
-build.bat
+# Windows — build all components
+build_all.bat
 
-# Development mode with hot reload
-./build.sh dev
-build.bat dev
+# Individual apps (from their directory)
+cd apps/hub && ./build.sh
+cd apps/agent && ./build.sh
 ```
 
 ## Labels
@@ -123,13 +123,13 @@ When creating issues, use appropriate labels:
 |----------|--------|
 | Priority | `priority:critical`, `priority:high`, `priority:medium`, `priority:low` |
 | Difficulty | `difficulty:easy`, `difficulty:medium`, `difficulty:hard` |
-| Component | `backend`, `frontend`, `shortcuts`, `artwork`, `ssh/sftp` |
+| Component | `hub`, `agent`, `decky-plugin`, `websocket`, `discovery`, `shortcuts`, `artwork` |
 
 ## Getting Help
 
-- **Questions**: Open a [Discussion](https://github.com/lobinuxsoft/bazzite-devkit/discussions)
-- **Bugs**: Create an [Issue](https://github.com/lobinuxsoft/bazzite-devkit/issues)
+- **Questions**: Open a [Discussion](https://github.com/lobinuxsoft/capydeploy/discussions)
+- **Bugs**: Create an [Issue](https://github.com/lobinuxsoft/capydeploy/issues)
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing, you agree that your contributions will be licensed under the AGPL v3.
