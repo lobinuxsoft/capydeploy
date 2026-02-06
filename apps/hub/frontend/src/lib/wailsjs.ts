@@ -59,6 +59,7 @@ export const GetIcons = App.GetIcons;
 export const ProxyImage = App.ProxyImage;
 export const ProxyImageCached = App.ProxyImageCached;
 export const GetCacheURL = App.GetCacheURL;
+export const GetStaticThumbnail = App.GetStaticThumbnail;
 export const OpenCachedImage = App.OpenCachedImage;
 
 // Runtime events

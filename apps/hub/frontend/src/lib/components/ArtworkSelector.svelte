@@ -11,69 +11,10 @@
 	import { isAnimatedImage } from '$lib/utils';
 	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check, ImageOff } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, GetCacheURL, OpenCachedImage } from '$lib/wailsjs';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, GetCacheURL, GetStaticThumbnail, OpenCachedImage } from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
-
-	// Intersection Observer action - unloads images when out of viewport to save memory
-	// This is critical for animated GIFs/WebPs which consume huge amounts of RAM when decoded
-	let observer: IntersectionObserver | null = null;
-	const observedImages = new Map<HTMLImageElement, string>();
-
-	function getObserver(): IntersectionObserver {
-		if (!observer) {
-			observer = new IntersectionObserver(
-				(entries) => {
-					entries.forEach((entry) => {
-						const img = entry.target as HTMLImageElement;
-						const originalSrc = observedImages.get(img);
-						if (!originalSrc) return;
-
-						if (entry.isIntersecting) {
-							// Entering viewport - load the image
-							if (img.src !== originalSrc) {
-								img.src = originalSrc;
-							}
-						} else {
-							// Leaving viewport - unload to free memory
-							// Use a tiny transparent placeholder
-							img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-						}
-					});
-				},
-				{
-					root: null, // viewport
-					rootMargin: '100px', // Load slightly before visible
-					threshold: 0
-				}
-			);
-		}
-		return observer;
-	}
-
-	function lazyImage(node: HTMLImageElement, src: string) {
-		observedImages.set(node, src);
-		// Start with placeholder, observer will load when visible
-		node.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-		getObserver().observe(node);
-
-		return {
-			update(newSrc: string) {
-				observedImages.set(node, newSrc);
-				// If currently visible, update immediately
-				const rect = node.getBoundingClientRect();
-				const isVisible = rect.top < window.innerHeight + 100 && rect.bottom > -100;
-				if (isVisible) {
-					node.src = newSrc;
-				}
-			},
-			destroy() {
-				observedImages.delete(node);
-				getObserver().unobserve(node);
-			}
-		};
-	}
 
 	interface Props {
 		gameName: string;
@@ -143,9 +84,35 @@
 	let cacheURLs = $state<Map<string, string>>(new Map());
 	let loadingPreview = $state(false);
 
+	// Static thumbnail cache for animated images (prevents memory bloat from decoded GIF frames)
+	let staticThumbnails = $state<Map<string, string>>(new Map());
+	let loadingThumbnails = $state<Set<string>>(new Set());
+
+	// Load static thumbnail for an animated image
+	async function loadStaticThumbnail(url: string, mime: string) {
+		if (!selectedGameID || !isAnimatedImage(mime, url)) return;
+		if (staticThumbnails.has(url) || loadingThumbnails.has(url)) return;
+
+		loadingThumbnails.add(url);
+		try {
+			const thumbUrl = await GetStaticThumbnail(selectedGameID, url, 200);
+			if (thumbUrl) {
+				staticThumbnails.set(url, thumbUrl);
+				// Force reactivity update
+				staticThumbnails = new Map(staticThumbnails);
+			}
+		} catch (e) {
+			console.warn('Failed to load static thumbnail:', e);
+		} finally {
+			loadingThumbnails.delete(url);
+		}
+	}
+
 	// Cleanup function to clear all cached data
 	function clearCache() {
 		cacheURLs.clear();
+		staticThumbnails.clear();
+		loadingThumbnails.clear();
 		capsules = [];
 		wideCapsules = [];
 		heroes = [];
@@ -452,13 +419,27 @@
 	}
 
 	// Use thumbnail for grid display (much smaller, ~10KB vs 100-500KB)
+	// Get the best image source for grid display
+	// For animated images, use static thumbnail to save memory
 	function getImageSrc(img: any): string {
-		// Prefer thumbnail for grid display
+		const url = img?.url || img?.Url || img?.URL || '';
+		const mime = img?.mime || '';
+
+		// For animated images, try to use static thumbnail (first frame as JPEG)
+		if (isAnimatedImage(mime, url)) {
+			// Check if we have a static thumbnail cached
+			const staticThumb = staticThumbnails.get(url);
+			if (staticThumb) return staticThumb;
+
+			// Start loading static thumbnail in background
+			loadStaticThumbnail(url, mime);
+		}
+
+		// Fallback to SteamGridDB thumbnail
 		const thumb = img?.thumb || img?.Thumb || '';
 		if (thumb) return thumb;
 
-		// Fallback to full URL if no thumbnail
-		const url = img?.url || img?.Url || img?.URL || '';
+		// Last resort: full URL
 		return url || '';
 	}
 
@@ -536,15 +517,9 @@
 			searchGames();
 		}
 
-		// Cleanup on component destroy - clear all cached data and observer
+		// Cleanup on component destroy
 		return () => {
 			clearCache();
-			// Disconnect intersection observer
-			if (observer) {
-				observer.disconnect();
-				observer = null;
-			}
-			observedImages.clear();
 		};
 	});
 </script>
@@ -713,7 +688,7 @@
 								onclick={() => selectCapsule(img)}
 							>
 								<img
-									use:lazyImage={getImageSrc(img)}
+									src={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-[2/3] object-cover bg-muted"
 									onerror={(e) => handleImageError(e, img)}
@@ -757,7 +732,7 @@
 								onclick={() => selectWide(img)}
 							>
 								<img
-									use:lazyImage={getImageSrc(img)}
+									src={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-[460/215] object-cover bg-muted"
 									onerror={(e) => handleImageError(e, img)}
@@ -801,7 +776,7 @@
 								onclick={() => selectHero(img)}
 							>
 								<img
-									use:lazyImage={getImageSrc(img)}
+									src={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-[1920/620] object-cover bg-muted"
 									onerror={(e) => handleImageError(e, img)}
@@ -844,7 +819,7 @@
 								onclick={() => selectLogo(img)}
 							>
 								<img
-									use:lazyImage={getImageSrc(img)}
+									src={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-square object-contain"
 									onerror={(e) => handleImageError(e, img)}
@@ -884,7 +859,7 @@
 								onclick={() => selectIcon(img)}
 							>
 								<img
-									use:lazyImage={getImageSrc(img)}
+									src={getImageSrc(img)}
 									alt=""
 									class="w-full aspect-square object-contain"
 									onerror={(e) => handleImageError(e, img)}

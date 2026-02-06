@@ -1015,6 +1015,29 @@ func (a *App) GetCacheURL(gameID int, imageURL string) (string, error) {
 	return fmt.Sprintf("/cache/%d/%s", gameID, filename), nil
 }
 
+// GetStaticThumbnail generates a static JPEG thumbnail for grid display.
+// For animated images (GIF/WebP), it extracts the first frame.
+// Returns a URL path to serve the thumbnail via the cache handler.
+func (a *App) GetStaticThumbnail(gameID int, imageURL string, maxWidth int) (string, error) {
+	if gameID <= 0 || imageURL == "" {
+		return "", fmt.Errorf("invalid gameID or imageURL")
+	}
+
+	cfg := steamgriddb.DefaultThumbnailConfig()
+	if maxWidth > 0 {
+		cfg.MaxWidth = maxWidth
+	}
+
+	thumbPath, err := steamgriddb.GetStaticThumbnail(gameID, imageURL, cfg)
+	if err != nil {
+		return "", err
+	}
+
+	// Return URL for the cache handler (thumbs are in a subdirectory)
+	filename := filepath.Base(thumbPath)
+	return fmt.Sprintf("/cache/%d/thumbs/%s", gameID, filename), nil
+}
+
 // OpenCachedImage opens a cached image with the system's default image viewer
 func (a *App) OpenCachedImage(gameID int, imageURL string) error {
 	if gameID <= 0 || imageURL == "" {

@@ -21,18 +21,27 @@ func NewCacheHandler() *CacheHandler {
 	return &CacheHandler{}
 }
 
-// ServeHTTP handles requests to /cache/{gameID}/{filename}
+// ServeHTTP handles requests to /cache/{gameID}/{filename} or /cache/{gameID}/thumbs/{filename}
 func (h *CacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Parse path: /cache/{gameID}/{filename}
+	// Parse path: /cache/{gameID}/{filename} or /cache/{gameID}/thumbs/{filename}
 	path := strings.TrimPrefix(r.URL.Path, "/cache/")
-	parts := strings.SplitN(path, "/", 2)
-	if len(parts) != 2 {
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) < 2 {
 		http.Error(w, "Invalid cache path", http.StatusBadRequest)
 		return
 	}
 
 	gameID := parts[0]
-	filename := parts[1]
+	var subdir, filename string
+
+	if len(parts) == 3 && parts[1] == "thumbs" {
+		// /cache/{gameID}/thumbs/{filename}
+		subdir = "thumbs"
+		filename = parts[2]
+	} else {
+		// /cache/{gameID}/{filename}
+		filename = parts[1]
+	}
 
 	// Validate filename to prevent path traversal
 	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
@@ -48,7 +57,12 @@ func (h *CacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build full path
-	filePath := filepath.Join(cacheDir, fmt.Sprintf("game_%s", gameID), filename)
+	var filePath string
+	if subdir != "" {
+		filePath = filepath.Join(cacheDir, fmt.Sprintf("game_%s", gameID), subdir, filename)
+	} else {
+		filePath = filepath.Join(cacheDir, fmt.Sprintf("game_%s", gameID), filename)
+	}
 
 	// Verify the file exists and is within the cache directory
 	absPath, err := filepath.Abs(filePath)
