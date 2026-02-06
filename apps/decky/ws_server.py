@@ -197,13 +197,14 @@ class WebSocketServer:
         hub_id = payload.get("hubId", "")
         hub_name = payload.get("name", "Unknown Hub")
         hub_version = payload.get("version", "")
+        hub_platform = payload.get("platform", "")
         token = payload.get("token", "")
 
-        decky.logger.info(f"Hub connected: {hub_name} v{hub_version}")
+        decky.logger.info(f"Hub connected: {hub_name} v{hub_version} ({hub_platform})")
 
         # Check if token is valid
         if token and hub_id and self.plugin.pairing.validate_token(hub_id, token):
-            self.connected_hub = {"id": hub_id, "name": hub_name, "version": hub_version}
+            self.connected_hub = {"id": hub_id, "name": hub_name, "version": hub_version, "platform": hub_platform}
             await self.send(websocket, msg_id, "agent_status", {
                 "name": self.plugin.agent_name,
                 "version": "0.1.0",
@@ -221,7 +222,7 @@ class WebSocketServer:
             await self.send_error(websocket, msg_id, 401, "hub_id required")
             return None, False
 
-        code = self.plugin.pairing.generate_code(hub_id, hub_name)
+        code = self.plugin.pairing.generate_code(hub_id, hub_name, hub_platform)
         await self.send(websocket, msg_id, "pairing_required", {
             "code": code,
             "expiresIn": PAIRING_CODE_EXPIRY,

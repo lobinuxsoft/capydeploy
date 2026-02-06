@@ -21,13 +21,15 @@ class PairingManager:
         self.pending_code: Optional[str] = None
         self.pending_hub_id: Optional[str] = None
         self.pending_hub_name: Optional[str] = None
+        self.pending_hub_platform: Optional[str] = None
         self.code_expires_at: float = 0
 
-    def generate_code(self, hub_id: str, hub_name: str) -> str:
+    def generate_code(self, hub_id: str, hub_name: str, hub_platform: str = "") -> str:
         """Generate a new pairing code."""
         self.pending_code = "".join(random.choices(string.digits, k=PAIRING_CODE_LENGTH))
         self.pending_hub_id = hub_id
         self.pending_hub_name = hub_name
+        self.pending_hub_platform = hub_platform
         self.code_expires_at = time.time() + PAIRING_CODE_EXPIRY
         return self.pending_code
 
@@ -45,6 +47,7 @@ class PairingManager:
         authorized = self.settings.getSetting("authorized_hubs", {})
         authorized[hub_id] = {
             "name": self.pending_hub_name,
+            "platform": self.pending_hub_platform or "",
             "token": token,
             "paired_at": time.time(),
         }
@@ -54,6 +57,7 @@ class PairingManager:
         self.pending_code = None
         self.pending_hub_id = None
         self.pending_hub_name = None
+        self.pending_hub_platform = None
 
         return token
 

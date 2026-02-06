@@ -16,8 +16,27 @@ import { colors } from "../styles/theme";
 interface AuthorizedHub {
   id: string;
   name: string;
+  platform?: string;
   pairedAt: number;
 }
+
+const getPlatformIcon = (platform?: string): string => {
+  switch (platform) {
+    case "windows": return "🪟";
+    case "darwin": return "🍎";
+    case "linux": return "🐧";
+    default: return "💻";
+  }
+};
+
+const getPlatformName = (platform?: string): string => {
+  switch (platform) {
+    case "windows": return "Windows";
+    case "darwin": return "macOS";
+    case "linux": return "Linux";
+    default: return platform || "Unknown";
+  }
+};
 
 interface AuthorizedHubsProps {
   enabled: boolean;
@@ -94,7 +113,16 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
           hubs.map((hub) => (
             <PanelSectionRow key={hub.id}>
               <Field
-                label={hub.name}
+                label={
+                  <span>
+                    {hub.name}
+                    {hub.platform && (
+                      <span title={getPlatformName(hub.platform)} style={{ marginLeft: "6px" }}>
+                        {getPlatformIcon(hub.platform)}
+                      </span>
+                    )}
+                  </span>
+                }
                 description={`Paired: ${formatDate(hub.pairedAt)}`}
                 icon={<FaComputer color={colors.capy} />}
               >

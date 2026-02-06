@@ -231,6 +231,7 @@ class Plugin:
             hubs.append({
                 "id": hub_id,
                 "name": hub_data.get("name", "Unknown"),
+                "platform": hub_data.get("platform", ""),
                 "pairedAt": hub_data.get("paired_at", 0),
             })
         return hubs
