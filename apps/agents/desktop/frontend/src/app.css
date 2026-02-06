@@ -348,10 +348,11 @@ body {
 .cd-mono {
 	font-family: monospace;
 	font-weight: 500;
-	background: linear-gradient(90deg, #f97316 0%, #fb923c 40%, #06b6d4 100%);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-clip: text;
+	background: linear-gradient(90deg, #f97316 0%, #fb923c 40%, #06b6d4 100%) !important;
+	-webkit-background-clip: text !important;
+	-webkit-text-fill-color: transparent !important;
+	background-clip: text !important;
+	color: transparent !important;
 }
 
 .cd-text-primary {
