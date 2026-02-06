@@ -79,26 +79,13 @@
 	// Show filters panel
 	let showFilters = $state(false);
 
-	// Image proxy cache - maps original URL to data URL (LRU with max size)
-	const IMAGE_CACHE_MAX_SIZE = 150;
-	let imageCache = $state<Map<string, string>>(new Map());
-	let loadingImages = $state<Set<string>>(new Set());
-
-	// LRU cache helper - removes oldest entries when limit exceeded
-	function addToCache(url: string, dataUrl: string) {
-		// If cache is full, remove oldest entries (first 20% of entries)
-		if (imageCache.size >= IMAGE_CACHE_MAX_SIZE) {
-			const keysToRemove = Array.from(imageCache.keys()).slice(0, Math.floor(IMAGE_CACHE_MAX_SIZE * 0.2));
-			keysToRemove.forEach(key => imageCache.delete(key));
-			console.log(`[imageCache] Evicted ${keysToRemove.length} entries, size: ${imageCache.size}`);
-		}
-		imageCache.set(url, dataUrl);
-	}
+	// Preview cache - only cache the currently previewed image (not all images)
+	let previewCache = $state<Map<string, string>>(new Map());
+	let loadingPreview = $state(false);
 
 	// Cleanup function to clear all cached data
 	function clearCache() {
-		imageCache.clear();
-		loadingImages.clear();
+		previewCache.clear();
 		capsules = [];
 		wideCapsules = [];
 		heroes = [];
@@ -228,11 +215,7 @@
 			capsules = append ? [...capsules, ...portraits] : portraits;
 			hasMoreCapsules = (grids || []).length >= 50;
 			const animCount = portraits.filter((p: any) => isAnimatedImage(p.mime, p.url)).length;
-			statusMessage = `Loading ${portraits.length} capsule images...`;
 			capsulePage++;
-
-			// Preload images through proxy
-			await preloadImages(portraits);
 			statusMessage = `Loaded ${portraits.length} capsules (${animCount} animated)`;
 		} catch (e) {
 			console.error('LoadCapsules error:', e);
@@ -256,10 +239,7 @@
 			wideCapsules = append ? [...wideCapsules, ...landscapes] : landscapes;
 			hasMoreWide = (grids || []).length >= 50;
 			const animCount = landscapes.filter((p: any) => isAnimatedImage(p.mime, p.url)).length;
-			statusMessage = `Loading ${landscapes.length} wide capsule images...`;
 			widePage++;
-
-			await preloadImages(landscapes);
 			statusMessage = `Loaded ${landscapes.length} wide capsules (${animCount} animated)`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -282,10 +262,7 @@
 			heroes = append ? [...heroes, ...items] : items;
 			hasMoreHeroes = items.length >= 50;
 			const animCount = items.filter((p: any) => isAnimatedImage(p.mime, p.url)).length;
-			statusMessage = `Loading ${items.length} hero images...`;
 			heroPage++;
-
-			await preloadImages(items);
 			statusMessage = `Loaded ${items.length} heroes (${animCount} animated)`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -307,10 +284,7 @@
 			const items = data || [];
 			logos = append ? [...logos, ...items] : items;
 			hasMoreLogos = items.length >= 50;
-			statusMessage = `Loading ${items.length} logo images...`;
 			logoPage++;
-
-			await preloadImages(items);
 			statusMessage = `Loaded ${items.length} logos`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -332,10 +306,7 @@
 			const items = data || [];
 			icons = append ? [...icons, ...items] : items;
 			hasMoreIcons = items.length >= 50;
-			statusMessage = `Loading ${items.length} icon images...`;
 			iconPage++;
-
-			await preloadImages(items);
 			statusMessage = `Loaded ${items.length} icons`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -379,73 +350,57 @@
 		showPreview(img.url, img.width, img.height, img.style, img.mime);
 	}
 
-	function showPreview(url: string, width: number, height: number, style: string, mime: string) {
+	async function showPreview(url: string, width: number, height: number, style: string, mime: string) {
 		// Save original URL for opening cached file
 		previewOriginalUrl = url;
-		// Use cached version for display if available
-		previewUrl = imageCache.get(url) || url;
 		const isAnim = isAnimatedImage(mime, url);
 		previewInfo = `${width}x${height} - ${style}${isAnim ? ' (Animated)' : ''}`;
-	}
 
-	// Get cached image URL for display (returns original URL if not cached)
-	function getCachedUrl(originalUrl: string): string {
-		if (!originalUrl) return '';
-		return imageCache.get(originalUrl) || originalUrl;
-	}
-
-	function getImageSrc(img: any): string {
-		const url = img?.url || img?.Url || img?.URL || '';
-		if (!url) return '';
-
-		// Return cached data URL if available, otherwise return original URL
-		const cached = imageCache.get(url);
-		return cached || url;
-	}
-
-	// Preload images through proxy with disk cache (runs in background)
-	async function preloadImages(images: any[]) {
-		console.log('[preloadImages] Starting with', images.length, 'images, gameID:', selectedGameID);
-		const urls = images.map(img => img?.url || img?.Url || img?.URL || '').filter(Boolean);
-
-		const uncachedUrls = urls.filter(url => !imageCache.has(url) && !loadingImages.has(url));
-		console.log('[preloadImages] Uncached URLs:', uncachedUrls.length);
-
-		if (uncachedUrls.length === 0) {
-			console.log('[preloadImages] All images already cached');
+		// Check if already cached
+		const cached = previewCache.get(url);
+		if (cached) {
+			previewUrl = cached;
 			return;
 		}
 
-		// Mark as loading
-		uncachedUrls.forEach(url => loadingImages.add(url));
-		loadingImages = new Set(loadingImages);
-
-		// Load in parallel (batch of 3)
-		const batchSize = 3;
-		for (let i = 0; i < uncachedUrls.length; i += batchSize) {
-			const batch = uncachedUrls.slice(i, i + batchSize);
-			console.log('[preloadImages] Loading batch', Math.floor(i / batchSize) + 1);
-
-			await Promise.all(batch.map(async (url) => {
-				try {
-					console.log('[preloadImages] Proxying:', url.substring(0, 60) + '...');
-					// Use cached version with gameID for disk persistence
-					const dataUrl = await ProxyImageCached(selectedGameID, url);
-					console.log('[preloadImages] Got data URL, length:', dataUrl?.length || 0);
-					if (dataUrl && dataUrl.startsWith('data:')) {
-						addToCache(url, dataUrl);
+		// Load full image through proxy for preview (cached on disk)
+		previewUrl = url; // Show original URL while loading
+		if (selectedGameID > 0) {
+			loadingPreview = true;
+			try {
+				const dataUrl = await ProxyImageCached(selectedGameID, url);
+				if (dataUrl && dataUrl.startsWith('data:')) {
+					// Only keep last 5 previews in memory
+					if (previewCache.size >= 5) {
+						const firstKey = previewCache.keys().next().value;
+						if (firstKey) previewCache.delete(firstKey);
 					}
-				} catch (err) {
-					console.error('[preloadImages] Failed:', err);
-				} finally {
-					loadingImages.delete(url);
+					previewCache.set(url, dataUrl);
+					previewUrl = dataUrl;
 				}
-			}));
-			// Trigger reactivity after each batch
-			imageCache = new Map(imageCache);
-			loadingImages = new Set(loadingImages);
+			} catch (e) {
+				console.warn('Failed to load preview:', e);
+			} finally {
+				loadingPreview = false;
+			}
 		}
-		console.log('[preloadImages] Done, cache size:', imageCache.size);
+	}
+
+	// Get cached preview URL for selected artwork display
+	function getCachedUrl(originalUrl: string): string {
+		if (!originalUrl) return '';
+		return previewCache.get(originalUrl) || originalUrl;
+	}
+
+	// Use thumbnail for grid display (much smaller, ~10KB vs 100-500KB)
+	function getImageSrc(img: any): string {
+		// Prefer thumbnail for grid display
+		const thumb = img?.thumb || img?.Thumb || '';
+		if (thumb) return thumb;
+
+		// Fallback to full URL if no thumbnail
+		const url = img?.url || img?.Url || img?.URL || '';
+		return url || '';
 	}
 
 	// Handle image load error - try to load full URL if thumb fails
