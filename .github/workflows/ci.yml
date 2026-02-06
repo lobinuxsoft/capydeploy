@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [development]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Build steam-shortcut-manager (required by go:embed)
+        run: |
+          cd steam-shortcut-manager
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
+
+      - name: Build frontend dist (required by go:embed)
+        uses: oven-sh/setup-bun@v2
+      - run: |
+          cd apps/hub/frontend && bun install && bun run build && cd ../../..
+          cd apps/agents/desktop/frontend && bun install && bun run build && cd ../../../..
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Build steam-shortcut-manager (required by go:embed)
+        run: |
+          cd steam-shortcut-manager
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
+
+      - name: Build frontend dist (required by go:embed)
+        uses: oven-sh/setup-bun@v2
+      - run: |
+          cd apps/hub/frontend && bun install && bun run build && cd ../../..
+          cd apps/agents/desktop/frontend && bun install && bun run build && cd ../../../..
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+            platform: linux/amd64
+          - target: windows-amd64
+            goos: windows
+            goarch: amd64
+            platform: windows/amd64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            sudo apt-get install -y gcc-mingw-w64-x86-64
+          fi
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build steam-shortcut-manager
+        run: |
+          cd steam-shortcut-manager
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
+
+      - name: Collect version info
+        id: version
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          VERSION="0.1.0-dev+${COMMIT}"
+          echo "ldflags=-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Build Hub
+        run: |
+          cd apps/hub
+          bun install --cwd frontend
+          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
+
+      - name: Build Agent
+        run: |
+          cd apps/agents/desktop
+          bun install --cwd frontend
+          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: |
+            apps/hub/build/bin/
+            apps/agents/desktop/build/bin/
+          retention-days: 7
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install Hub frontend deps
+        run: cd apps/hub/frontend && bun install
+
+      - name: Install Agent frontend deps
+        run: cd apps/agents/desktop/frontend && bun install
+
+      - name: Svelte check (Hub)
+        run: cd apps/hub/frontend && bun run check
+
+      - name: Svelte check (Agent)
+        run: cd apps/agents/desktop/frontend && bun run check
+
+      - name: Install Decky deps
+        run: cd apps/agents/decky && npm install
+
+      - name: TypeScript check (Decky)
+        run: cd apps/agents/decky && npx tsc --noEmit --skipLibCheck
+
+      - name: Build Decky frontend
+        run: cd apps/agents/decky && npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python syntax check (Decky)
+        run: |
+          cd apps/agents/decky
+          python3 -m py_compile main.py
+          python3 -m py_compile steam_utils.py
+          python3 -m py_compile mdns_service.py
+          python3 -m py_compile pairing.py
+          python3 -m py_compile upload.py
+          python3 -m py_compile artwork.py
+          python3 -m py_compile ws_server.py

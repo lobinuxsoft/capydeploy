@@ -1,0 +1,31 @@
+run:
+  timeout: 5m
+  build-tags:
+    - webkit2_41
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosimple
+    - misspell
+    - revive
+    # TODO: enable after codebase cleanup
+    # - errcheck
+    # - gocritic
+
+issues:
+  exclude-dirs:
+    - steam-shortcut-manager/vendor
+    - frontend/dist
+    - node_modules
+    - wailsjs
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true
