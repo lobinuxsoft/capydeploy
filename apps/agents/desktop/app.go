@@ -649,7 +649,7 @@ func (a *App) GetCapabilities() []CapabilityInfo {
 	return []CapabilityInfo{
 		{ID: "file_upload", Name: "Transferencia de archivos", Description: "Recibir juegos desde el Hub"},
 		{ID: "file_list", Name: "Listar archivos", Description: "Ver archivos en el directorio de instalación"},
-		{ID: "steam_shortcuts", Name: "Shortcuts de Steam", Description: "Crear y eliminar accesos directos en Steam"},
+		{ID: "steam_shortcuts", Name: "Shortcuts de Steam", Description: "Crear y eliminar accesos directos en Steam"}, //nolint:misspell // "directos" is Spanish
 		{ID: "steam_artwork", Name: "Artwork de Steam", Description: "Configurar imágenes de portada, hero, logo e icono"},
 		{ID: "steam_users", Name: "Usuarios de Steam", Description: "Listar usuarios de Steam locales"},
 		{ID: "steam_restart", Name: "Reiniciar Steam", Description: "Reiniciar Steam para aplicar cambios"},
