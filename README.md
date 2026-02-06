@@ -134,7 +134,7 @@ You can also use command line flags:
 ```
 
 The Agent will:
-- Start WebSocket server on port 9999
+- Start WebSocket server (dynamic port)
 - Broadcast via mDNS for discovery
 - Show system tray icon
 
@@ -173,7 +173,7 @@ The Hub will:
 
 ## WebSocket API
 
-All communication happens over WebSocket at `ws://agent:9999/ws`
+All communication happens over WebSocket at `ws://agent:<port>/ws`
 
 ### Message Format
 ```json
