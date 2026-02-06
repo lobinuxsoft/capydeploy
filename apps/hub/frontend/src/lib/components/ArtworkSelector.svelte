@@ -11,7 +11,7 @@
 	import { isAnimatedImage } from '$lib/utils';
 	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check, ImageOff } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, ProxyImageCached, OpenCachedImage } from '$lib/wailsjs';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, GetCacheURL, OpenCachedImage } from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
@@ -79,13 +79,14 @@
 	// Show filters panel
 	let showFilters = $state(false);
 
-	// Preview cache - only cache the currently previewed image (not all images)
-	let previewCache = $state<Map<string, string>>(new Map());
+	// Cache URL mapping - maps original URLs to local cache URLs
+	// These are lightweight strings, not image data
+	let cacheURLs = $state<Map<string, string>>(new Map());
 	let loadingPreview = $state(false);
 
 	// Cleanup function to clear all cached data
 	function clearCache() {
-		previewCache.clear();
+		cacheURLs.clear();
 		capsules = [];
 		wideCapsules = [];
 		heroes = [];
@@ -356,30 +357,29 @@
 		const isAnim = isAnimatedImage(mime, url);
 		previewInfo = `${width}x${height} - ${style}${isAnim ? ' (Animated)' : ''}`;
 
-		// Check if already cached
-		const cached = previewCache.get(url);
+		// Check if we already have the cache URL
+		const cached = cacheURLs.get(url);
 		if (cached) {
 			previewUrl = cached;
 			return;
 		}
 
-		// Load full image through proxy for preview (cached on disk)
-		previewUrl = url; // Show original URL while loading
+		// Show original URL while loading (thumbnail or external)
+		previewUrl = url;
+
 		if (selectedGameID > 0) {
 			loadingPreview = true;
 			try {
-				const dataUrl = await ProxyImageCached(selectedGameID, url);
-				if (dataUrl && dataUrl.startsWith('data:')) {
-					// Only keep last 5 previews in memory
-					if (previewCache.size >= 5) {
-						const firstKey = previewCache.keys().next().value;
-						if (firstKey) previewCache.delete(firstKey);
-					}
-					previewCache.set(url, dataUrl);
-					previewUrl = dataUrl;
+				// GetCacheURL downloads the image to disk and returns a local URL
+				// This avoids base64 encoding and keeps images out of JS memory
+				const cacheUrl = await GetCacheURL(selectedGameID, url);
+				if (cacheUrl) {
+					cacheURLs.set(url, cacheUrl);
+					previewUrl = cacheUrl;
 				}
 			} catch (e) {
-				console.warn('Failed to load preview:', e);
+				console.warn('Failed to get cache URL:', e);
+				// Keep using the original URL as fallback
 			} finally {
 				loadingPreview = false;
 			}
@@ -389,7 +389,7 @@
 	// Get cached preview URL for selected artwork display
 	function getCachedUrl(originalUrl: string): string {
 		if (!originalUrl) return '';
-		return previewCache.get(originalUrl) || originalUrl;
+		return cacheURLs.get(originalUrl) || originalUrl;
 	}
 
 	// Use thumbnail for grid display (much smaller, ~10KB vs 100-500KB)

@@ -955,6 +955,66 @@ func (a *App) ProxyImageCached(gameID int, imageURL string) (string, error) {
 	return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
 }
 
+// GetCacheURL downloads an image to cache (if not already cached) and returns
+// a local URL that can be used to serve the image directly from disk.
+// This avoids base64 encoding and keeps large images (especially animated GIFs)
+// out of memory.
+func (a *App) GetCacheURL(gameID int, imageURL string) (string, error) {
+	if gameID <= 0 || imageURL == "" {
+		return "", fmt.Errorf("invalid gameID or imageURL")
+	}
+
+	// Check if already cached
+	if filePath, err := steamgriddb.GetCachedImagePath(gameID, imageURL); err == nil {
+		// Return URL for the cache handler
+		filename := filepath.Base(filePath)
+		return fmt.Sprintf("/cache/%d/%s", gameID, filename), nil
+	}
+
+	// Not in cache, download it
+	resp, err := http.Get(imageURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read image: %w", err)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		if strings.HasSuffix(strings.ToLower(imageURL), ".png") {
+			contentType = "image/png"
+		} else if strings.HasSuffix(strings.ToLower(imageURL), ".webp") {
+			contentType = "image/webp"
+		} else if strings.HasSuffix(strings.ToLower(imageURL), ".gif") {
+			contentType = "image/gif"
+		} else {
+			contentType = "image/jpeg"
+		}
+	}
+
+	// Save to cache
+	if err := steamgriddb.SaveImageToCache(gameID, imageURL, data, contentType); err != nil {
+		return "", fmt.Errorf("failed to cache image: %w", err)
+	}
+
+	// Get the cached file path to build the URL
+	filePath, err := steamgriddb.GetCachedImagePath(gameID, imageURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cached path: %w", err)
+	}
+
+	filename := filepath.Base(filePath)
+	return fmt.Sprintf("/cache/%d/%s", gameID, filename), nil
+}
+
 // OpenCachedImage opens a cached image with the system's default image viewer
 func (a *App) OpenCachedImage(gameID int, imageURL string) error {
 	if gameID <= 0 || imageURL == "" {
