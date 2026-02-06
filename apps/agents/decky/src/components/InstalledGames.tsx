@@ -105,10 +105,8 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
   if (!enabled) return null;
 
   return (
-    <div className="cd-section">
-      <div className="cd-section-title">Installed Games</div>
-      <PanelSection>
-        {loading ? (
+    <PanelSection title="Installed Games">
+      {loading ? (
           <PanelSectionRow>
             <Field label="Loading...">
               <span style={{ opacity: 0.6 }}>...</span>
@@ -144,8 +142,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
           </PanelSectionRow>
         ))
       )}
-      </PanelSection>
-    </div>
+    </PanelSection>
   );
 };
 

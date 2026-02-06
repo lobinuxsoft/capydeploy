@@ -96,10 +96,8 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
   return (
     <>
-      <div className="cd-section">
-        <div className="cd-section-title">Status</div>
-        <PanelSection>
-          <PanelSectionRow>
+      <PanelSection title="Status">
+        <PanelSectionRow>
             <ToggleField
               label="Enable CapyDeploy"
               description="Receive games from the Hub"
@@ -153,12 +151,9 @@ const StatusPanel: VFC<StatusPanelProps> = ({
               )}
             </>
           )}
-        </PanelSection>
-      </div>
+      </PanelSection>
 
-      <div className="cd-section">
-        <div className="cd-section-title">Agent Info</div>
-        <PanelSection>
+      <PanelSection title="Agent Info">
           <PanelSectionRow>
             <Field
               label="Name"
@@ -196,13 +191,10 @@ const StatusPanel: VFC<StatusPanelProps> = ({
               </Focusable>
             </Field>
           </PanelSectionRow>
-        </PanelSection>
-      </div>
+      </PanelSection>
 
       {enabled && (
-        <div className="cd-section">
-          <div className="cd-section-title">Network</div>
-          <PanelSection>
+        <PanelSection title="Network">
             <PanelSectionRow>
               <Field label="Port" icon={<FaNetworkWired color={colors.capy} />}>
                 <span className="cd-mono">{port}</span>
@@ -214,13 +206,10 @@ const StatusPanel: VFC<StatusPanelProps> = ({
                 <span className="cd-mono">{ip}</span>
               </Field>
             </PanelSectionRow>
-          </PanelSection>
-        </div>
+        </PanelSection>
       )}
 
-      <div className="cd-section">
-        <div className="cd-section-title">Capabilities</div>
-        <PanelSection>
+      <PanelSection title="Capabilities">
           <PanelSectionRow>
             <Field label="File upload">
               <span className="cd-text-primary">Yes</span>
@@ -236,8 +225,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
               <span className="cd-text-primary">Yes</span>
             </Field>
           </PanelSectionRow>
-        </PanelSection>
-      </div>
+      </PanelSection>
     </>
   );
 };
