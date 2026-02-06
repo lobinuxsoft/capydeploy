@@ -99,6 +99,22 @@ export namespace main {
 	        this.online = source["online"];
 	    }
 	}
+	export class HubInfo {
+	    id: string;
+	    name: string;
+	    platform: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HubInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.platform = source["platform"];
+	    }
+	}
 	export class InstalledGame {
 	    name: string;
 	    path: string;

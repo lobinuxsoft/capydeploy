@@ -3,7 +3,7 @@
 set -e
 
 echo "============================================"
-echo "  CapyDeploy Hub - Build Script"
+echo "  CapyDeploy Agent - Build Script"
 echo "============================================"
 echo
 
@@ -11,15 +11,14 @@ echo
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Default values
 MODE="production"
 SKIP_DEPS=0
 
-# Project directories
-ROOT_DIR="$(cd ../.. && pwd)"
+# Project directories (../../.. because we're in apps/agents/desktop)
+ROOT_DIR="$(cd ../../.. && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 TOOLS_DIR="$ROOT_DIR/.tools"
 
@@ -61,7 +60,7 @@ done
 # Check required tools
 # ============================================
 
-echo -e "${YELLOW}[1/7]${NC} Checking required tools..."
+echo -e "${YELLOW}[1/6]${NC} Checking required tools..."
 echo
 
 # Check Go
@@ -121,7 +120,7 @@ echo
 # ============================================
 
 if [ $SKIP_DEPS -eq 0 ]; then
-    echo -e "${YELLOW}[2/7]${NC} Installing frontend dependencies..."
+    echo -e "${YELLOW}[2/6]${NC} Installing frontend dependencies..."
     cd frontend
     bun install
     if [ $? -ne 0 ]; then
@@ -133,7 +132,7 @@ if [ $SKIP_DEPS -eq 0 ]; then
     echo "  Dependencies installed."
     echo
 else
-    echo -e "${YELLOW}[2/7]${NC} Skipping frontend dependencies (--skip-deps)"
+    echo -e "${YELLOW}[2/6]${NC} Skipping frontend dependencies (--skip-deps)"
     echo
 fi
 
@@ -142,7 +141,7 @@ fi
 # ============================================
 
 if [ "$MODE" = "production" ]; then
-    echo -e "${YELLOW}[3/7]${NC} Generating application icons..."
+    echo -e "${YELLOW}[3/6]${NC} Generating application icons..."
     echo
 
     ICON_SCRIPT="../../scripts/generate-icons.py"
@@ -160,7 +159,7 @@ if [ "$MODE" = "production" ]; then
     fi
     echo
 else
-    echo -e "${YELLOW}[3/7]${NC} Skipping icon generation (dev mode)"
+    echo -e "${YELLOW}[3/6]${NC} Skipping icon generation (dev mode)"
     echo
 fi
 
@@ -168,7 +167,7 @@ fi
 # Version info (SemVer from git)
 # ============================================
 
-echo -e "${YELLOW}[4/7]${NC} Collecting version info..."
+echo -e "${YELLOW}[4/6]${NC} Collecting version info..."
 echo
 
 # Base version (must match pkg/version/version.go)
@@ -199,36 +198,17 @@ LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMI
 LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE"
 
 # ============================================
-# Build embedded binary (steam-shortcut-manager for Linux)
-# ============================================
-
-echo -e "${YELLOW}[5/7]${NC} Building embedded steam-shortcut-manager (Linux)..."
-echo
-
-pushd ../../steam-shortcut-manager > /dev/null
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
-if [ $? -ne 0 ]; then
-    echo -e "${RED}[ERROR]${NC} Failed to build steam-shortcut-manager."
-    popd > /dev/null
-    exit 1
-fi
-popd > /dev/null
-
-echo "  steam-shortcut-manager built successfully."
-echo
-
-# ============================================
 # Build
 # ============================================
 
 if [ "$MODE" = "dev" ]; then
-    echo -e "${YELLOW}[6/7]${NC} Starting development server..."
+    echo -e "${YELLOW}[5/6]${NC} Starting development server..."
     echo
     echo "  Press Ctrl+C to stop."
     echo
     wails dev -tags webkit2_41 -ldflags "$LDFLAGS"
 else
-    echo -e "${YELLOW}[6/7]${NC} Building production binary..."
+    echo -e "${YELLOW}[5/6]${NC} Building production binary..."
     echo
 
     if ! wails build -clean -tags webkit2_41 -ldflags "$LDFLAGS"; then
@@ -247,12 +227,12 @@ else
     # Copy binary to dist/
     # ============================================
 
-    BINARY_NAME="capydeploy-hub"
+    BINARY_NAME="capydeploy-agent"
     if [ "$(uname -s)" = "Linux" ]; then
         PLATFORM_DIR="$DIST_DIR/linux"
     else
         PLATFORM_DIR="$DIST_DIR/windows"
-        BINARY_NAME="capydeploy-hub.exe"
+        BINARY_NAME="capydeploy-agent.exe"
     fi
 
     mkdir -p "$PLATFORM_DIR"
@@ -264,7 +244,7 @@ else
     # Generate AppImage (Linux only)
     # ============================================
 
-    echo -e "${YELLOW}[7/7]${NC} Generating AppImage..."
+    echo -e "${YELLOW}[6/6]${NC} Generating AppImage..."
     echo
 
     APPIMAGE_DIR="$DIST_DIR/appimage"
@@ -278,7 +258,7 @@ else
             echo "  Skipping AppImage generation."
             echo
             # Still show binary output
-            DIST_BINARY="$PLATFORM_DIR/capydeploy-hub"
+            DIST_BINARY="$PLATFORM_DIR/capydeploy-agent"
             if [ -f "$DIST_BINARY" ]; then
                 SIZE=$(stat -f%z "$DIST_BINARY" 2>/dev/null || stat -c%s "$DIST_BINARY" 2>/dev/null || echo "0")
                 SIZE_MB=$((SIZE / 1048576))
@@ -305,9 +285,9 @@ else
     fi
 
     # Create AppDir
-    APPDIR="$APPIMAGE_DIR/hub.AppDir"
-    BINARY_NAME="capydeploy-hub"
-    DESKTOP_NAME="capydeploy-hub"
+    APPDIR="$APPIMAGE_DIR/agent.AppDir"
+    BINARY_NAME="capydeploy-agent"
+    DESKTOP_NAME="capydeploy-agent"
 
     rm -rf "$APPDIR"
     mkdir -p "$APPDIR/usr/bin"
@@ -321,7 +301,7 @@ else
     # Create .desktop file
     cat > "$APPDIR/$DESKTOP_NAME.desktop" << DESKTOP
 [Desktop Entry]
-Name=CapyDeploy Hub
+Name=CapyDeploy Agent
 Comment=Deploy games to Steam Deck and Linux devices
 Exec=$BINARY_NAME
 Icon=$DESKTOP_NAME
@@ -382,8 +362,8 @@ DESKTOP
 
 uninstall_app() {
     echo "Uninstalling $APP_NAME..."
-    # Remove AppImage (case-insensitive match for CapyDeploy_Hub or capydeploy-hub)
-    find "$INSTALL_DIR" -maxdepth 1 -iname "*capydeploy*hub*.AppImage" -delete 2>/dev/null
+    # Remove AppImage (case-insensitive match for CapyDeploy_Agent or capydeploy-agent)
+    find "$INSTALL_DIR" -maxdepth 1 -iname "*capydeploy*agent*.AppImage" -delete 2>/dev/null
     rm -f "$DESKTOP_DIR/$DESKTOP_NAME.desktop"
     rm -f "$ICON_DIR/$DESKTOP_NAME.png"
     echo "Uninstalled."
@@ -443,14 +423,14 @@ exec "${HERE}/usr/bin/BINARY_NAME" "$@"
 APPRUN
     sed -i "s/BINARY_NAME/$BINARY_NAME/g" "$APPDIR/AppRun"
     sed -i "s/DESKTOP_FILE/$DESKTOP_NAME/g" "$APPDIR/AppRun"
-    sed -i "s/APP_DISPLAY_NAME/CapyDeploy Hub/g" "$APPDIR/AppRun"
+    sed -i "s/APP_DISPLAY_NAME/CapyDeploy Agent/g" "$APPDIR/AppRun"
     chmod +x "$APPDIR/AppRun"
 
     echo -e "  ${GREEN}AppDir created${NC}"
 
     # Build AppImage
     mkdir -p "$APPIMAGE_DIR"
-    APPIMAGE_NAME="CapyDeploy_Hub.AppImage"
+    APPIMAGE_NAME="CapyDeploy_Agent.AppImage"
 
     ARCH=$APPIMAGE_ARCH "$APPIMAGETOOL" "$APPDIR" "$APPIMAGE_DIR/$APPIMAGE_NAME" 2>/dev/null
 
@@ -469,7 +449,7 @@ APPRUN
     echo "  Output directory: $DIST_DIR"
     echo
 
-    DIST_BINARY="$PLATFORM_DIR/capydeploy-hub"
+    DIST_BINARY="$PLATFORM_DIR/capydeploy-agent"
     if [ -f "$DIST_BINARY" ]; then
         SIZE=$(stat -f%z "$DIST_BINARY" 2>/dev/null || stat -c%s "$DIST_BINARY" 2>/dev/null || echo "0")
         SIZE_MB=$((SIZE / 1048576))

@@ -2,17 +2,22 @@
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { formatBytes } from '$lib/utils';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive, Info } from 'lucide-svelte';
+	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive, Info, Server } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
 		GetCacheSize, ClearImageCache, OpenCacheFolder,
 		GetImageCacheEnabled, SetImageCacheEnabled,
-		GetVersion
+		GetVersion,
+		GetHubInfo, SetHubName
 	} from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import type { VersionInfo } from '$lib/types';
 
+	let hubName = $state('');
+	let hubId = $state('');
+	let hubPlatform = $state('');
+	let savingHubName = $state(false);
 	let apiKey = $state('');
 	let cacheEnabled = $state(true);
 	let cacheSize = $state('Calculating...');
@@ -23,6 +28,16 @@
 
 	async function loadSettings() {
 		if (!browser) return;
+
+		try {
+			const info = await GetHubInfo();
+			hubName = info.name || '';
+			hubId = info.id || '';
+			hubPlatform = info.platform || '';
+		} catch (e) {
+			console.error('Failed to load hub info:', e);
+		}
+
 		try {
 			const key = await GetSteamGridDBAPIKey();
 			apiKey = key || '';
@@ -111,6 +126,18 @@
 		}
 	}
 
+	async function saveHubName() {
+		savingHubName = true;
+		try {
+			await SetHubName(hubName);
+			toast.success('Nombre del Hub actualizado');
+		} catch (e) {
+			toast.error('Error al guardar', String(e));
+		} finally {
+			savingHubName = false;
+		}
+	}
+
 	function openSteamGridDBApiPage() {
 		BrowserOpenURL('https://www.steamgriddb.com/profile/preferences/api');
 	}
@@ -122,6 +149,48 @@
 </script>
 
 <div class="space-y-6 max-w-xl">
+	<div>
+		<h3 class="text-lg font-semibold mb-4 gradient-text">Hub Identity</h3>
+		<p class="text-sm text-muted-foreground mb-4">
+			This name will be shown to agents when they connect.
+		</p>
+
+		<div class="space-y-4">
+			<div class="space-y-2">
+				<label class="text-sm font-medium">Hub Name</label>
+				<div class="flex gap-2">
+					<Input
+						type="text"
+						bind:value={hubName}
+						placeholder="My Gaming PC"
+						class="flex-1"
+					/>
+					<Button onclick={saveHubName} disabled={savingHubName} variant="outline">
+						{#if savingHubName}
+							<Loader2 class="w-4 h-4 animate-spin" />
+						{:else}
+							<Save class="w-4 h-4" />
+						{/if}
+					</Button>
+				</div>
+			</div>
+
+			<div class="p-3 rounded-lg bg-secondary/50 space-y-2 text-sm">
+				<div class="flex items-center gap-2">
+					<Server class="w-4 h-4 text-muted-foreground" />
+					<span class="text-muted-foreground">Hub ID:</span>
+					<span class="font-mono text-xs">{hubId || 'Loading...'}</span>
+				</div>
+				<div class="flex items-center gap-2">
+					<span class="text-muted-foreground ml-6">Platform:</span>
+					<span>{hubPlatform || 'Loading...'}</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<hr class="border-border" />
+
 	<div>
 		<h3 class="text-lg font-semibold mb-4 gradient-text">SteamGridDB Integration</h3>
 		<p class="text-sm text-muted-foreground mb-4">

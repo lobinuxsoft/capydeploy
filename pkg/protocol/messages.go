@@ -239,10 +239,11 @@ type ErrorResponse struct {
 
 // HubConnectedRequest is sent when a Hub connects to an Agent.
 type HubConnectedRequest struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	HubID   string `json:"hubId,omitempty"`   // Unique Hub identifier
-	Token   string `json:"token,omitempty"`   // Auth token from previous pairing
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	Platform string `json:"platform,omitempty"` // Hub platform (windows, linux, darwin)
+	HubID    string `json:"hubId,omitempty"`    // Unique Hub identifier
+	Token    string `json:"token,omitempty"`    // Auth token from previous pairing
 }
 
 // AgentStatusResponse is the Agent's response to a Hub connection.

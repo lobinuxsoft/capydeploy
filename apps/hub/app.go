@@ -19,6 +19,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/lobinuxsoft/capydeploy/apps/hub/auth"
+	hubconfig "github.com/lobinuxsoft/capydeploy/apps/hub/config"
 	"github.com/lobinuxsoft/capydeploy/apps/hub/modules"
 	"github.com/lobinuxsoft/capydeploy/apps/hub/wsclient"
 	"github.com/lobinuxsoft/capydeploy/pkg/config"
@@ -38,6 +39,7 @@ type App struct {
 	discoveredCache map[string]*discovery.DiscoveredAgent
 	mu              sync.RWMutex
 	tokenStore      *auth.TokenStore
+	configMgr       *hubconfig.Manager
 }
 
 // ConnectedAgent represents a connected agent with its client
@@ -98,10 +100,16 @@ func NewApp() *App {
 		log.Printf("Warning: failed to initialize token store: %v", err)
 	}
 
+	configMgr, err := hubconfig.NewManager()
+	if err != nil {
+		log.Printf("Warning: failed to initialize config manager: %v", err)
+	}
+
 	return &App{
 		discoveryClient: discovery.NewClient(),
 		discoveredCache: make(map[string]*discovery.DiscoveredAgent),
 		tokenStore:      tokenStore,
+		configMgr:       configMgr,
 	}
 }
 
@@ -226,17 +234,30 @@ func (a *App) ConnectAgent(agentID string) error {
 	var wsClient *modules.WSClient
 	var err error
 
+	// Get hub name from config (fallback to default)
+	hubName := "CapyDeploy Hub"
+	hubPlatform := ""
+	if a.configMgr != nil {
+		hubName = a.configMgr.GetName()
+		hubPlatform = a.configMgr.GetPlatform()
+	}
+
 	if a.tokenStore != nil {
 		wsClient, err = modules.WSClientFromAgentWithAuth(
 			agent,
-			"CapyDeploy Hub",
-			"1.0.0",
+			hubName,
+			version.Version,
 			a.tokenStore.GetHubID(),
 			a.tokenStore.GetToken,
 			a.tokenStore.SaveToken,
 		)
 	} else {
-		wsClient, err = modules.WSClientFromAgent(agent, "CapyDeploy Hub", "1.0.0")
+		wsClient, err = modules.WSClientFromAgent(agent, hubName, version.Version)
+	}
+
+	// Set hub platform for agent to store
+	if wsClient != nil && hubPlatform != "" {
+		wsClient.SetPlatform(hubPlatform)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create WS client: %w", err)
@@ -978,6 +999,49 @@ func (a *App) GetVersion() VersionInfo {
 		Commit:    version.Commit,
 		BuildDate: version.BuildDate,
 	}
+}
+
+// =============================================================================
+// Hub Identity
+// =============================================================================
+
+// HubInfo represents the Hub's identity information.
+type HubInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+}
+
+// GetHubInfo returns the Hub's identity information.
+func (a *App) GetHubInfo() HubInfo {
+	if a.configMgr == nil {
+		return HubInfo{
+			ID:       "",
+			Name:     "CapyDeploy Hub",
+			Platform: goruntime.GOOS,
+		}
+	}
+	return HubInfo{
+		ID:       a.configMgr.GetID(),
+		Name:     a.configMgr.GetName(),
+		Platform: a.configMgr.GetPlatform(),
+	}
+}
+
+// GetHubName returns the Hub's display name.
+func (a *App) GetHubName() string {
+	if a.configMgr == nil {
+		return "CapyDeploy Hub"
+	}
+	return a.configMgr.GetName()
+}
+
+// SetHubName sets the Hub's display name.
+func (a *App) SetHubName(name string) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("config manager not initialized")
+	}
+	return a.configMgr.SetName(name)
 }
 
 // =============================================================================

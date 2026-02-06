@@ -4,6 +4,12 @@ export interface VersionInfo {
 	buildDate: string;
 }
 
+export interface HubInfo {
+	id: string;
+	name: string;
+	platform: string;
+}
+
 // Agent types (replaces Device types)
 export interface DiscoveredAgent {
 	id: string;

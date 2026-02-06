@@ -58,6 +58,14 @@ export function GetHeroes(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetHeroes'](arg1, arg2, arg3);
 }
 
+export function GetHubInfo() {
+  return window['go']['main']['App']['GetHubInfo']();
+}
+
+export function GetHubName() {
+  return window['go']['main']['App']['GetHubName']();
+}
+
 export function GetIcons(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetIcons'](arg1, arg2, arg3);
 }
@@ -112,6 +120,10 @@ export function SearchGames(arg1) {
 
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SetHubName(arg1) {
+  return window['go']['main']['App']['SetHubName'](arg1);
 }
 
 export function SetImageCacheEnabled(arg1) {

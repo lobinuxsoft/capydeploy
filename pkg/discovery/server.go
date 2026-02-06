@@ -23,9 +23,10 @@ func NewServer(info ServiceInfo) *Server {
 }
 
 // Start begins advertising the agent on the network.
+// The port must be set before calling Start (no longer defaults to DefaultPort).
 func (s *Server) Start() error {
 	if s.info.Port == 0 {
-		s.info.Port = DefaultPort
+		return fmt.Errorf("port must be set before starting mDNS server")
 	}
 
 	// Build TXT records with agent info
@@ -36,12 +37,29 @@ func (s *Server) Start() error {
 		"version=" + s.info.Version,
 	}
 
-	// Register service using zeroconf
-	server, err := zeroconf.Register(
+	// Get local IPs, filtering out loopback and link-local
+	ips, err := getLocalIPs()
+	if err != nil || len(ips) == 0 {
+		return fmt.Errorf("no valid network IPs found: %w", err)
+	}
+
+	// Convert to string slice for RegisterProxy
+	ipStrings := make([]string, len(ips))
+	for i, ip := range ips {
+		ipStrings[i] = ip.String()
+	}
+
+	// Get hostname for mDNS
+	hostname := GetHostname()
+
+	// Register service using zeroconf with explicit IPs (no loopback)
+	server, err := zeroconf.RegisterProxy(
 		s.info.ID,      // Instance name
 		ServiceName,    // Service type (_capydeploy._tcp)
 		"local.",       // Domain
 		s.info.Port,    // Port
+		hostname,       // Host
+		ipStrings,      // IPs (filtered, no loopback)
 		txt,            // TXT records
 		nil,            // Interfaces (nil = all)
 	)
@@ -139,10 +157,24 @@ func detectPlatform() string {
 		return runtime.GOOS
 	}
 
-	// Check for common handheld devices (Linux only)
-	if fileExists("/home/deck") {
-		return "steamdeck"
+	// Check OS release first (most reliable method)
+	if data, err := os.ReadFile("/etc/os-release"); err == nil {
+		content := strings.ToLower(string(data))
+		// SteamOS is the real Steam Deck
+		if strings.Contains(content, "steamos") {
+			return "steamdeck"
+		}
+		// ChimeraOS
+		if strings.Contains(content, "chimeraos") {
+			return "chimeraos"
+		}
+		// Bazzite (Fedora-based gaming distro, NOT a Steam Deck)
+		if strings.Contains(content, "bazzite") {
+			return "linux"
+		}
 	}
+
+	// Check for handheld-specific files (fallback)
 	if fileExists("/usr/share/plymouth/themes/legion-go") {
 		return "legiongologo"
 	}
@@ -150,14 +182,11 @@ func detectPlatform() string {
 		return "rogally"
 	}
 
-	// Check OS release for more info
-	if data, err := os.ReadFile("/etc/os-release"); err == nil {
-		content := strings.ToLower(string(data))
-		if strings.Contains(content, "steamos") {
+	// Only check /home/deck if it's a real directory (not a symlink)
+	// This avoids false positives on Bazzite which symlinks /home/deck
+	if info, err := os.Lstat("/home/deck"); err == nil {
+		if info.Mode()&os.ModeSymlink == 0 && info.IsDir() {
 			return "steamdeck"
-		}
-		if strings.Contains(content, "chimeraos") {
-			return "chimeraos"
 		}
 	}
 
