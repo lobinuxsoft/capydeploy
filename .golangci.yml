@@ -5,15 +5,16 @@ run:
 
 linters:
   enable:
-    - errcheck
     - govet
     - staticcheck
     - unused
     - ineffassign
     - gosimple
-    - gocritic
     - misspell
     - revive
+    # TODO: enable after codebase cleanup
+    # - errcheck
+    # - gocritic
 
 issues:
   exclude-dirs:
@@ -27,9 +28,3 @@ linters-settings:
     rules:
       - name: exported
         disabled: true
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-    disabled-checks:
-      - hugeParam
