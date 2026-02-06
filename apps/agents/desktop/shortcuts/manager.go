@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lobinuxsoft/capydeploy/apps/agent/artwork"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/artwork"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"

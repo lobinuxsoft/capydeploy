@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/lobinuxsoft/capydeploy/apps/agent/auth"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/auth"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 

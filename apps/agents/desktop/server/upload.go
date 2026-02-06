@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/lobinuxsoft/capydeploy/apps/agent/shortcuts"
-	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agent/steam"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/shortcuts"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"

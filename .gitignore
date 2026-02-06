@@ -23,10 +23,10 @@ apps/hub/frontend/dist/
 apps/hub/frontend/.svelte-kit/
 
 # Frontend - Agent
-apps/agent/frontend/node_modules/
-apps/agent/frontend/dist/
-apps/agent/frontend/.svelte-kit/
-apps/agent/frontend/wailsjs/
+apps/agents/desktop/frontend/node_modules/
+apps/agents/desktop/frontend/dist/
+apps/agents/desktop/frontend/.svelte-kit/
+apps/agents/desktop/frontend/wailsjs/
 
 # Docs (Docus/Nuxt)
 docs/node_modules/

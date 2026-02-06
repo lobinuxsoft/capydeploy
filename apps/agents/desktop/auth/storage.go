@@ -3,7 +3,7 @@ package auth
 import (
 	"time"
 
-	"github.com/lobinuxsoft/capydeploy/apps/agent/config"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/config"
 )
 
 // ConfigStorageAdapter adapts config.Manager to implement auth.Storage.

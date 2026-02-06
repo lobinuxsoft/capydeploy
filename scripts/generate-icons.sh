@@ -82,8 +82,8 @@ cp "$TEMP_DIR/icon.ico" "$ROOT_DIR/apps/hub/build/windows/icon.ico"
 echo "  Hub: appicon.png, windows/icon.ico"
 
 # Copy to Agent
-cp "$TEMP_DIR/icon-512.png" "$ROOT_DIR/apps/agent/build/appicon.png"
-cp "$TEMP_DIR/icon.ico" "$ROOT_DIR/apps/agent/build/windows/icon.ico"
+cp "$TEMP_DIR/icon-512.png" "$ROOT_DIR/apps/agents/desktop/build/appicon.png"
+cp "$TEMP_DIR/icon.ico" "$ROOT_DIR/apps/agents/desktop/build/windows/icon.ico"
 echo "  Agent: appicon.png, windows/icon.ico"
 
 # Cleanup
@@ -97,5 +97,5 @@ echo
 echo "Files updated:"
 echo "  - apps/hub/build/appicon.png (512x512)"
 echo "  - apps/hub/build/windows/icon.ico"
-echo "  - apps/agent/build/appicon.png (512x512)"
-echo "  - apps/agent/build/windows/icon.ico"
+echo "  - apps/agents/desktop/build/appicon.png (512x512)"
+echo "  - apps/agents/desktop/build/windows/icon.ico"

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lobinuxsoft/capydeploy/apps/agent/auth"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/auth"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"

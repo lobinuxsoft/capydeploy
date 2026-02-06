@@ -69,10 +69,10 @@ git submodule update --init --recursive
 cd apps/hub && ./build.sh
 
 # Build Agent (handheld - desktop mode)
-cd apps/agent && ./build.sh
+cd apps/agents/desktop && ./build.sh
 
 # Build Decky Plugin (handheld - gaming mode)
-cd apps/decky && ./build.sh
+cd apps/agents/decky && ./build.sh
 ```
 
 ### Decky Plugin
@@ -80,7 +80,7 @@ cd apps/decky && ./build.sh
 The Decky plugin is an alternative Agent for gaming mode. Requires [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) on the handheld.
 
 ```bash
-cd apps/decky && ./build.sh
+cd apps/agents/decky && ./build.sh
 # Output: out/CapyDeploy-v0.1.0.zip
 # Install via Decky Settings > Install from ZIP
 ```
