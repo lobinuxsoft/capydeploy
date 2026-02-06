@@ -272,16 +272,17 @@
 
 			<!-- Pairing Code (shown when a Hub requests pairing) -->
 			{#if pairingCode}
-				<div class="p-4 rounded-lg bg-primary/10 border border-primary/30 animate-pulse">
-					<div class="flex items-center gap-2 mb-2">
-						<Key class="w-5 h-5 text-primary" />
-						<span class="text-sm font-medium text-primary">Código de Emparejamiento</span>
+				<div class="cd-section p-4">
+					<div class="flex items-center gap-2 mb-3">
+						<span class="cd-pulse"></span>
+						<Key class="w-5 h-5 cd-text-primary" />
+						<span class="cd-section-title">Código de Emparejamiento</span>
 					</div>
 					<div class="text-center">
-						<p class="text-3xl font-mono font-bold tracking-[0.5em] text-primary">
+						<p class="cd-pairing-code">
 							{pairingCode}
 						</p>
-						<p class="text-xs text-muted-foreground mt-2">
+						<p class="text-xs cd-text-disabled mt-3">
 							Ingresa este código en el Hub para autorizar la conexión
 						</p>
 					</div>
@@ -305,10 +306,11 @@
 				</div>
 
 				{#if status.connectedHub}
-					<div class="flex items-center gap-2 p-2 mb-3 rounded bg-success/10 border border-success/30">
-						<Monitor class="w-4 h-4 text-success" />
-						<span class="text-sm font-medium text-success">{status.connectedHub.name}</span>
-						<span class="text-xs text-muted-foreground">({status.connectedHub.ip})</span>
+					<div class="flex items-center gap-2 p-3 mb-3 cd-section">
+						<span class="cd-pulse"></span>
+						<Monitor class="w-4 h-4 cd-text-primary" />
+						<span class="cd-status-connected">{status.connectedHub.name}</span>
+						<span class="text-xs cd-text-disabled">({status.connectedHub.ip})</span>
 					</div>
 				{:else if !status.acceptConnections}
 					<p class="text-xs text-muted-foreground mb-3">

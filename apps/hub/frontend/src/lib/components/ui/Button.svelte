@@ -3,7 +3,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+		variant?: 'default' | 'gradient' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
 		size?: 'default' | 'sm' | 'lg' | 'icon';
 		class?: string;
 		disabled?: boolean;
@@ -24,6 +24,7 @@
 
 	const variants = {
 		default: 'bg-primary text-primary-foreground shadow hover:bg-primary/90',
+		gradient: 'btn-gradient',
 		destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
 		outline: 'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
 		secondary: 'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',

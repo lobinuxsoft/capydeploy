@@ -148,10 +148,11 @@
 	});
 </script>
 
-<div class="space-y-6 max-w-xl">
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">Hub Identity</h3>
-		<p class="text-sm text-muted-foreground mb-4">
+<div class="space-y-4">
+	<!-- Hub Identity Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">Hub Identity</h3>
+		<p class="text-sm cd-text-disabled mb-4">
 			This name will be shown to agents when they connect.
 		</p>
 
@@ -175,32 +176,31 @@
 				</div>
 			</div>
 
-			<div class="p-3 rounded-lg bg-secondary/50 space-y-2 text-sm">
+			<div class="space-y-2 text-sm pl-2">
 				<div class="flex items-center gap-2">
-					<Server class="w-4 h-4 text-muted-foreground" />
-					<span class="text-muted-foreground">Hub ID:</span>
-					<span class="font-mono text-xs">{hubId || 'Loading...'}</span>
+					<Server class="w-4 h-4 cd-text-disabled" />
+					<span class="cd-text-disabled">Hub ID:</span>
+					<span class="cd-mono text-xs">{hubId || 'Loading...'}</span>
 				</div>
 				<div class="flex items-center gap-2">
-					<span class="text-muted-foreground ml-6">Platform:</span>
-					<span>{hubPlatform || 'Loading...'}</span>
+					<span class="cd-text-disabled ml-6">Platform:</span>
+					<span class="cd-value">{hubPlatform || 'Loading...'}</span>
 				</div>
 			</div>
 		</div>
 	</div>
 
-	<hr class="border-border" />
-
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">SteamGridDB Integration</h3>
-		<p class="text-sm text-muted-foreground mb-4">
+	<!-- SteamGridDB Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">SteamGridDB Integration</h3>
+		<p class="text-sm cd-text-disabled mb-4">
 			SteamGridDB allows you to select custom artwork for your games.
 		</p>
 		<p class="text-sm mb-4">
 			Get your API key from
 			<button
 				onclick={openSteamGridDBApiPage}
-				class="text-blue-400 hover:underline inline-flex items-center gap-1"
+				class="cd-text-primary hover:underline inline-flex items-center gap-1"
 			>
 				steamgriddb.com/profile/preferences/api
 				<ExternalLink class="w-3 h-3" />
@@ -217,21 +217,20 @@
 		</div>
 	</div>
 
-	<hr class="border-border" />
-
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">Image Cache</h3>
-		<p class="text-sm text-muted-foreground mb-4">
+	<!-- Image Cache Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">Image Cache</h3>
+		<p class="text-sm cd-text-disabled mb-4">
 			Cache images locally for faster loading. Disabling will delete all cached images.
 		</p>
 
 		<!-- Cache toggle -->
-		<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50 mb-4">
+		<div class="flex items-center justify-between mb-4">
 			<div class="flex items-center gap-3">
-				<HardDrive class="w-5 h-5 text-muted-foreground" />
+				<HardDrive class="w-5 h-5 cd-text-disabled" />
 				<div>
 					<span class="text-sm font-medium">Enable Local Cache</span>
-					<p class="text-xs text-muted-foreground">Store downloaded images on disk</p>
+					<p class="text-xs cd-text-disabled">Store downloaded images on disk</p>
 				</div>
 			</div>
 			<button
@@ -248,8 +247,8 @@
 
 		{#if cacheEnabled}
 			<div class="flex items-center gap-4 mb-4">
-				<span class="text-sm">Cache Size:</span>
-				<span class="font-medium">{cacheSize}</span>
+				<span class="text-sm cd-text-disabled">Cache Size:</span>
+				<span class="cd-mono">{cacheSize}</span>
 			</div>
 
 			<div class="flex gap-2">
@@ -269,9 +268,7 @@
 		{/if}
 	</div>
 
-	<hr class="border-border" />
-
-	<Button onclick={saveSettings} disabled={saving}>
+	<Button variant="gradient" onclick={saveSettings} disabled={saving} class="w-full">
 		{#if saving}
 			<Loader2 class="w-4 h-4 mr-2 animate-spin" />
 		{:else}
@@ -280,37 +277,34 @@
 		Save Settings
 	</Button>
 
-	<hr class="border-border" />
-
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">About</h3>
-		<div class="p-4 rounded-lg bg-secondary/50">
-			<div class="flex items-center gap-2 mb-3">
-				<Info class="w-5 h-5 text-muted-foreground" />
-				<span class="font-medium">CapyDeploy Hub</span>
-			</div>
-			{#if versionInfo}
-				<div class="space-y-2 text-sm">
-					<div class="flex justify-between">
-						<span class="text-muted-foreground">Version</span>
-						<span class="font-mono">{versionInfo.version}</span>
-					</div>
-					{#if versionInfo.commit && versionInfo.commit !== 'unknown'}
-						<div class="flex justify-between">
-							<span class="text-muted-foreground">Commit</span>
-							<span class="font-mono text-xs">{versionInfo.commit}</span>
-						</div>
-					{/if}
-					{#if versionInfo.buildDate && versionInfo.buildDate !== 'unknown'}
-						<div class="flex justify-between">
-							<span class="text-muted-foreground">Build Date</span>
-							<span class="font-mono text-xs">{versionInfo.buildDate}</span>
-						</div>
-					{/if}
-				</div>
-			{:else}
-				<span class="text-sm text-muted-foreground">Loading version info...</span>
-			{/if}
+	<!-- About Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">About</h3>
+		<div class="flex items-center gap-2 mb-3">
+			<Info class="w-5 h-5 cd-text-disabled" />
+			<span class="font-medium cd-value">CapyDeploy Hub</span>
 		</div>
+		{#if versionInfo}
+			<div class="space-y-2 text-sm">
+				<div class="flex justify-between">
+					<span class="cd-text-disabled">Version</span>
+					<span class="cd-mono">{versionInfo.version}</span>
+				</div>
+				{#if versionInfo.commit && versionInfo.commit !== 'unknown'}
+					<div class="flex justify-between">
+						<span class="cd-text-disabled">Commit</span>
+						<span class="cd-mono text-xs">{versionInfo.commit}</span>
+					</div>
+				{/if}
+				{#if versionInfo.buildDate && versionInfo.buildDate !== 'unknown'}
+					<div class="flex justify-between">
+						<span class="cd-text-disabled">Build Date</span>
+						<span class="cd-mono text-xs">{versionInfo.buildDate}</span>
+					</div>
+				{/if}
+			</div>
+		{:else}
+			<span class="text-sm cd-text-disabled">Loading version info...</span>
+		{/if}
 	</div>
 </div>
