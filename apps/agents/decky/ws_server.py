@@ -184,6 +184,9 @@ class WebSocketServer:
             except asyncio.CancelledError:
                 pass
 
+            # Cleanup orphaned uploads from this connection
+            await self._cleanup_orphaned_uploads()
+
             if self.connected_hub and self.connected_hub.get("id") == hub_id:
                 self.connected_hub = None
                 try:
@@ -598,3 +601,28 @@ class WebSocketServer:
             await self._send_queue.put(json.dumps(msg))
         else:
             decky.logger.error("Send queue not initialized!")
+
+    async def _cleanup_orphaned_uploads(self):
+        """Cleanup incomplete uploads when client disconnects unexpectedly."""
+        import shutil
+
+        orphaned = [
+            uid for uid, session in self.uploads.items()
+            if session.status == "active"
+        ]
+
+        for upload_id in orphaned:
+            session = self.uploads.get(upload_id)
+            if session:
+                decky.logger.warning(f"Cleaning orphaned upload: {session.game_name}")
+                # Remove partially uploaded files
+                if session.install_path and os.path.exists(session.install_path):
+                    try:
+                        shutil.rmtree(session.install_path)
+                        decky.logger.info(f"Removed orphaned folder: {session.install_path}")
+                    except Exception as e:
+                        decky.logger.error(f"Failed to cleanup orphaned upload: {e}")
+                del self.uploads[upload_id]
+
+        if orphaned:
+            decky.logger.info(f"Cleaned up {len(orphaned)} orphaned upload(s)")

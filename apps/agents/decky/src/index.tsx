@@ -4,7 +4,7 @@
  */
 
 import { definePlugin, staticClasses } from "@decky/ui";
-import { useState, useEffect, VFC } from "react";
+import { useState, useEffect, useRef, VFC } from "react";
 
 import { useAgent } from "./hooks/useAgent";
 import StatusPanel from "./components/StatusPanel";
@@ -30,6 +30,7 @@ const CapyDeployPanel: VFC = () => {
   const [currentOperation, setCurrentOperation] = useState<OperationEvent | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [gamesRefresh, setGamesRefresh] = useState(0);
+  const operationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { enabled, setEnabled, status, pairingCode, setPairingCode, refreshStatus } = useAgent();
 
@@ -40,7 +41,11 @@ const CapyDeployPanel: VFC = () => {
         setCurrentOperation(event);
         if (event.status === "complete") {
           setGamesRefresh((n) => n + 1);
-          setTimeout(() => setCurrentOperation(null), 5000);
+          // Clear previous timeout if exists
+          if (operationTimeoutRef.current) {
+            clearTimeout(operationTimeoutRef.current);
+          }
+          operationTimeoutRef.current = setTimeout(() => setCurrentOperation(null), 5000);
         }
       },
       onProgress: (progress) => setUploadProgress(progress),
@@ -49,7 +54,13 @@ const CapyDeployPanel: VFC = () => {
       onRefreshStatus: () => refreshStatus(),
     });
 
-    return () => unregisterUICallbacks();
+    return () => {
+      unregisterUICallbacks();
+      // Cleanup timeout on unmount
+      if (operationTimeoutRef.current) {
+        clearTimeout(operationTimeoutRef.current);
+      }
+    };
   }, [setPairingCode, refreshStatus]);
 
   return (
