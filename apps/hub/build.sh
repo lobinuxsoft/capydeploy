@@ -18,6 +18,11 @@ NC='\033[0m' # No Color
 MODE="production"
 SKIP_DEPS=0
 
+# Project directories
+ROOT_DIR="$(cd ../.. && pwd)"
+DIST_DIR="$ROOT_DIR/dist"
+TOOLS_DIR="$ROOT_DIR/.tools"
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -239,15 +244,30 @@ else
     echo
 
     # ============================================
+    # Copy binary to dist/
+    # ============================================
+
+    BINARY_NAME="capydeploy-hub"
+    if [ "$(uname -s)" = "Linux" ]; then
+        PLATFORM_DIR="$DIST_DIR/linux"
+    else
+        PLATFORM_DIR="$DIST_DIR/windows"
+        BINARY_NAME="capydeploy-hub.exe"
+    fi
+
+    mkdir -p "$PLATFORM_DIR"
+    cp "build/bin/$BINARY_NAME" "$PLATFORM_DIR/"
+    echo "  Copied to: $PLATFORM_DIR/$BINARY_NAME"
+    echo
+
+    # ============================================
     # Generate AppImage (Linux only)
     # ============================================
 
     echo -e "${YELLOW}[7/7]${NC} Generating AppImage..."
     echo
 
-    ROOT_DIR="$(cd ../.. && pwd)"
-    TOOLS_DIR="$ROOT_DIR/.tools"
-    BUILD_OUTPUT_DIR="$ROOT_DIR/dist/appimage"
+    APPIMAGE_DIR="$DIST_DIR/appimage"
 
     ARCH=$(uname -m)
     case $ARCH in
@@ -258,16 +278,14 @@ else
             echo "  Skipping AppImage generation."
             echo
             # Still show binary output
-            BINARY="build/bin/capydeploy-hub"
-            if [ -f "$BINARY" ]; then
-                SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || echo "0")
-                SIZE_KB=$((SIZE / 1024))
+            DIST_BINARY="$PLATFORM_DIR/capydeploy-hub"
+            if [ -f "$DIST_BINARY" ]; then
+                SIZE=$(stat -f%z "$DIST_BINARY" 2>/dev/null || stat -c%s "$DIST_BINARY" 2>/dev/null || echo "0")
                 SIZE_MB=$((SIZE / 1048576))
-                echo "  File: $BINARY"
-                echo "  Size: ${SIZE_MB} MB (${SIZE_KB} KB)"
+                echo "  Binary: $DIST_BINARY (${SIZE_MB} MB)"
             fi
             echo
-            echo "Done! Run with: ./build/bin/capydeploy-hub"
+            echo "Done!"
             exit 0
             ;;
     esac
@@ -287,7 +305,7 @@ else
     fi
 
     # Create AppDir
-    APPDIR="$BUILD_OUTPUT_DIR/hub.AppDir"
+    APPDIR="$APPIMAGE_DIR/hub.AppDir"
     BINARY_NAME="capydeploy-hub"
     DESKTOP_NAME="capydeploy-hub"
 
@@ -431,10 +449,10 @@ APPRUN
     echo -e "  ${GREEN}AppDir created${NC}"
 
     # Build AppImage
-    mkdir -p "$BUILD_OUTPUT_DIR"
+    mkdir -p "$APPIMAGE_DIR"
     APPIMAGE_NAME="CapyDeploy_Hub.AppImage"
 
-    ARCH=$APPIMAGE_ARCH "$APPIMAGETOOL" "$APPDIR" "$BUILD_OUTPUT_DIR/$APPIMAGE_NAME" 2>/dev/null
+    ARCH=$APPIMAGE_ARCH "$APPIMAGETOOL" "$APPDIR" "$APPIMAGE_DIR/$APPIMAGE_NAME" 2>/dev/null
 
     echo -e "  ${GREEN}AppImage created: $APPIMAGE_NAME${NC}"
 
@@ -448,18 +466,19 @@ APPRUN
     echo
 
     # Show results
-    BINARY="build/bin/capydeploy-hub"
-    if [ -f "$BINARY" ]; then
-        SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || echo "0")
-        SIZE_KB=$((SIZE / 1024))
+    echo "  Output directory: $DIST_DIR"
+    echo
+
+    DIST_BINARY="$PLATFORM_DIR/capydeploy-hub"
+    if [ -f "$DIST_BINARY" ]; then
+        SIZE=$(stat -f%z "$DIST_BINARY" 2>/dev/null || stat -c%s "$DIST_BINARY" 2>/dev/null || echo "0")
         SIZE_MB=$((SIZE / 1048576))
-        echo "  Binary:   $BINARY (${SIZE_MB} MB)"
+        echo "  Binary:   $DIST_BINARY (${SIZE_MB} MB)"
     fi
 
-    APPIMAGE_FILE="$BUILD_OUTPUT_DIR/$APPIMAGE_NAME"
+    APPIMAGE_FILE="$APPIMAGE_DIR/$APPIMAGE_NAME"
     if [ -f "$APPIMAGE_FILE" ]; then
         SIZE=$(stat -f%z "$APPIMAGE_FILE" 2>/dev/null || stat -c%s "$APPIMAGE_FILE" 2>/dev/null || echo "0")
-        SIZE_KB=$((SIZE / 1024))
         SIZE_MB=$((SIZE / 1048576))
         echo "  AppImage: $APPIMAGE_FILE (${SIZE_MB} MB)"
     fi

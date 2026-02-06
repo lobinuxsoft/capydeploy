@@ -6,9 +6,13 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Project directories
+ROOT_DIR="$(cd ../../.. && pwd)"
+DIST_DIR="$ROOT_DIR/dist"
+
 PLUGIN_NAME="CapyDeploy"
 VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*: "\([^"]*\)".*/\1/')
-OUTPUT_DIR="$SCRIPT_DIR/out"
+OUTPUT_DIR="$DIST_DIR/decky"
 BUILD_DIR="$OUTPUT_DIR/$PLUGIN_NAME"
 
 echo "=== Building $PLUGIN_NAME v$VERSION ==="
