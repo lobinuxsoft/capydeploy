@@ -8,3 +8,5 @@ export { default as Select } from './Select.svelte';
 export { default as Checkbox } from './Checkbox.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as Toast } from './Toast.svelte';
+export { default as Toggle } from './Toggle.svelte';
+export { default as MultiSelect } from './MultiSelect.svelte';
