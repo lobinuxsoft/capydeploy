@@ -17,8 +17,8 @@ NC='\033[0m'
 MODE="production"
 SKIP_DEPS=0
 
-# Project directories
-ROOT_DIR="$(cd ../.. && pwd)"
+# Project directories (../../.. because we're in apps/agents/desktop)
+ROOT_DIR="$(cd ../../.. && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 TOOLS_DIR="$ROOT_DIR/.tools"
 
