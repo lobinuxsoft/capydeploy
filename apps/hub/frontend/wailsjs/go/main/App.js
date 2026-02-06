@@ -38,10 +38,6 @@ export function GetCacheSize() {
   return window['go']['main']['App']['GetCacheSize']();
 }
 
-export function GetCacheURL(arg1, arg2) {
-  return window['go']['main']['App']['GetCacheURL'](arg1, arg2);
-}
-
 export function GetConnectionStatus() {
   return window['go']['main']['App']['GetConnectionStatus']();
 }
@@ -86,10 +82,6 @@ export function GetLogos(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetLogos'](arg1, arg2, arg3);
 }
 
-export function GetStaticThumbnail(arg1, arg2, arg3) {
-  return window['go']['main']['App']['GetStaticThumbnail'](arg1, arg2, arg3);
-}
-
 export function GetSteamGridDBAPIKey() {
   return window['go']['main']['App']['GetSteamGridDBAPIKey']();
 }
@@ -100,18 +92,6 @@ export function GetVersion() {
 
 export function OpenCacheFolder() {
   return window['go']['main']['App']['OpenCacheFolder']();
-}
-
-export function OpenCachedImage(arg1, arg2) {
-  return window['go']['main']['App']['OpenCachedImage'](arg1, arg2);
-}
-
-export function ProxyImage(arg1) {
-  return window['go']['main']['App']['ProxyImage'](arg1);
-}
-
-export function ProxyImageCached(arg1, arg2) {
-  return window['go']['main']['App']['ProxyImageCached'](arg1, arg2);
 }
 
 export function RefreshDiscovery() {

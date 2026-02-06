@@ -140,46 +140,69 @@ DIST_DIR="$ROOT_DIR/dist"
 echo "Output directory: $DIST_DIR"
 echo
 
+# Linux
+echo -e "${YELLOW}Linux:${NC}"
 if [ -f "$DIST_DIR/linux/capydeploy-hub" ]; then
     SIZE=$(stat -c%s "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || echo "0")
     SIZE_MB=$((SIZE / 1048576))
-    echo -e "  ${GREEN}✓${NC} Hub binary: ${SIZE_MB} MB"
+    echo -e "  ${GREEN}✓${NC} Hub: ${SIZE_MB} MB"
 else
-    echo -e "  ${RED}✗${NC} Hub binary: NOT FOUND"
-fi
-
-if [ -f "$DIST_DIR/appimage/CapyDeploy_Hub.AppImage" ]; then
-    SIZE=$(stat -c%s "$DIST_DIR/appimage/CapyDeploy_Hub.AppImage" 2>/dev/null || echo "0")
-    SIZE_MB=$((SIZE / 1048576))
-    echo -e "  ${GREEN}✓${NC} Hub AppImage: ${SIZE_MB} MB"
-else
-    echo -e "  ${RED}✗${NC} Hub AppImage: NOT FOUND"
+    echo -e "  ${RED}✗${NC} Hub: NOT FOUND"
 fi
 
 if [ -f "$DIST_DIR/linux/capydeploy-agent" ]; then
     SIZE=$(stat -c%s "$DIST_DIR/linux/capydeploy-agent" 2>/dev/null || echo "0")
     SIZE_MB=$((SIZE / 1048576))
-    echo -e "  ${GREEN}✓${NC} Desktop Agent binary: ${SIZE_MB} MB"
+    echo -e "  ${GREEN}✓${NC} Desktop Agent: ${SIZE_MB} MB"
 else
-    echo -e "  ${RED}✗${NC} Desktop Agent binary: NOT FOUND"
+    echo -e "  ${RED}✗${NC} Desktop Agent: NOT FOUND"
+fi
+
+# Windows
+echo -e "${YELLOW}Windows:${NC}"
+if [ -f "$DIST_DIR/windows/capydeploy-hub.exe" ]; then
+    SIZE=$(stat -c%s "$DIST_DIR/windows/capydeploy-hub.exe" 2>/dev/null || echo "0")
+    SIZE_MB=$((SIZE / 1048576))
+    echo -e "  ${GREEN}✓${NC} Hub: ${SIZE_MB} MB"
+else
+    echo -e "  ${RED}✗${NC} Hub: NOT FOUND (install mingw64-gcc)"
+fi
+
+if [ -f "$DIST_DIR/windows/capydeploy-agent.exe" ]; then
+    SIZE=$(stat -c%s "$DIST_DIR/windows/capydeploy-agent.exe" 2>/dev/null || echo "0")
+    SIZE_MB=$((SIZE / 1048576))
+    echo -e "  ${GREEN}✓${NC} Desktop Agent: ${SIZE_MB} MB"
+else
+    echo -e "  ${RED}✗${NC} Desktop Agent: NOT FOUND (install mingw64-gcc)"
+fi
+
+# AppImages
+echo -e "${YELLOW}AppImages:${NC}"
+if [ -f "$DIST_DIR/appimage/CapyDeploy_Hub.AppImage" ]; then
+    SIZE=$(stat -c%s "$DIST_DIR/appimage/CapyDeploy_Hub.AppImage" 2>/dev/null || echo "0")
+    SIZE_MB=$((SIZE / 1048576))
+    echo -e "  ${GREEN}✓${NC} Hub: ${SIZE_MB} MB"
+else
+    echo -e "  ${RED}✗${NC} Hub: NOT FOUND"
 fi
 
 if [ -f "$DIST_DIR/appimage/CapyDeploy_Agent.AppImage" ]; then
     SIZE=$(stat -c%s "$DIST_DIR/appimage/CapyDeploy_Agent.AppImage" 2>/dev/null || echo "0")
     SIZE_MB=$((SIZE / 1048576))
-    echo -e "  ${GREEN}✓${NC} Desktop Agent AppImage: ${SIZE_MB} MB"
+    echo -e "  ${GREEN}✓${NC} Desktop Agent: ${SIZE_MB} MB"
 else
-    echo -e "  ${RED}✗${NC} Desktop Agent AppImage: NOT FOUND"
+    echo -e "  ${RED}✗${NC} Desktop Agent: NOT FOUND"
 fi
 
-# Find Decky zip
+# Decky
+echo -e "${YELLOW}Decky:${NC}"
 DECKY_ZIP=$(find "$DIST_DIR/decky" -name "*.zip" 2>/dev/null | head -1)
 if [ -n "$DECKY_ZIP" ] && [ -f "$DECKY_ZIP" ]; then
     SIZE=$(stat -c%s "$DECKY_ZIP" 2>/dev/null || echo "0")
     SIZE_KB=$((SIZE / 1024))
-    echo -e "  ${GREEN}✓${NC} Decky plugin: ${SIZE_KB} KB"
+    echo -e "  ${GREEN}✓${NC} Plugin: ${SIZE_KB} KB"
 else
-    echo -e "  ${RED}✗${NC} Decky plugin: NOT FOUND"
+    echo -e "  ${RED}✗${NC} Plugin: NOT FOUND"
 fi
 
 echo
