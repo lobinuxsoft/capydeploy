@@ -304,7 +304,7 @@ else
     mkdir -p "$APPDIR/usr/bin"
 
     # Copy binary
-    cp "build/bin/$BINARY_NAME" "$APPDIR/usr/bin/"
+    cp "$DIST_DIR/linux/$BINARY_NAME" "$APPDIR/usr/bin/"
 
     # Copy icon
     cp "build/appicon.png" "$APPDIR/$DESKTOP_NAME.png"
