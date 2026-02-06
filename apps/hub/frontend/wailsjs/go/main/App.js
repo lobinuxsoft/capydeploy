@@ -86,6 +86,10 @@ export function GetLogos(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetLogos'](arg1, arg2, arg3);
 }
 
+export function GetStaticThumbnail(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetStaticThumbnail'](arg1, arg2, arg3);
+}
+
 export function GetSteamGridDBAPIKey() {
   return window['go']['main']['App']['GetSteamGridDBAPIKey']();
 }

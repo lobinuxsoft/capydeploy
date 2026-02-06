@@ -9,6 +9,7 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/shadowblip/steam-shortcut-manager v0.0.0
 	github.com/wailsapp/wails/v2 v2.11.0
+	golang.org/x/image v0.35.0
 	golang.org/x/sys v0.39.0
 )
 
@@ -40,7 +41,6 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/wakeful-cloud/vdf v0.0.0-20210218214150-0be6ec18b390 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/image v0.35.0 // indirect
 	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect

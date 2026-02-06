@@ -8,10 +8,9 @@
 		capsuleDimensions, wideCapsuleDimensions, heroDimensions, logoDimensions, iconDimensions,
 		gridMimes, logoMimes, iconMimes, animationOptions
 	} from '$lib/types';
-	import { isAnimatedImage } from '$lib/utils';
-	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check, ImageOff } from 'lucide-svelte';
+	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, GetCacheURL, GetStaticThumbnail, OpenCachedImage } from '$lib/wailsjs';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, GetCacheURL, OpenCachedImage } from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
@@ -79,40 +78,18 @@
 	// Show filters panel
 	let showFilters = $state(false);
 
-	// Cache URL mapping - maps original URLs to local cache URLs
-	// These are lightweight strings, not image data
+	// Cache URL mapping - maps original URLs to local cache URLs for preview
 	let cacheURLs = $state<Map<string, string>>(new Map());
 	let loadingPreview = $state(false);
 
-	// Static thumbnail cache for animated images (prevents memory bloat from decoded GIF frames)
-	let staticThumbnails = $state<Map<string, string>>(new Map());
-	let loadingThumbnails = $state<Set<string>>(new Set());
-
-	// Load static thumbnail for an animated image
-	async function loadStaticThumbnail(url: string, mime: string) {
-		if (!selectedGameID || !isAnimatedImage(mime, url)) return;
-		if (staticThumbnails.has(url) || loadingThumbnails.has(url)) return;
-
-		loadingThumbnails.add(url);
-		try {
-			const thumbUrl = await GetStaticThumbnail(selectedGameID, url, 200);
-			if (thumbUrl) {
-				staticThumbnails.set(url, thumbUrl);
-				// Force reactivity update
-				staticThumbnails = new Map(staticThumbnails);
-			}
-		} catch (e) {
-			console.warn('Failed to load static thumbnail:', e);
-		} finally {
-			loadingThumbnails.delete(url);
-		}
+	// Check if thumb URL is animated (SteamGridDB uses .webm for animated thumbs)
+	function isAnimatedThumb(thumb: string): boolean {
+		return thumb?.includes('.webm') || false;
 	}
 
 	// Cleanup function to clear all cached data
 	function clearCache() {
 		cacheURLs.clear();
-		staticThumbnails.clear();
-		loadingThumbnails.clear();
 		capsules = [];
 		wideCapsules = [];
 		heroes = [];
@@ -418,51 +395,6 @@
 		return cacheURLs.get(originalUrl) || originalUrl;
 	}
 
-	// Tiny transparent placeholder (1x1 pixel)
-	const PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-
-	// Get the best image source for grid display
-	// For animated images, use static thumbnail to save memory (NO animated thumbs!)
-	function getImageSrc(img: any): string {
-		const url = img?.url || img?.Url || img?.URL || '';
-		const mime = img?.mime || '';
-
-		// For animated images, ONLY use static thumbnail - never show animation in grid
-		if (isAnimatedImage(mime, url)) {
-			const staticThumb = staticThumbnails.get(url);
-			if (staticThumb) return staticThumb;
-
-			// Start loading and show placeholder until ready
-			loadStaticThumbnail(url, mime);
-			return PLACEHOLDER;
-		}
-
-		// For static images, use SteamGridDB thumbnail
-		const thumb = img?.thumb || img?.Thumb || '';
-		if (thumb) return thumb;
-
-		return url || '';
-	}
-
-	// Handle image load error - try to load full URL if thumb fails
-	function handleImageError(event: Event, img: { url?: string; thumb?: string }) {
-		const target = event.target as HTMLImageElement;
-		const thumb = img.thumb || '';
-		const url = img.url || '';
-
-		console.warn('Image load error:', { currentSrc: target.src, thumb, url });
-
-		// If current src is thumb, try full URL
-		if (target.src === thumb && url && url !== thumb) {
-			console.log('Trying full URL:', url);
-			target.src = url;
-		} else {
-			// Show placeholder - gray box with icon
-			target.style.visibility = 'hidden';
-			target.classList.add('load-failed');
-		}
-	}
-
 	function clearAll() {
 		gridPortrait = '';
 		gridLandscape = '';
@@ -678,9 +610,8 @@
 					<div class="text-xs text-muted-foreground mb-2">600x900 - Portrait capsule</div>
 					<div class="grid grid-cols-5 gap-2">
 						{#each capsules as img (img.url)}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'capsule')}
-							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -689,19 +620,29 @@
 								)}
 								onclick={() => selectCapsule(img)}
 							>
-								<img
-									src={thumbSrc}
-									alt=""
-									class="w-full aspect-[2/3] object-cover bg-muted"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-[2/3] object-cover bg-muted"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-[2/3] object-cover bg-muted"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
 								{/if}
 								{#if isAnim}
-									<span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] px-1 rounded font-bold">ANIM</span>
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] p-0.5 text-center">
 									{img.width}x{img.height}
@@ -723,9 +664,8 @@
 					<div class="text-xs text-muted-foreground mb-2">920x430 - Wide capsule</div>
 					<div class="grid grid-cols-3 gap-2">
 						{#each wideCapsules as img (img.url)}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'wide')}
-							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -734,19 +674,29 @@
 								)}
 								onclick={() => selectWide(img)}
 							>
-								<img
-									src={thumbSrc}
-									alt=""
-									class="w-full aspect-[460/215] object-cover bg-muted"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-[460/215] object-cover bg-muted"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-[460/215] object-cover bg-muted"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
 								{/if}
 								{#if isAnim}
-									<span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] px-1 rounded font-bold">ANIM</span>
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] p-0.5 text-center">
 									{img.width}x{img.height}
@@ -768,9 +718,8 @@
 					<div class="text-xs text-muted-foreground mb-2">1920x620 - Hero banner</div>
 					<div class="grid grid-cols-2 gap-2">
 						{#each heroes as img (img.url)}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'hero')}
-							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -779,19 +728,29 @@
 								)}
 								onclick={() => selectHero(img)}
 							>
-								<img
-									src={thumbSrc}
-									alt=""
-									class="w-full aspect-[1920/620] object-cover bg-muted"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-[1920/620] object-cover bg-muted"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-[1920/620] object-cover bg-muted"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
 								{/if}
 								{#if isAnim}
-									<span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] px-1 rounded font-bold">ANIM</span>
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] p-0.5 text-center">
 									{img.width}x{img.height}
@@ -813,9 +772,8 @@
 					<div class="text-xs text-muted-foreground mb-2">Game logo (transparent)</div>
 					<div class="grid grid-cols-5 gap-2">
 						{#each logos as img (img.url)}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'logo')}
-							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -824,16 +782,29 @@
 								)}
 								onclick={() => selectLogo(img)}
 							>
-								<img
-									src={thumbSrc}
-									alt=""
-									class="w-full aspect-square object-contain"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-square object-contain"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-square object-contain"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
+								{/if}
+								{#if isAnim}
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="text-[9px] text-center text-muted-foreground">
 									{img.width}x{img.height}
@@ -855,9 +826,8 @@
 					<div class="text-xs text-muted-foreground mb-2">Square icon</div>
 					<div class="grid grid-cols-8 gap-2">
 						{#each icons as img (img.url)}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'icon')}
-							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -866,16 +836,29 @@
 								)}
 								onclick={() => selectIcon(img)}
 							>
-								<img
-									src={thumbSrc}
-									alt=""
-									class="w-full aspect-square object-contain"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-square object-contain"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-square object-contain"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-0.5 right-0.5 bg-green-500 rounded-full p-0.5">
 										<Check class="w-2 h-2 text-white" />
 									</div>
+								{/if}
+								{#if isAnim}
+									<span class="absolute top-0.5 left-0.5 z-10 bg-orange-500 text-white text-[7px] px-0.5 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="text-[8px] text-center text-muted-foreground">
 									{img.width}

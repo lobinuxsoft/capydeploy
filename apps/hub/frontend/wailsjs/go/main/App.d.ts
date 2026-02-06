@@ -46,6 +46,8 @@ export function GetInstalledGames(arg1:string):Promise<Array<main.InstalledGame>
 
 export function GetLogos(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.ImageData>>;
 
+export function GetStaticThumbnail(arg1:number,arg2:string,arg3:number):Promise<string>;
+
 export function GetSteamGridDBAPIKey():Promise<string>;
 
 export function GetVersion():Promise<main.VersionInfo>;
