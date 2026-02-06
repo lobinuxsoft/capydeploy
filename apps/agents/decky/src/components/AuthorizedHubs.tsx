@@ -89,8 +89,10 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
   if (!enabled) return null;
 
   return (
-    <PanelSection title="Authorized Hubs">
-      {loading ? (
+    <div className="cd-section">
+      <div className="cd-section-title">Authorized Hubs</div>
+      <PanelSection>
+        {loading ? (
           <PanelSectionRow>
             <Field label="Loading...">
               <span style={{ opacity: 0.6 }}>...</span>
@@ -135,7 +137,8 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
             </PanelSectionRow>
           ))
         )}
-    </PanelSection>
+      </PanelSection>
+    </div>
   );
 };
 
