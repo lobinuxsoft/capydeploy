@@ -12,7 +12,7 @@ import {
   showModal,
 } from "@decky/ui";
 import { call, openFilePicker } from "@decky/api";
-import { VFC, useState } from "react";
+import { VFC } from "react";
 import {
   FaPlug,
   FaPlugCircleXmark,
@@ -27,6 +27,7 @@ import {
   FaChevronRight,
 } from "react-icons/fa6";
 import { colors } from "../styles/theme";
+import { usePanelState } from "../hooks/usePanelState";
 import NameEditModal from "./NameEditModal";
 
 // FileSelectionType enum from @decky/api
@@ -64,11 +65,11 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   installPath,
   onRefresh,
 }) => {
-  // Collapsible section states
-  const [statusExpanded, setStatusExpanded] = useState(true);
-  const [infoExpanded, setInfoExpanded] = useState(true);
-  const [networkExpanded, setNetworkExpanded] = useState(true);
-  const [capabilitiesExpanded, setCapabilitiesExpanded] = useState(true);
+  // Collapsible section states (persisted across panel close/open)
+  const [statusExpanded, toggleStatus] = usePanelState("status");
+  const [infoExpanded, toggleInfo] = usePanelState("info");
+  const [networkExpanded, toggleNetwork] = usePanelState("network");
+  const [capabilitiesExpanded, toggleCapabilities] = usePanelState("capabilities");
 
   const handleEditName = () => {
     showModal(<NameEditModal currentName={agentName} onSaved={onRefresh} />);
@@ -105,7 +106,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   return (
     <>
       <div className="cd-section">
-        <div className="cd-section-title" onClick={() => setStatusExpanded(!statusExpanded)}>
+        <div className="cd-section-title" onClick={toggleStatus}>
           {statusExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
           Status
         </div>
@@ -170,7 +171,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
       </div>
 
       <div className="cd-section">
-        <div className="cd-section-title" onClick={() => setInfoExpanded(!infoExpanded)}>
+        <div className="cd-section-title" onClick={toggleInfo}>
           {infoExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
           Agent Info
         </div>
@@ -219,7 +220,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
 
       {enabled && (
         <div className="cd-section">
-          <div className="cd-section-title" onClick={() => setNetworkExpanded(!networkExpanded)}>
+          <div className="cd-section-title" onClick={toggleNetwork}>
             {networkExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
             Network
           </div>
@@ -242,7 +243,7 @@ const StatusPanel: VFC<StatusPanelProps> = ({
       )}
 
       <div className="cd-section">
-        <div className="cd-section-title" onClick={() => setCapabilitiesExpanded(!capabilitiesExpanded)}>
+        <div className="cd-section-title" onClick={toggleCapabilities}>
           {capabilitiesExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
           Capabilities
         </div>

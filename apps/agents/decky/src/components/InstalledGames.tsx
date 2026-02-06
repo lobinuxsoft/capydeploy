@@ -13,6 +13,7 @@ import { call, toaster } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
 import { FaGamepad, FaTrash, FaFolderOpen, FaChevronDown, FaChevronRight } from "react-icons/fa6";
 import { colors } from "../styles/theme";
+import { usePanelState } from "../hooks/usePanelState";
 import ConfirmActionModal from "./ConfirmActionModal";
 
 import mascotUrl from "../../assets/mascot.gif";
@@ -40,7 +41,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
   const [games, setGames] = useState<InstalledGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [uninstalling, setUninstalling] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, toggleExpanded] = usePanelState("installedGames");
 
   const loadGames = useCallback(async () => {
     try {
@@ -107,7 +108,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
 
   return (
     <div className="cd-section">
-      <div className="cd-section-title" onClick={() => setExpanded(!expanded)}>
+      <div className="cd-section-title" onClick={toggleExpanded}>
         {expanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
         Installed Games
       </div>

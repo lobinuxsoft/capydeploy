@@ -12,6 +12,7 @@ import { call } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
 import { FaShieldHalved, FaTrash, FaComputer, FaChevronDown, FaChevronRight } from "react-icons/fa6";
 import { colors } from "../styles/theme";
+import { usePanelState } from "../hooks/usePanelState";
 
 interface AuthorizedHub {
   id: string;
@@ -46,7 +47,7 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
   const [hubs, setHubs] = useState<AuthorizedHub[]>([]);
   const [loading, setLoading] = useState(true);
   const [revoking, setRevoking] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, toggleExpanded] = usePanelState("authorizedHubs");
 
   const loadHubs = useCallback(async () => {
     try {
@@ -91,7 +92,7 @@ const AuthorizedHubs: VFC<AuthorizedHubsProps> = ({ enabled }) => {
 
   return (
     <div className="cd-section">
-      <div className="cd-section-title" onClick={() => setExpanded(!expanded)}>
+      <div className="cd-section-title" onClick={toggleExpanded}>
         {expanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
         Authorized Hubs
       </div>
