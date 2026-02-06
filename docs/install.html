@@ -72,12 +72,11 @@ cd apps/agents/desktop && ./build.sh</code></pre>
           <div class="flex-1">
             <h4 class="text-lg font-semibold mb-2">Build AppImage</h4>
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build both Hub and Agent</span>
-./scripts/build-appimage.sh all
+              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build Hub (includes AppImage)</span>
+cd apps/hub && ./build.sh
 
-<span class="text-slate-500"># Or individually</span>
-./scripts/build-appimage.sh hub
-./scripts/build-appimage.sh agent</code></pre>
+<span class="text-slate-500"># Build Agent (includes AppImage)</span>
+cd apps/agents/desktop && ./build.sh</code></pre>
             </div>
             <p class="text-slate-500 text-sm mt-2">Output: <code class="text-capy-400">dist/appimage/CapyDeploy_Hub.AppImage</code></p>
           </div>
