@@ -3,7 +3,7 @@
 	import Button from './ui/Button.svelte';
 	import { GetAuthorizedHubs, RevokeHub, EventsOn, EventsOff } from '$lib/wailsjs';
 	import { toast } from '$lib/stores/toast';
-	import { Monitor, Trash2, ShieldCheck } from 'lucide-svelte';
+	import { Monitor, Trash2, ShieldCheck, ChevronDown, ChevronRight } from 'lucide-svelte';
 	import { browser } from '$app/environment';
 
 	interface AuthorizedHub {
@@ -35,6 +35,7 @@
 	let hubs = $state<AuthorizedHub[]>([]);
 	let loading = $state(true);
 	let revoking = $state<string | null>(null);
+	let expanded = $state(true);
 
 	async function loadHubs() {
 		try {
@@ -52,10 +53,10 @@
 		try {
 			await RevokeHub(hubId);
 			hubs = hubs.filter(h => h.id !== hubId);
-			toast.success('Hub revocado');
+			toast.success('Hub revoked');
 		} catch (e) {
 			console.error('Failed to revoke hub:', e);
-			toast.error('Error al revocar', String(e));
+			toast.error('Error revoking', String(e));
 		} finally {
 			revoking = null;
 		}
@@ -64,7 +65,7 @@
 	function formatDate(dateStr: string): string {
 		try {
 			const date = new Date(dateStr);
-			return date.toLocaleDateString('es', {
+			return date.toLocaleDateString('en', {
 				year: 'numeric',
 				month: 'short',
 				day: 'numeric',
@@ -99,50 +100,63 @@
 </script>
 
 <div class="cd-section p-4">
-	<div class="flex items-center gap-2 mb-4">
+	<button
+		type="button"
+		class="w-full flex items-center gap-2 hover:text-primary transition-colors"
+		onclick={() => expanded = !expanded}
+	>
+		{#if expanded}
+			<ChevronDown class="w-4 h-4 cd-text-primary" />
+		{:else}
+			<ChevronRight class="w-4 h-4 cd-text-disabled" />
+		{/if}
 		<ShieldCheck class="w-5 h-5 cd-text-primary" />
-		<h3 class="cd-section-title">Hubs Autorizados</h3>
-	</div>
+		<h3 class="cd-section-title">Authorized Hubs</h3>
+	</button>
 
-	{#if loading}
-		<p class="text-sm cd-text-disabled">Cargando...</p>
-	{:else if hubs.length === 0}
-		<p class="text-sm cd-text-disabled">
-			Ningun Hub autorizado aun. Conecta un Hub para iniciar el emparejamiento.
-		</p>
-	{:else}
-		<div class="space-y-2">
-			{#each hubs as hub}
-				<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
-					<div class="flex items-center gap-3">
-						<Monitor class="w-5 h-5 cd-text-disabled" />
-						<div>
-							<div class="cd-value font-medium flex items-center gap-2">
-								{hub.name}
-								{#if hub.platform}
-									<span class="text-xs cd-text-disabled" title={getPlatformName(hub.platform)}>
-										{getPlatformIcon(hub.platform)}
-									</span>
-								{/if}
+	{#if expanded}
+		<div class="mt-4">
+			{#if loading}
+				<p class="text-sm cd-text-disabled">Loading...</p>
+			{:else if hubs.length === 0}
+				<p class="text-sm cd-text-disabled">
+					No authorized Hubs yet. Connect a Hub to start pairing.
+				</p>
+			{:else}
+				<div class="space-y-2">
+					{#each hubs as hub}
+						<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
+							<div class="flex items-center gap-3">
+								<Monitor class="w-5 h-5 cd-text-disabled" />
+								<div>
+									<div class="cd-value font-medium flex items-center gap-2">
+										{hub.name}
+										{#if hub.platform}
+											<span class="text-xs cd-text-disabled" title={getPlatformName(hub.platform)}>
+												{getPlatformIcon(hub.platform)}
+											</span>
+										{/if}
+									</div>
+									<div class="text-xs cd-text-capy">
+										Paired: {formatDate(hub.pairedAt)}
+									</div>
+									<div class="text-xs cd-text-disabled">
+										Last seen: {formatDate(hub.lastSeen)}
+									</div>
+								</div>
 							</div>
-							<div class="text-xs cd-text-capy">
-								Emparejado: {formatDate(hub.pairedAt)}
-							</div>
-							<div class="text-xs cd-text-disabled">
-								Ultimo uso: {formatDate(hub.lastSeen)}
-							</div>
+							<Button
+								variant="ghost"
+								size="icon"
+								onclick={() => handleRevoke(hub.id)}
+								disabled={revoking === hub.id}
+							>
+								<Trash2 class="w-4 h-4 text-destructive" />
+							</Button>
 						</div>
-					</div>
-					<Button
-						variant="ghost"
-						size="icon"
-						onclick={() => handleRevoke(hub.id)}
-						disabled={revoking === hub.id}
-					>
-						<Trash2 class="w-4 h-4 text-destructive" />
-					</Button>
+					{/each}
 				</div>
-			{/each}
+			{/if}
 		</div>
 	{/if}
 </div>

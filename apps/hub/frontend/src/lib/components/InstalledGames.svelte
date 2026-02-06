@@ -14,17 +14,17 @@
 
 	async function refreshGames() {
 		if (!$connectionStatus.connected) {
-			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
+			toast.warning('No connection', 'Connect to a device first');
 			return;
 		}
 
 		loading = true;
-		statusMessage = 'Buscando juegos...';
+		statusMessage = 'Searching for games...';
 		try {
 			// Get install path from agent
 			installPath = await GetAgentInstallPath();
 			games = await GetInstalledGames('');
-			statusMessage = `${games.length} juegos encontrados`;
+			statusMessage = `${games.length} games found`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
 			toast.error('Error', String(e));
@@ -36,18 +36,18 @@
 
 	async function deleteGame(game: InstalledGame) {
 		if (!$connectionStatus.connected) {
-			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
+			toast.warning('No connection', 'Connect to a device first');
 			return;
 		}
 
 		deleting = game.name;
-		statusMessage = `Eliminando ${game.name}...`;
+		statusMessage = `Deleting ${game.name}...`;
 		try {
 			await DeleteGame(game.name, game.appId || 0);
 			await refreshGames();
-			toast.success('Juego eliminado', game.name);
+			toast.success('Game deleted', game.name);
 		} catch (e) {
-			toast.error('Error al eliminar', String(e));
+			toast.error('Error deleting', String(e));
 			statusMessage = `Error: ${e}`;
 		} finally {
 			deleting = null;

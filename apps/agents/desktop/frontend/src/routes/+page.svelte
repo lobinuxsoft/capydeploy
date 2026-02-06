@@ -13,7 +13,7 @@
 			</div>
 			<div class="flex-1">
 				<h1 class="cd-title">CapyDeploy Agent</h1>
-				<p class="cd-subtitle">Recibe juegos desde el Hub</p>
+				<p class="cd-subtitle">Receive games from the Hub</p>
 			</div>
 		</div>
 	</div>

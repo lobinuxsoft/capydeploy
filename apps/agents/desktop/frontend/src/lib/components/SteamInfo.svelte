@@ -12,6 +12,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let deleting = $state<number | null>(null);
+	let expanded = $state(true);
 
 	async function loadUsers() {
 		try {
@@ -64,9 +65,9 @@
 		deleting = shortcut.appId;
 		try {
 			await DeleteShortcut(userId, shortcut.appId);
-			toast.success('Shortcut eliminado', shortcut.name);
+			toast.success('Shortcut deleted', shortcut.name);
 		} catch (e) {
-			toast.error('Error al eliminar', e instanceof Error ? e.message : String(e));
+			toast.error('Error deleting', e instanceof Error ? e.message : String(e));
 		} finally {
 			deleting = null;
 		}
@@ -91,30 +92,40 @@
 </script>
 
 <div class="cd-section p-4">
-	<div class="flex items-center gap-3 mb-4">
+	<button
+		type="button"
+		class="w-full flex items-center gap-3 hover:text-primary transition-colors"
+		onclick={() => expanded = !expanded}
+	>
+		{#if expanded}
+			<ChevronDown class="w-4 h-4 cd-text-primary" />
+		{:else}
+			<ChevronRight class="w-4 h-4 cd-text-disabled" />
+		{/if}
 		<div class="p-2 rounded-lg bg-primary/10">
 			<Users class="w-6 h-6 cd-text-primary" />
 		</div>
-		<div>
+		<div class="text-left">
 			<h2 class="cd-section-title text-lg">Steam</h2>
-			<p class="text-sm cd-text-disabled">Usuarios y shortcuts</p>
+			<p class="text-sm cd-text-disabled">Users and shortcuts</p>
 		</div>
-	</div>
+	</button>
 
+	{#if expanded}
 	{#if loading}
-		<div class="flex items-center justify-center py-8">
+		<div class="flex items-center justify-center py-8 mt-4">
 			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 		</div>
 	{:else if error}
-		<div class="text-center py-8 cd-text-destructive">
+		<div class="text-center py-8 mt-4 cd-text-destructive">
 			<p>{error}</p>
 		</div>
 	{:else if users.length === 0}
-		<div class="text-center py-8 cd-text-disabled">
-			<p>No se encontraron usuarios de Steam</p>
+		<div class="text-center py-8 mt-4 cd-text-disabled">
+			<p>No Steam users found</p>
 		</div>
 	{:else}
-		<div class="space-y-2">
+		<div class="space-y-2 mt-4">
 			{#each users as user}
 				<div class="rounded-lg border border-border/50 bg-secondary/20 overflow-hidden">
 					<button
@@ -139,7 +150,7 @@
 								{@const userShortcuts = shortcuts.get(user.id) || []}
 								{#if userShortcuts.length === 0}
 									<p class="text-sm cd-text-disabled text-center py-2">
-										Sin shortcuts
+										No shortcuts
 									</p>
 								{:else}
 									<div class="space-y-2">
@@ -181,5 +192,6 @@
 				</div>
 			{/each}
 		</div>
+	{/if}
 	{/if}
 </div>

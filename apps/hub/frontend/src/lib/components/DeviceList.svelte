@@ -57,10 +57,10 @@
 		try {
 			await ConnectAgent(agentID);
 			await loadConnectionStatus();
-			toast.success('Conectado');
+			toast.success('Connected');
 		} catch (e) {
 			console.error('Failed to connect:', e);
-			toast.error('Error de conexion', String(e));
+			toast.error('Connection error', String(e));
 		} finally {
 			connecting = null;
 		}

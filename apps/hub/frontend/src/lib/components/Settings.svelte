@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
-	import { formatBytes } from '$lib/utils';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive, Info, Server } from 'lucide-svelte';
+	import { ExternalLink, Save, Loader2, Info, Server } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
-		GetCacheSize, ClearImageCache, OpenCacheFolder,
-		GetImageCacheEnabled, SetImageCacheEnabled,
 		GetVersion,
 		GetHubInfo, SetHubName
 	} from '$lib/wailsjs';
@@ -19,11 +16,7 @@
 	let hubPlatform = $state('');
 	let savingHubName = $state(false);
 	let apiKey = $state('');
-	let cacheEnabled = $state(true);
-	let cacheSize = $state('Calculating...');
 	let saving = $state(false);
-	let clearing = $state(false);
-	let togglingCache = $state(false);
 	let versionInfo = $state<VersionInfo | null>(null);
 
 	async function loadSettings() {
@@ -46,50 +39,9 @@
 		}
 
 		try {
-			cacheEnabled = await GetImageCacheEnabled();
-		} catch (e) {
-			console.error('Failed to load cache setting:', e);
-			cacheEnabled = true;
-		}
-
-		try {
 			versionInfo = await GetVersion();
 		} catch (e) {
 			console.error('Failed to load version:', e);
-		}
-
-		if (cacheEnabled) {
-			await updateCacheSize();
-		}
-	}
-
-	async function updateCacheSize() {
-		if (!browser) return;
-		try {
-			const size = await GetCacheSize();
-			cacheSize = formatBytes(size);
-		} catch (e) {
-			cacheSize = 'Unable to calculate';
-		}
-	}
-
-	async function toggleCache() {
-		togglingCache = true;
-		try {
-			const newValue = !cacheEnabled;
-			await SetImageCacheEnabled(newValue);
-			cacheEnabled = newValue;
-			if (newValue) {
-				await updateCacheSize();
-				toast.success('Cache activado');
-			} else {
-				cacheSize = '0 B';
-				toast.info('Cache desactivado', 'Las imagenes en cache fueron eliminadas');
-			}
-		} catch (e) {
-			toast.error('Error', String(e));
-		} finally {
-			togglingCache = false;
 		}
 	}
 
@@ -97,32 +49,11 @@
 		saving = true;
 		try {
 			await SetSteamGridDBAPIKey(apiKey);
-			toast.success('Configuracion guardada');
+			toast.success('Settings saved');
 		} catch (e) {
-			toast.error('Error al guardar', String(e));
+			toast.error('Error saving settings', String(e));
 		} finally {
 			saving = false;
-		}
-	}
-
-	async function clearCache() {
-		clearing = true;
-		try {
-			await ClearImageCache();
-			await updateCacheSize();
-			toast.success('Cache limpiado');
-		} catch (e) {
-			toast.error('Error al limpiar cache', String(e));
-		} finally {
-			clearing = false;
-		}
-	}
-
-	async function openCacheFolder() {
-		try {
-			await OpenCacheFolder();
-		} catch (e) {
-			toast.error('Error al abrir carpeta', String(e));
 		}
 	}
 
@@ -130,9 +61,9 @@
 		savingHubName = true;
 		try {
 			await SetHubName(hubName);
-			toast.success('Nombre del Hub actualizado');
+			toast.success('Hub name updated');
 		} catch (e) {
-			toast.error('Error al guardar', String(e));
+			toast.error('Error saving', String(e));
 		} finally {
 			savingHubName = false;
 		}
@@ -215,57 +146,6 @@
 				placeholder="Your SteamGridDB API key"
 			/>
 		</div>
-	</div>
-
-	<!-- Image Cache Section -->
-	<div class="cd-section p-4">
-		<h3 class="cd-section-title">Image Cache</h3>
-		<p class="text-sm cd-text-disabled mb-4">
-			Cache images locally for faster loading. Disabling will delete all cached images.
-		</p>
-
-		<!-- Cache toggle -->
-		<div class="flex items-center justify-between mb-4">
-			<div class="flex items-center gap-3">
-				<HardDrive class="w-5 h-5 cd-text-disabled" />
-				<div>
-					<span class="text-sm font-medium">Enable Local Cache</span>
-					<p class="text-xs cd-text-disabled">Store downloaded images on disk</p>
-				</div>
-			</div>
-			<button
-				type="button"
-				onclick={toggleCache}
-				disabled={togglingCache}
-				class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background {cacheEnabled ? 'bg-primary' : 'bg-muted'}"
-			>
-				<span
-					class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"
-				></span>
-			</button>
-		</div>
-
-		{#if cacheEnabled}
-			<div class="flex items-center gap-4 mb-4">
-				<span class="text-sm cd-text-disabled">Cache Size:</span>
-				<span class="cd-mono">{cacheSize}</span>
-			</div>
-
-			<div class="flex gap-2">
-				<Button variant="outline" onclick={clearCache} disabled={clearing}>
-					{#if clearing}
-						<Loader2 class="w-4 h-4 mr-2 animate-spin" />
-					{:else}
-						<Trash2 class="w-4 h-4 mr-2" />
-					{/if}
-					Clear Cache
-				</Button>
-				<Button variant="outline" onclick={openCacheFolder}>
-					<FolderOpen class="w-4 h-4 mr-2" />
-					Open Cache Folder
-				</Button>
-			</div>
-		{/if}
 	</div>
 
 	<Button variant="gradient" onclick={saveSettings} disabled={saving} class="w-full">

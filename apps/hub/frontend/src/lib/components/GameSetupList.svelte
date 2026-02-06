@@ -47,9 +47,9 @@
 			if (data.done) {
 				uploading = null;
 				if (!data.error) {
-					toast.success('Subida completada', data.status);
+					toast.success('Upload complete', data.status);
 				} else {
-					toast.error('Error en la subida', data.error);
+					toast.error('Upload error', data.error);
 				}
 			}
 		});
@@ -113,7 +113,7 @@
 
 	async function saveSetup() {
 		if (!formName || !formLocalPath || !formExecutable) {
-			toast.warning('Campos requeridos', 'Nombre, carpeta local y ejecutable son obligatorios');
+			toast.warning('Required fields', 'Name, local folder and executable are required');
 			return;
 		}
 
@@ -144,7 +144,7 @@
 			resetForm();
 		} catch (e) {
 			console.error('Failed to save setup:', e);
-			toast.error('Error al guardar', String(e));
+			toast.error('Error saving', String(e));
 		}
 	}
 
@@ -160,18 +160,18 @@
 
 	async function uploadGameHandler(setup: GameSetup) {
 		if (!$connectionStatus.connected) {
-			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
+			toast.warning('No connection', 'Connect to a device first');
 			return;
 		}
 
 		uploading = setup.id;
-		uploadProgress.set({ progress: 0, status: 'Iniciando subida...', done: false });
+		uploadProgress.set({ progress: 0, status: 'Starting upload...', done: false });
 
 		try {
 			await UploadGame(setup.id);
 		} catch (e) {
 			console.error('Failed to start upload:', e);
-			toast.error('Error al iniciar subida', String(e));
+			toast.error('Error starting upload', String(e));
 			uploading = null;
 			uploadProgress.set(null);
 		}
