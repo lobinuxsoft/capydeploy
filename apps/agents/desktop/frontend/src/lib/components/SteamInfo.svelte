@@ -83,6 +83,9 @@
 
 		return () => {
 			EventsOff('shortcuts:changed');
+			// Cleanup accumulated data
+			shortcuts.clear();
+			expandedUsers.clear();
 		};
 	});
 </script>

@@ -10,6 +10,8 @@ export interface Toast {
 
 function createToastStore() {
 	const { subscribe, update } = writable<Toast[]>([]);
+	// Track timeouts to allow cleanup
+	const timeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
 	function add(toast: Omit<Toast, 'id'>) {
 		const id = crypto.randomUUID();
@@ -18,14 +20,28 @@ function createToastStore() {
 		update((toasts) => [...toasts, { ...toast, id }]);
 
 		if (duration > 0) {
-			setTimeout(() => remove(id), duration);
+			const timeoutId = setTimeout(() => remove(id), duration);
+			timeouts.set(id, timeoutId);
 		}
 
 		return id;
 	}
 
 	function remove(id: string) {
+		// Clear timeout if exists
+		const timeoutId = timeouts.get(id);
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeouts.delete(id);
+		}
 		update((toasts) => toasts.filter((t) => t.id !== id));
+	}
+
+	function clear() {
+		// Clear all pending timeouts
+		timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+		timeouts.clear();
+		update(() => []);
 	}
 
 	function success(title: string, message?: string) {
@@ -48,6 +64,7 @@ function createToastStore() {
 		subscribe,
 		add,
 		remove,
+		clear,
 		success,
 		error,
 		warning,

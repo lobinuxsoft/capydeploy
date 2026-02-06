@@ -79,9 +79,33 @@
 	// Show filters panel
 	let showFilters = $state(false);
 
-	// Image proxy cache - maps original URL to data URL
+	// Image proxy cache - maps original URL to data URL (LRU with max size)
+	const IMAGE_CACHE_MAX_SIZE = 150;
 	let imageCache = $state<Map<string, string>>(new Map());
 	let loadingImages = $state<Set<string>>(new Set());
+
+	// LRU cache helper - removes oldest entries when limit exceeded
+	function addToCache(url: string, dataUrl: string) {
+		// If cache is full, remove oldest entries (first 20% of entries)
+		if (imageCache.size >= IMAGE_CACHE_MAX_SIZE) {
+			const keysToRemove = Array.from(imageCache.keys()).slice(0, Math.floor(IMAGE_CACHE_MAX_SIZE * 0.2));
+			keysToRemove.forEach(key => imageCache.delete(key));
+			console.log(`[imageCache] Evicted ${keysToRemove.length} entries, size: ${imageCache.size}`);
+		}
+		imageCache.set(url, dataUrl);
+	}
+
+	// Cleanup function to clear all cached data
+	function clearCache() {
+		imageCache.clear();
+		loadingImages.clear();
+		capsules = [];
+		wideCapsules = [];
+		heroes = [];
+		logos = [];
+		icons = [];
+		console.log('[ArtworkSelector] Cache cleared');
+	}
 
 	const tabs = [
 		{ id: 'capsule', label: 'Capsule' },
@@ -409,7 +433,7 @@
 					const dataUrl = await ProxyImageCached(selectedGameID, url);
 					console.log('[preloadImages] Got data URL, length:', dataUrl?.length || 0);
 					if (dataUrl && dataUrl.startsWith('data:')) {
-						imageCache.set(url, dataUrl);
+						addToCache(url, dataUrl);
 					}
 				} catch (err) {
 					console.error('[preloadImages] Failed:', err);
@@ -497,6 +521,11 @@
 		if (gameName && !currentSelection?.gridDBGameID) {
 			searchGames();
 		}
+
+		// Cleanup on component destroy - clear all cached data
+		return () => {
+			clearCache();
+		};
 	});
 </script>
 
