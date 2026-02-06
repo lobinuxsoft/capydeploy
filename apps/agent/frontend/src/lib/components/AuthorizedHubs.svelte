@@ -9,8 +9,27 @@
 	interface AuthorizedHub {
 		id: string;
 		name: string;
+		platform?: string;
 		pairedAt: string;
 		lastSeen: string;
+	}
+
+	function getPlatformIcon(platform?: string): string {
+		switch (platform) {
+			case 'windows': return '🪟';
+			case 'darwin': return '🍎';
+			case 'linux': return '🐧';
+			default: return '💻';
+		}
+	}
+
+	function getPlatformName(platform?: string): string {
+		switch (platform) {
+			case 'windows': return 'Windows';
+			case 'darwin': return 'macOS';
+			case 'linux': return 'Linux';
+			default: return platform || 'Unknown';
+		}
 	}
 
 	let hubs = $state<AuthorizedHub[]>([]);
@@ -98,7 +117,14 @@
 					<div class="flex items-center gap-3">
 						<Monitor class="w-5 h-5 text-muted-foreground" />
 						<div>
-							<div class="font-medium">{hub.name}</div>
+							<div class="font-medium flex items-center gap-2">
+								{hub.name}
+								{#if hub.platform}
+									<span class="text-xs text-muted-foreground" title={getPlatformName(hub.platform)}>
+										{getPlatformIcon(hub.platform)}
+									</span>
+								{/if}
+							</div>
 							<div class="text-xs text-muted-foreground">
 								Emparejado: {formatDate(hub.pairedAt)}
 							</div>

@@ -39,6 +39,11 @@ func NewWSClientWithAuth(host string, port int, platform, hubName, hubVersion, h
 	}
 }
 
+// SetPlatform sets the hub platform to be sent during connection.
+func (c *WSClient) SetPlatform(platform string) {
+	c.client.SetPlatform(platform)
+}
+
 // SetPairingCallback sets the callback for when pairing is required.
 func (c *WSClient) SetPairingCallback(cb func(agentID string)) {
 	c.client.SetPairingCallback(cb)

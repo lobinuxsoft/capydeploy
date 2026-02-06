@@ -24,6 +24,7 @@ func (s *ConfigStorageAdapter) GetAuthorizedHubs() []AuthorizedHub {
 		hubs[i] = AuthorizedHub{
 			ID:       h.ID,
 			Name:     h.Name,
+			Platform: h.Platform,
 			Token:    h.Token,
 			PairedAt: parseTime(h.PairedAt),
 			LastSeen: parseTime(h.LastSeen),
@@ -37,6 +38,7 @@ func (s *ConfigStorageAdapter) AddAuthorizedHub(hub AuthorizedHub) error {
 	cfgHub := config.AuthorizedHub{
 		ID:       hub.ID,
 		Name:     hub.Name,
+		Platform: hub.Platform,
 		Token:    hub.Token,
 		PairedAt: hub.PairedAt.Format(time.RFC3339),
 		LastSeen: hub.LastSeen.Format(time.RFC3339),

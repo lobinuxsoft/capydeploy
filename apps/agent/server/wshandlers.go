@@ -52,7 +52,7 @@ func (ws *WSServer) handleHubConnected(hub *HubConnection, msg *protocol.Message
 	}
 
 	// Generate pairing code
-	code, err := ws.authMgr.GenerateCode(req.HubID, req.Name)
+	code, err := ws.authMgr.GenerateCode(req.HubID, req.Name, req.Platform)
 	if err != nil {
 		log.Printf("WS: Failed to generate pairing code: %v", err)
 		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())

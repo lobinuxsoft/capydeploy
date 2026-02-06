@@ -14,6 +14,7 @@ import (
 type AuthorizedHub struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
+	Platform string `json:"platform,omitempty"`
 	Token    string `json:"token"`
 	PairedAt string `json:"pairedAt"`
 	LastSeen string `json:"lastSeen"`

@@ -37,6 +37,7 @@ var (
 type AuthorizedHub struct {
 	ID       string    `json:"id"`
 	Name     string    `json:"name"`
+	Platform string    `json:"platform,omitempty"`
 	Token    string    `json:"token"`
 	PairedAt time.Time `json:"pairedAt"`
 	LastSeen time.Time `json:"lastSeen"`
@@ -44,10 +45,11 @@ type AuthorizedHub struct {
 
 // PairingSession holds the state of an active pairing attempt.
 type PairingSession struct {
-	Code      string
-	HubID     string
-	HubName   string
-	ExpiresAt time.Time
+	Code        string
+	HubID       string
+	HubName     string
+	HubPlatform string
+	ExpiresAt   time.Time
 }
 
 // Storage defines the interface for persisting authorized hubs.
@@ -84,7 +86,7 @@ func (m *Manager) SetPairingCodeCallback(cb func(code string, expiresIn time.Dur
 }
 
 // GenerateCode creates a new 6-digit pairing code for a Hub.
-func (m *Manager) GenerateCode(hubID, hubName string) (string, error) {
+func (m *Manager) GenerateCode(hubID, hubName, hubPlatform string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -100,10 +102,11 @@ func (m *Manager) GenerateCode(hubID, hubName string) (string, error) {
 	}
 
 	m.pendingPairing = &PairingSession{
-		Code:      code,
-		HubID:     hubID,
-		HubName:   hubName,
-		ExpiresAt: time.Now().Add(CodeExpiry),
+		Code:        code,
+		HubID:       hubID,
+		HubName:     hubName,
+		HubPlatform: hubPlatform,
+		ExpiresAt:   time.Now().Add(CodeExpiry),
 	}
 
 	// Notify callback
@@ -161,10 +164,11 @@ func (m *Manager) ValidateCode(hubID, hubName, code string) (string, error) {
 		return "", fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// Add to authorized hubs
+	// Add to authorized hubs (use platform from pairing session)
 	hub := AuthorizedHub{
 		ID:       hubID,
 		Name:     hubName,
+		Platform: m.pendingPairing.HubPlatform,
 		Token:    token,
 		PairedAt: time.Now(),
 		LastSeen: time.Now(),
