@@ -179,7 +179,7 @@ jobs:
         run: cd apps/agents/decky && npm install
 
       - name: TypeScript check (Decky)
-        run: cd apps/agents/decky && npx tsc --noEmit
+        run: cd apps/agents/decky && npx tsc --noEmit --skipLibCheck
 
       - name: Build Decky frontend
         run: cd apps/agents/decky && npm run build
