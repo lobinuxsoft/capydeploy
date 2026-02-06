@@ -1,0 +1,399 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+            platform: linux/amd64
+            hub_bin: capydeploy-hub
+            agent_bin: capydeploy-agent
+          - target: windows-amd64
+            goos: windows
+            goarch: amd64
+            platform: windows/amd64
+            hub_bin: capydeploy-hub.exe
+            agent_bin: capydeploy-agent.exe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            sudo apt-get install -y gcc-mingw-w64-x86-64
+          fi
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build steam-shortcut-manager
+        run: |
+          cd steam-shortcut-manager
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
+
+      - name: Collect version info
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ldflags=-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Build Hub
+        run: |
+          cd apps/hub
+          bun install --frozen-lockfile --cwd frontend
+          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
+
+      - name: Build Agent
+        run: |
+          cd apps/agents/desktop
+          bun install --frozen-lockfile --cwd frontend
+          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
+
+      - name: Upload Hub binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub-${{ matrix.target }}
+          path: apps/hub/build/bin/${{ matrix.hub_bin }}
+
+      - name: Upload Agent binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-${{ matrix.target }}
+          path: apps/agents/desktop/build/bin/${{ matrix.agent_bin }}
+
+  appimage:
+    name: AppImage
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Hub Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: hub-linux-amd64
+          path: artifacts/hub
+
+      - name: Download Agent Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-linux-amd64
+          path: artifacts/agent
+
+      - name: Download appimagetool
+        run: |
+          curl -L -o appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+
+      - name: Generate AppRun script
+        run: |
+          generate_apprun() {
+            local binary_name="$1"
+            local desktop_name="$2"
+            local display_name="$3"
+            local find_pattern="$4"
+            local output="$5"
+            cat > "$output" << APPRUN_EOF
+          #!/bin/bash
+          SELF=\$(readlink -f "\$0")
+          HERE=\${SELF%/*}
+          APPIMAGE="\${APPIMAGE:-\$SELF}"
+          APP_NAME="${binary_name}"
+          DESKTOP_NAME="${desktop_name}"
+          INSTALL_DIR="\$HOME/.local/bin"
+          DESKTOP_DIR="\$HOME/.local/share/applications"
+          ICON_DIR="\$HOME/.local/share/icons"
+
+          install_app() {
+              echo "Installing \$APP_NAME..."
+              mkdir -p "\$INSTALL_DIR" "\$DESKTOP_DIR" "\$ICON_DIR"
+              DEST="\$INSTALL_DIR/\$(basename "\$APPIMAGE")"
+              if [ "\$APPIMAGE" != "\$DEST" ]; then
+                  mv "\$APPIMAGE" "\$DEST"
+                  chmod +x "\$DEST"
+                  echo "  Moved to: \$DEST"
+              fi
+              "\$DEST" --appimage-extract "\$DESKTOP_NAME.png" >/dev/null 2>&1
+              if [ -f "squashfs-root/\$DESKTOP_NAME.png" ]; then
+                  cp "squashfs-root/\$DESKTOP_NAME.png" "\$ICON_DIR/\$DESKTOP_NAME.png"
+                  rm -rf squashfs-root
+                  echo "  Icon installed"
+              fi
+              cat > "\$DESKTOP_DIR/\$DESKTOP_NAME.desktop" << INNER_DESKTOP
+          [Desktop Entry]
+          Name=${display_name}
+          Comment=Deploy games to Steam Deck and Linux devices
+          Exec=\$DEST --run
+          Icon=\$ICON_DIR/\$DESKTOP_NAME.png
+          Type=Application
+          Categories=Game;Development;
+          Terminal=false
+          INNER_DESKTOP
+              echo "  Desktop entry created"
+              echo ""
+              echo "Installation complete! You can find the app in your application menu."
+          }
+
+          uninstall_app() {
+              echo "Uninstalling \$APP_NAME..."
+              find "\$INSTALL_DIR" -maxdepth 1 -iname "${find_pattern}" -delete 2>/dev/null
+              rm -f "\$DESKTOP_DIR/\$DESKTOP_NAME.desktop"
+              rm -f "\$ICON_DIR/\$DESKTOP_NAME.png"
+              echo "Uninstalled."
+          }
+
+          case "\$1" in
+              --install)
+                  install_app
+                  exit 0
+                  ;;
+              --uninstall)
+                  uninstall_app
+                  exit 0
+                  ;;
+              --run)
+                  shift
+                  export PATH="\${HERE}/usr/bin:\${PATH}"
+                  exec "\${HERE}/usr/bin/${binary_name}" "\$@"
+                  ;;
+              --help)
+                  echo "Usage: \$(basename "\$APPIMAGE") [OPTIONS]"
+                  echo ""
+                  echo "Options:"
+                  echo "  --install     Install to ~/.local/bin and create desktop entry"
+                  echo "  --uninstall   Remove installation"
+                  echo "  --run         Run without install check (used by .desktop)"
+                  echo "  --help        Show this help"
+                  exit 0
+                  ;;
+          esac
+
+          if [[ "\$APPIMAGE" != "\$INSTALL_DIR"/* ]] && [ ! -t 0 ]; then
+              if command -v zenity &>/dev/null; then
+                  if zenity --question --title="Install \$APP_NAME" \
+                      --text="Install to ~/.local/bin and create menu entry?" \
+                      --width=300 2>/dev/null; then
+                      install_app
+                      exec "\$INSTALL_DIR/\$(basename "\$APPIMAGE")" --run "\$@"
+                  fi
+              elif command -v kdialog &>/dev/null; then
+                  if kdialog --yesno "Install to ~/.local/bin and create menu entry?" \
+                      --title "Install \$APP_NAME" 2>/dev/null; then
+                      install_app
+                      exec "\$INSTALL_DIR/\$(basename "\$APPIMAGE")" --run "\$@"
+                  fi
+              fi
+          fi
+
+          export PATH="\${HERE}/usr/bin:\${PATH}"
+          exec "\${HERE}/usr/bin/${binary_name}" "\$@"
+          APPRUN_EOF
+            chmod +x "$output"
+          }
+
+          generate_desktop() {
+            local binary_name="$1"
+            local display_name="$2"
+            local output="$3"
+            cat > "$output" << DESKTOP_EOF
+          [Desktop Entry]
+          Name=${display_name}
+          Comment=Deploy games to Steam Deck and Linux devices
+          Exec=${binary_name}
+          Icon=${binary_name}
+          Type=Application
+          Categories=Game;Development;
+          Terminal=false
+          DESKTOP_EOF
+          }
+
+          # Hub AppDir
+          mkdir -p hub.AppDir/usr/bin
+          cp artifacts/hub/capydeploy-hub hub.AppDir/usr/bin/
+          chmod +x hub.AppDir/usr/bin/capydeploy-hub
+          cp apps/hub/build/appicon.png hub.AppDir/capydeploy-hub.png
+          generate_desktop "capydeploy-hub" "CapyDeploy Hub" "hub.AppDir/capydeploy-hub.desktop"
+          generate_apprun "capydeploy-hub" "capydeploy-hub" "CapyDeploy Hub" "*capydeploy*hub*.AppImage" "hub.AppDir/AppRun"
+
+          # Agent AppDir
+          mkdir -p agent.AppDir/usr/bin
+          cp artifacts/agent/capydeploy-agent agent.AppDir/usr/bin/
+          chmod +x agent.AppDir/usr/bin/capydeploy-agent
+          cp apps/agents/desktop/build/appicon.png agent.AppDir/capydeploy-agent.png
+          generate_desktop "capydeploy-agent" "CapyDeploy Agent" "agent.AppDir/capydeploy-agent.desktop"
+          generate_apprun "capydeploy-agent" "capydeploy-agent" "CapyDeploy Agent" "*capydeploy*agent*.AppImage" "agent.AppDir/AppRun"
+
+      - name: Build AppImages
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          ARCH=x86_64 ./appimagetool hub.AppDir CapyDeploy_Hub.AppImage
+          ARCH=x86_64 ./appimagetool agent.AppDir CapyDeploy_Agent.AppImage
+
+      - name: Upload AppImages
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimages
+          path: |
+            CapyDeploy_Hub.AppImage
+            CapyDeploy_Agent.AppImage
+
+  decky:
+    name: Decky Plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: cd apps/agents/decky && npm install
+
+      - name: Build frontend
+        run: cd apps/agents/decky && npm run build
+
+      - name: Install Python dependencies
+        run: |
+          cd apps/agents/decky
+          mkdir -p py_modules
+          pip install --target py_modules -r requirements.txt --no-cache-dir
+
+      - name: Package plugin
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd apps/agents/decky
+
+          PLUGIN_NAME="CapyDeploy"
+          BUILD_DIR="/tmp/decky-build/$PLUGIN_NAME"
+          mkdir -p "$BUILD_DIR"
+
+          cp plugin.json "$BUILD_DIR/"
+          cp package.json "$BUILD_DIR/"
+          for pyfile in main.py steam_utils.py mdns_service.py pairing.py upload.py artwork.py ws_server.py; do
+            cp "$pyfile" "$BUILD_DIR/"
+          done
+          cp requirements.txt "$BUILD_DIR/"
+          cp -r py_modules "$BUILD_DIR/"
+          cp -r dist "$BUILD_DIR/"
+          if [ -d "assets" ]; then cp -r assets "$BUILD_DIR/"; fi
+
+          cd /tmp/decky-build
+          zip -r "$GITHUB_WORKSPACE/CapyDeploy-v${VERSION}.zip" "$PLUGIN_NAME"
+
+      - name: Upload Decky plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: decky-plugin
+          path: CapyDeploy-v*.zip
+
+  release:
+    name: Create Release
+    needs: [build, appimage, decky]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package release assets
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release
+
+          # Linux tar.gz
+          mkdir -p staging/linux
+          cp artifacts/hub-linux-amd64/capydeploy-hub staging/linux/
+          cp artifacts/agent-linux-amd64/capydeploy-agent staging/linux/
+          chmod +x staging/linux/*
+          tar -czf "release/capydeploy-${VERSION}-linux-amd64.tar.gz" -C staging/linux .
+
+          # Windows zip
+          mkdir -p staging/windows
+          cp artifacts/hub-windows-amd64/capydeploy-hub.exe staging/windows/
+          cp artifacts/agent-windows-amd64/capydeploy-agent.exe staging/windows/
+          cd staging/windows && zip -r "../../release/capydeploy-${VERSION}-windows-amd64.zip" . && cd ../..
+
+          # AppImages
+          cp artifacts/appimages/CapyDeploy_Hub.AppImage release/
+          cp artifacts/appimages/CapyDeploy_Agent.AppImage release/
+          chmod +x release/*.AppImage
+
+          # Decky plugin
+          cp artifacts/decky-plugin/CapyDeploy-v*.zip release/
+
+          # Checksums
+          cd release
+          sha256sum * > checksums-sha256.txt
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
+          echo "changelog<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: CapyDeploy v${{ steps.version.outputs.version }}
+          body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Downloads
+
+            | File | Description |
+            |------|-------------|
+            | `capydeploy-${{ steps.version.outputs.version }}-linux-amd64.tar.gz` | Linux binaries (Hub + Agent) |
+            | `capydeploy-${{ steps.version.outputs.version }}-windows-amd64.zip` | Windows binaries (Hub + Agent) |
+            | `CapyDeploy_Hub.AppImage` | Hub AppImage (auto-install support) |
+            | `CapyDeploy_Agent.AppImage` | Agent AppImage (auto-install support) |
+            | `CapyDeploy-v${{ steps.version.outputs.version }}.zip` | Decky Loader plugin |
+            | `checksums-sha256.txt` | SHA-256 checksums for all files |
+          files: release/*
+          generate_release_notes: false
