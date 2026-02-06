@@ -1,18 +1,12 @@
 <script lang="ts">
-	import { Button, Input, Select, Checkbox } from '$lib/components/ui';
+	import { Button, Input } from '$lib/components/ui';
+	import FiltersModal from '$lib/components/FiltersModal.svelte';
 	import type {
 		ArtworkSelection, SearchResult, GridData, ImageData, ImageFilters
 	} from '$lib/types';
-	import {
-		gridStyles, heroStyles, logoStyles, iconStyles,
-		capsuleDimensions, wideCapsuleDimensions, heroDimensions, logoDimensions, iconDimensions,
-		gridMimes, logoMimes, iconMimes, animationOptions
-	} from '$lib/types';
-	import { isAnimatedImage } from '$lib/utils';
-	import { Search, X, ExternalLink, Loader2, RefreshCw, Filter, Check, ImageOff } from 'lucide-svelte';
+	import { Search, X, Loader2, RefreshCw, Filter, Check } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, ProxyImageCached, OpenCachedImage } from '$lib/wailsjs';
-	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
 
@@ -32,7 +26,7 @@
 	let searching = $state(false);
 	let loading = $state(false);
 	let statusMessage = $state('Search for a game to select artwork');
-	let activeTab = $state('capsule');
+	let activeTab = $state<'capsule' | 'wide' | 'hero' | 'logo' | 'icon'>('capsule');
 
 	// Selection state - separate variables for better reactivity
 	let gridDBGameID = $state(currentSelection?.gridDBGameID || 0);
@@ -42,11 +36,6 @@
 	let logoImage = $state(currentSelection?.logoImage || '');
 	let iconImage = $state(currentSelection?.iconImage || '');
 
-	// Preview
-	let previewUrl = $state('');
-	let previewOriginalUrl = $state(''); // Original URL for opening cached file
-	let previewInfo = $state('');
-
 	// Image data
 	let capsules = $state<GridData[]>([]);
 	let wideCapsules = $state<GridData[]>([]);
@@ -54,13 +43,16 @@
 	let logos = $state<ImageData[]>([]);
 	let icons = $state<ImageData[]>([]);
 
-	// Filters - separate for each tab for better control
-	let filterStyle = $state('');
-	let filterMime = $state('');
-	let filterDimension = $state('');
-	let filterAnimation = $state('');
-	let filterNsfw = $state(false);
-	let filterHumor = $state(true);
+	// Filters - per tab
+	const defaultFilters: ImageFilters = {
+		style: '',
+		mimeType: '',
+		dimension: '',
+		imageType: '',
+		showNsfw: false,
+		showHumor: true
+	};
+	let filters = $state<ImageFilters>({ ...defaultFilters });
 
 	// Pages
 	let capsulePage = $state(0);
@@ -76,14 +68,34 @@
 	let hasMoreLogos = $state(false);
 	let hasMoreIcons = $state(false);
 
-	// Show filters panel
-	let showFilters = $state(false);
+	// Show filters modal
+	let showFiltersModal = $state(false);
 
-	// Image proxy cache - maps original URL to data URL
-	let imageCache = $state<Map<string, string>>(new Map());
-	let loadingImages = $state<Set<string>>(new Set());
+	// Check if any filters are active
+	let hasActiveFilters = $derived(
+		filters.style !== '' ||
+		filters.mimeType !== '' ||
+		filters.dimension !== '' ||
+		filters.imageType !== '' ||
+		filters.showNsfw !== false ||
+		filters.showHumor !== true
+	);
 
-	const tabs = [
+	// Check if thumb URL is animated (SteamGridDB uses .webm for animated thumbs)
+	function isAnimatedThumb(thumb: string): boolean {
+		return thumb?.includes('.webm') || false;
+	}
+
+	// Cleanup function to clear all cached data
+	function clearCache() {
+		capsules = [];
+		wideCapsules = [];
+		heroes = [];
+		logos = [];
+		icons = [];
+	}
+
+	const tabs: { id: 'capsule' | 'wide' | 'hero' | 'logo' | 'icon'; label: string }[] = [
 		{ id: 'capsule', label: 'Capsule' },
 		{ id: 'wide', label: 'Wide' },
 		{ id: 'hero', label: 'Hero' },
@@ -91,74 +103,20 @@
 		{ id: 'icon', label: 'Icon' }
 	];
 
-	function getStyleOptions(): string[] {
-		switch (activeTab) {
-			case 'capsule':
-			case 'wide': return gridStyles;
-			case 'hero': return heroStyles;
-			case 'logo': return logoStyles;
-			case 'icon': return iconStyles;
-			default: return gridStyles;
-		}
+	// Handle filter changes from modal
+	function handleFiltersApply(newFilters: ImageFilters) {
+		filters = newFilters;
+		reloadCurrentTab();
 	}
 
-	function getDimensionOptions(): string[] {
-		switch (activeTab) {
-			case 'capsule': return capsuleDimensions;
-			case 'wide': return wideCapsuleDimensions;
-			case 'hero': return heroDimensions;
-			case 'logo': return logoDimensions;
-			case 'icon': return iconDimensions;
-			default: return capsuleDimensions;
+	// Handle tab change - reload with current filters
+	function handleTabChange(tabId: typeof activeTab) {
+		if (tabId === activeTab) return;
+		activeTab = tabId;
+		// Reload the tab with current filters if a game is selected
+		if (selectedGameID) {
+			reloadCurrentTab();
 		}
-	}
-
-	// Filter MIMEs based on what the connected agent supports
-	function filterMimes(mimes: string[], supported: string[]): string[] {
-		if (!supported || supported.length === 0) return mimes;
-		return mimes.filter(m => m === 'All Formats' || supported.includes(m));
-	}
-
-	// Reactive MIME options filtered by agent's supported formats
-	let mimeOptions = $derived.by(() => {
-		const supported = $connectionStatus.supportedImageFormats;
-		switch (activeTab) {
-			case 'logo': return filterMimes(logoMimes, supported);
-			case 'icon': return filterMimes(iconMimes, supported);
-			default: return filterMimes(gridMimes, supported);
-		}
-	});
-
-	// Reset filterMime when it's no longer valid for current options
-	$effect(() => {
-		if (filterMime && !mimeOptions.includes(filterMime)) {
-			filterMime = '';
-		}
-	});
-
-	// Check if animated formats are supported (WebP/GIF can be animated)
-	let supportsAnimated = $derived.by(() => {
-		const supported = $connectionStatus.supportedImageFormats;
-		if (!supported || supported.length === 0) return true; // No agent = show all
-		return supported.includes('image/webp') || supported.includes('image/gif');
-	});
-
-	// Reset animation filter if animated not supported
-	$effect(() => {
-		if (!supportsAnimated && filterAnimation === 'Animated Only') {
-			filterAnimation = '';
-		}
-	});
-
-	function getCurrentFilters(): ImageFilters {
-		return {
-			style: filterStyle,
-			mimeType: filterMime,
-			dimension: filterDimension,
-			imageType: filterAnimation,
-			showNsfw: filterNsfw,
-			showHumor: filterHumor
-		};
 	}
 
 	async function searchGames() {
@@ -199,16 +157,12 @@
 		loading = true;
 		statusMessage = 'Loading capsules...';
 		try {
-			const grids = await GetGrids(selectedGameID, getCurrentFilters(), capsulePage);
+			const grids = await GetGrids(selectedGameID, filters, capsulePage);
 			const portraits = (grids || []).filter((g: any) => g.height > g.width);
 			capsules = append ? [...capsules, ...portraits] : portraits;
 			hasMoreCapsules = (grids || []).length >= 50;
-			const animCount = portraits.filter((p: any) => isAnimatedImage(p.mime, p.url)).length;
-			statusMessage = `Loading ${portraits.length} capsule images...`;
+			const animCount = portraits.filter((p: any) => isAnimatedThumb(p.thumb)).length;
 			capsulePage++;
-
-			// Preload images through proxy
-			await preloadImages(portraits);
 			statusMessage = `Loaded ${portraits.length} capsules (${animCount} animated)`;
 		} catch (e) {
 			console.error('LoadCapsules error:', e);
@@ -227,15 +181,12 @@
 		loading = true;
 		statusMessage = 'Loading wide capsules...';
 		try {
-			const grids = await GetGrids(selectedGameID, getCurrentFilters(), widePage);
+			const grids = await GetGrids(selectedGameID, filters, widePage);
 			const landscapes = (grids || []).filter((g: any) => g.width > g.height);
 			wideCapsules = append ? [...wideCapsules, ...landscapes] : landscapes;
 			hasMoreWide = (grids || []).length >= 50;
-			const animCount = landscapes.filter((p: any) => isAnimatedImage(p.mime, p.url)).length;
-			statusMessage = `Loading ${landscapes.length} wide capsule images...`;
+			const animCount = landscapes.filter((p: any) => isAnimatedThumb(p.thumb)).length;
 			widePage++;
-
-			await preloadImages(landscapes);
 			statusMessage = `Loaded ${landscapes.length} wide capsules (${animCount} animated)`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -253,15 +204,12 @@
 		loading = true;
 		statusMessage = 'Loading heroes...';
 		try {
-			const data = await GetHeroes(selectedGameID, getCurrentFilters(), heroPage);
+			const data = await GetHeroes(selectedGameID, filters, heroPage);
 			const items = data || [];
 			heroes = append ? [...heroes, ...items] : items;
 			hasMoreHeroes = items.length >= 50;
-			const animCount = items.filter((p: any) => isAnimatedImage(p.mime, p.url)).length;
-			statusMessage = `Loading ${items.length} hero images...`;
+			const animCount = items.filter((p: any) => isAnimatedThumb(p.thumb)).length;
 			heroPage++;
-
-			await preloadImages(items);
 			statusMessage = `Loaded ${items.length} heroes (${animCount} animated)`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -279,14 +227,11 @@
 		loading = true;
 		statusMessage = 'Loading logos...';
 		try {
-			const data = await GetLogos(selectedGameID, getCurrentFilters(), logoPage);
+			const data = await GetLogos(selectedGameID, filters, logoPage);
 			const items = data || [];
 			logos = append ? [...logos, ...items] : items;
 			hasMoreLogos = items.length >= 50;
-			statusMessage = `Loading ${items.length} logo images...`;
 			logoPage++;
-
-			await preloadImages(items);
 			statusMessage = `Loaded ${items.length} logos`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -304,14 +249,11 @@
 		loading = true;
 		statusMessage = 'Loading icons...';
 		try {
-			const data = await GetIcons(selectedGameID, getCurrentFilters(), iconPage);
+			const data = await GetIcons(selectedGameID, filters, iconPage);
 			const items = data || [];
 			icons = append ? [...icons, ...items] : items;
 			hasMoreIcons = items.length >= 50;
-			statusMessage = `Loading ${items.length} icon images...`;
 			iconPage++;
-
-			await preloadImages(items);
 			statusMessage = `Loaded ${items.length} icons`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
@@ -332,115 +274,22 @@
 
 	function selectCapsule(img: GridData) {
 		gridPortrait = img.url;
-		showPreview(img.url, img.width, img.height, img.style, img.mime);
 	}
 
 	function selectWide(img: GridData) {
 		gridLandscape = img.url;
-		showPreview(img.url, img.width, img.height, img.style, img.mime);
 	}
 
 	function selectHero(img: ImageData) {
 		heroImage = img.url;
-		showPreview(img.url, img.width, img.height, img.style, img.mime);
 	}
 
 	function selectLogo(img: ImageData) {
 		logoImage = img.url;
-		showPreview(img.url, img.width, img.height, img.style, img.mime);
 	}
 
 	function selectIcon(img: ImageData) {
 		iconImage = img.url;
-		showPreview(img.url, img.width, img.height, img.style, img.mime);
-	}
-
-	function showPreview(url: string, width: number, height: number, style: string, mime: string) {
-		// Save original URL for opening cached file
-		previewOriginalUrl = url;
-		// Use cached version for display if available
-		previewUrl = imageCache.get(url) || url;
-		const isAnim = isAnimatedImage(mime, url);
-		previewInfo = `${width}x${height} - ${style}${isAnim ? ' (Animated)' : ''}`;
-	}
-
-	// Get cached image URL for display (returns original URL if not cached)
-	function getCachedUrl(originalUrl: string): string {
-		if (!originalUrl) return '';
-		return imageCache.get(originalUrl) || originalUrl;
-	}
-
-	function getImageSrc(img: any): string {
-		const url = img?.url || img?.Url || img?.URL || '';
-		if (!url) return '';
-
-		// Return cached data URL if available, otherwise return original URL
-		const cached = imageCache.get(url);
-		return cached || url;
-	}
-
-	// Preload images through proxy with disk cache (runs in background)
-	async function preloadImages(images: any[]) {
-		console.log('[preloadImages] Starting with', images.length, 'images, gameID:', selectedGameID);
-		const urls = images.map(img => img?.url || img?.Url || img?.URL || '').filter(Boolean);
-
-		const uncachedUrls = urls.filter(url => !imageCache.has(url) && !loadingImages.has(url));
-		console.log('[preloadImages] Uncached URLs:', uncachedUrls.length);
-
-		if (uncachedUrls.length === 0) {
-			console.log('[preloadImages] All images already cached');
-			return;
-		}
-
-		// Mark as loading
-		uncachedUrls.forEach(url => loadingImages.add(url));
-		loadingImages = new Set(loadingImages);
-
-		// Load in parallel (batch of 3)
-		const batchSize = 3;
-		for (let i = 0; i < uncachedUrls.length; i += batchSize) {
-			const batch = uncachedUrls.slice(i, i + batchSize);
-			console.log('[preloadImages] Loading batch', Math.floor(i / batchSize) + 1);
-
-			await Promise.all(batch.map(async (url) => {
-				try {
-					console.log('[preloadImages] Proxying:', url.substring(0, 60) + '...');
-					// Use cached version with gameID for disk persistence
-					const dataUrl = await ProxyImageCached(selectedGameID, url);
-					console.log('[preloadImages] Got data URL, length:', dataUrl?.length || 0);
-					if (dataUrl && dataUrl.startsWith('data:')) {
-						imageCache.set(url, dataUrl);
-					}
-				} catch (err) {
-					console.error('[preloadImages] Failed:', err);
-				} finally {
-					loadingImages.delete(url);
-				}
-			}));
-			// Trigger reactivity after each batch
-			imageCache = new Map(imageCache);
-			loadingImages = new Set(loadingImages);
-		}
-		console.log('[preloadImages] Done, cache size:', imageCache.size);
-	}
-
-	// Handle image load error - try to load full URL if thumb fails
-	function handleImageError(event: Event, img: { url?: string; thumb?: string }) {
-		const target = event.target as HTMLImageElement;
-		const thumb = img.thumb || '';
-		const url = img.url || '';
-
-		console.warn('Image load error:', { currentSrc: target.src, thumb, url });
-
-		// If current src is thumb, try full URL
-		if (target.src === thumb && url && url !== thumb) {
-			console.log('Trying full URL:', url);
-			target.src = url;
-		} else {
-			// Show placeholder - gray box with icon
-			target.style.visibility = 'hidden';
-			target.classList.add('load-failed');
-		}
 	}
 
 	function clearAll() {
@@ -449,8 +298,6 @@
 		heroImage = '';
 		logoImage = '';
 		iconImage = '';
-		previewUrl = '';
-		previewInfo = '';
 	}
 
 	function handleSave() {
@@ -462,21 +309,6 @@
 			logoImage,
 			iconImage
 		});
-	}
-
-	async function openInBrowser() {
-		if (previewOriginalUrl && selectedGameID > 0) {
-			try {
-				// Open cached image with system's default image viewer
-				await OpenCachedImage(selectedGameID, previewOriginalUrl);
-			} catch (e) {
-				// Fallback to opening URL in browser if not cached
-				console.warn('Image not cached, opening URL:', e);
-				BrowserOpenURL(previewOriginalUrl);
-			}
-		} else if (previewOriginalUrl) {
-			BrowserOpenURL(previewOriginalUrl);
-		}
 	}
 
 	// Check if an image is selected
@@ -497,6 +329,11 @@
 		if (gameName && !currentSelection?.gridDBGameID) {
 			searchGames();
 		}
+
+		// Cleanup on component destroy
+		return () => {
+			clearCache();
+		};
 	});
 </script>
 
@@ -563,7 +400,7 @@
 				{#each tabs as tab}
 					<button
 						type="button"
-						onclick={() => activeTab = tab.id}
+						onclick={() => handleTabChange(tab.id)}
 						class={cn(
 							'px-3 py-1.5 text-sm rounded-md transition-colors',
 							activeTab === tab.id
@@ -575,75 +412,35 @@
 					</button>
 				{/each}
 				<div class="flex-1"></div>
-				<Button variant="ghost" size="sm" onclick={() => showFilters = !showFilters}>
+				<Button
+					variant={hasActiveFilters ? 'default' : 'ghost'}
+					size="sm"
+					onclick={() => showFiltersModal = true}
+					disabled={!selectedGameID}
+				>
 					<Filter class="w-4 h-4 mr-1" />
 					Filters
+					{#if hasActiveFilters}
+						<span class="ml-1 px-1.5 py-0.5 text-[10px] bg-white/20 rounded">ON</span>
+					{/if}
 				</Button>
 				<Button variant="ghost" size="sm" onclick={reloadCurrentTab} disabled={loading || !selectedGameID}>
 					<RefreshCw class={cn('w-4 h-4', loading && 'animate-spin')} />
 				</Button>
 			</div>
 
-			<!-- Filters panel -->
-			{#if showFilters}
-				<div class="p-2 border-b bg-muted/50 shrink-0">
-					<div class="flex flex-wrap items-center gap-3">
-						<div class="flex items-center gap-1">
-							<span class="text-xs text-muted-foreground w-12">Style:</span>
-							<Select
-								options={getStyleOptions()}
-								value={filterStyle}
-								onchange={(v) => filterStyle = v}
-								placeholder="All"
-								class="w-28"
-							/>
-						</div>
-						<div class="flex items-center gap-1">
-							<span class="text-xs text-muted-foreground w-14">Format:</span>
-							<Select
-								options={mimeOptions}
-								value={filterMime}
-								onchange={(v) => filterMime = v}
-								placeholder="All"
-								class="w-32"
-							/>
-						</div>
-						<div class="flex items-center gap-1">
-							<span class="text-xs text-muted-foreground w-10">Size:</span>
-							<Select
-								options={getDimensionOptions()}
-								value={filterDimension}
-								onchange={(v) => filterDimension = v}
-								placeholder="All"
-								class="w-28"
-							/>
-						</div>
-						{#if supportsAnimated}
-							<div class="flex items-center gap-1">
-								<span class="text-xs text-muted-foreground w-16">Animation:</span>
-								<Select
-									options={animationOptions}
-									value={filterAnimation}
-									onchange={(v) => filterAnimation = v}
-									placeholder="All"
-									class="w-32"
-								/>
-							</div>
-						{/if}
-						<Checkbox
-							checked={filterNsfw}
-							onchange={(v) => filterNsfw = v}
-							label="NSFW"
-						/>
-						<Checkbox
-							checked={filterHumor}
-							onchange={(v) => filterHumor = v}
-							label="Humor"
-						/>
-						<Button variant="outline" size="sm" onclick={reloadCurrentTab} disabled={loading}>
-							Apply
-						</Button>
-					</div>
+			<!-- Filters status bar -->
+			{#if hasActiveFilters}
+				<div class="px-3 py-1.5 border-b bg-primary/10 text-xs text-muted-foreground flex items-center gap-2">
+					<Filter class="w-3 h-3" />
+					<span>Some assets may be hidden due to active filters</span>
+					<button
+						type="button"
+						class="ml-auto text-primary hover:underline"
+						onclick={() => showFiltersModal = true}
+					>
+						Edit filters
+					</button>
 				</div>
 			{/if}
 
@@ -651,9 +448,9 @@
 			<div class="flex-1 overflow-y-auto p-2 min-h-0">
 				{#if activeTab === 'capsule'}
 					<div class="text-xs text-muted-foreground mb-2">600x900 - Portrait capsule</div>
-					<div class="grid grid-cols-5 gap-2">
-						{#each capsules as img}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+					<div class="grid grid-cols-4 gap-3">
+						{#each capsules as img (img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'capsule')}
 							<button
 								type="button"
@@ -663,20 +460,29 @@
 								)}
 								onclick={() => selectCapsule(img)}
 							>
-								<img
-									src={getImageSrc(img)}
-									alt=""
-									class="w-full aspect-[2/3] object-cover bg-muted"
-									loading="lazy"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-[2/3] object-cover bg-muted"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-[2/3] object-cover bg-muted"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
 								{/if}
 								{#if isAnim}
-									<span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] px-1 rounded font-bold">ANIM</span>
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] p-0.5 text-center">
 									{img.width}x{img.height}
@@ -696,9 +502,9 @@
 					{/if}
 				{:else if activeTab === 'wide'}
 					<div class="text-xs text-muted-foreground mb-2">920x430 - Wide capsule</div>
-					<div class="grid grid-cols-3 gap-2">
-						{#each wideCapsules as img}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+					<div class="grid grid-cols-2 gap-3">
+						{#each wideCapsules as img (img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'wide')}
 							<button
 								type="button"
@@ -708,20 +514,29 @@
 								)}
 								onclick={() => selectWide(img)}
 							>
-								<img
-									src={getImageSrc(img)}
-									alt=""
-									class="w-full aspect-[460/215] object-cover bg-muted"
-									loading="lazy"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-[460/215] object-cover bg-muted"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-[460/215] object-cover bg-muted"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
 								{/if}
 								{#if isAnim}
-									<span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] px-1 rounded font-bold">ANIM</span>
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] p-0.5 text-center">
 									{img.width}x{img.height}
@@ -741,9 +556,9 @@
 					{/if}
 				{:else if activeTab === 'hero'}
 					<div class="text-xs text-muted-foreground mb-2">1920x620 - Hero banner</div>
-					<div class="grid grid-cols-2 gap-2">
-						{#each heroes as img}
-							{@const isAnim = isAnimatedImage(img.mime, img.url)}
+					<div class="grid grid-cols-2 gap-3">
+						{#each heroes as img (img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'hero')}
 							<button
 								type="button"
@@ -753,20 +568,29 @@
 								)}
 								onclick={() => selectHero(img)}
 							>
-								<img
-									src={getImageSrc(img)}
-									alt=""
-									class="w-full aspect-[1920/620] object-cover bg-muted"
-									loading="lazy"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-[1920/620] object-cover bg-muted"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-[1920/620] object-cover bg-muted"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
 								{/if}
 								{#if isAnim}
-									<span class="absolute top-1 left-1 bg-orange-500 text-white text-[9px] px-1 rounded font-bold">ANIM</span>
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] p-0.5 text-center">
 									{img.width}x{img.height}
@@ -786,8 +610,9 @@
 					{/if}
 				{:else if activeTab === 'logo'}
 					<div class="text-xs text-muted-foreground mb-2">Game logo (transparent)</div>
-					<div class="grid grid-cols-5 gap-2">
-						{#each logos as img}
+					<div class="grid grid-cols-4 gap-3">
+						{#each logos as img (img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'logo')}
 							<button
 								type="button"
@@ -797,17 +622,29 @@
 								)}
 								onclick={() => selectLogo(img)}
 							>
-								<img
-									src={getImageSrc(img)}
-									alt=""
-									class="w-full aspect-square object-contain"
-									loading="lazy"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-square object-contain"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-square object-contain"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-1 right-1 bg-green-500 rounded-full p-0.5">
 										<Check class="w-3 h-3 text-white" />
 									</div>
+								{/if}
+								{#if isAnim}
+									<span class="absolute top-1 left-1 z-10 bg-orange-500 text-white text-[9px] px-1 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="text-[9px] text-center text-muted-foreground">
 									{img.width}x{img.height}
@@ -827,8 +664,9 @@
 					{/if}
 				{:else if activeTab === 'icon'}
 					<div class="text-xs text-muted-foreground mb-2">Square icon</div>
-					<div class="grid grid-cols-8 gap-2">
-						{#each icons as img}
+					<div class="grid grid-cols-6 gap-3">
+						{#each icons as img (img.url)}
+							{@const isAnim = isAnimatedThumb(img.thumb)}
 							{@const selected = isSelected(img.url, 'icon')}
 							<button
 								type="button"
@@ -838,17 +676,29 @@
 								)}
 								onclick={() => selectIcon(img)}
 							>
-								<img
-									src={getImageSrc(img)}
-									alt=""
-									class="w-full aspect-square object-contain"
-									loading="lazy"
-									onerror={(e) => handleImageError(e, img)}
-								/>
+								{#if isAnim}
+									<video
+										src={img.thumb}
+										class="w-full aspect-square object-contain"
+										muted
+										loop
+										playsinline
+										autoplay
+									></video>
+								{:else}
+									<img
+										src={img.thumb || img.url}
+										alt=""
+										class="w-full aspect-square object-contain"
+									/>
+								{/if}
 								{#if selected}
 									<div class="absolute top-0.5 right-0.5 bg-green-500 rounded-full p-0.5">
 										<Check class="w-2 h-2 text-white" />
 									</div>
+								{/if}
+								{#if isAnim}
+									<span class="absolute top-0.5 left-0.5 z-10 bg-orange-500 text-white text-[7px] px-0.5 rounded font-bold shadow">ANIM</span>
 								{/if}
 								<div class="text-[8px] text-center text-muted-foreground">
 									{img.width}
@@ -876,86 +726,64 @@
 			</div>
 		</div>
 
-		<!-- Right panel: Preview & Selection -->
-		<div class="w-64 border-l flex flex-col shrink-0">
-			<div class="p-3 border-b shrink-0">
-				<h3 class="font-semibold text-sm mb-2 gradient-text">Preview</h3>
-				{#if previewUrl}
-					<img src={previewUrl} alt="Preview" class="w-full max-h-40 object-contain rounded-lg bg-muted" />
-					<p class="text-xs text-muted-foreground mt-1 text-center">{previewInfo}</p>
-					<Button variant="outline" size="sm" class="w-full mt-2" onclick={openInBrowser}>
-						<ExternalLink class="w-3 h-3 mr-1" />
-						Open Full Size
-					</Button>
-				{:else}
-					<div class="h-32 flex items-center justify-center bg-muted rounded-lg">
-						<p class="text-xs text-muted-foreground">Select an image</p>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Current selections with thumbnails -->
-			<div class="flex-1 overflow-y-auto p-3 min-h-0">
-				<h3 class="font-semibold text-sm mb-2 gradient-text">Selected Artwork</h3>
-				<div class="space-y-3 text-xs">
+		<!-- Right panel: Selected Artwork -->
+		<div class="w-56 border-l flex flex-col shrink-0">
+			<div class="p-3 shrink-0">
+				<h3 class="font-semibold text-sm mb-3 gradient-text">Selected Artwork</h3>
+				<div class="space-y-3">
 					<!-- Capsule -->
-					<div class="flex items-center gap-2">
-						<span class="w-14 text-muted-foreground shrink-0">Capsule:</span>
-						{#if gridPortrait && gridPortrait.length > 0}
-							<div class="flex items-center gap-2 flex-1 min-w-0">
-								<img src={getCachedUrl(gridPortrait)} alt="Capsule" class="h-10 w-auto rounded border border-green-500 object-contain" />
-								<Check class="w-3 h-3 text-green-500 shrink-0" />
-							</div>
+					<div class="flex items-center gap-3">
+						<span class="w-12 text-xs text-muted-foreground shrink-0">Capsule</span>
+						{#if gridPortrait}
+							<img src={gridPortrait} alt="Capsule" class="h-14 w-auto rounded border-2 border-green-500 object-contain" />
 						{:else}
-							<span class="text-muted-foreground italic">None</span>
+							<div class="h-14 w-10 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
+								<span class="text-[10px] text-muted-foreground">—</span>
+							</div>
 						{/if}
 					</div>
 					<!-- Wide -->
-					<div class="flex items-center gap-2">
-						<span class="w-14 text-muted-foreground shrink-0">Wide:</span>
-						{#if gridLandscape && gridLandscape.length > 0}
-							<div class="flex items-center gap-2 flex-1 min-w-0">
-								<img src={getCachedUrl(gridLandscape)} alt="Wide" class="h-8 w-auto rounded border border-green-500 object-contain" />
-								<Check class="w-3 h-3 text-green-500 shrink-0" />
-							</div>
+					<div class="flex items-center gap-3">
+						<span class="w-12 text-xs text-muted-foreground shrink-0">Wide</span>
+						{#if gridLandscape}
+							<img src={gridLandscape} alt="Wide" class="h-10 w-auto rounded border-2 border-green-500 object-contain" />
 						{:else}
-							<span class="text-muted-foreground italic">None</span>
+							<div class="h-10 w-20 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
+								<span class="text-[10px] text-muted-foreground">—</span>
+							</div>
 						{/if}
 					</div>
 					<!-- Hero -->
-					<div class="flex items-center gap-2">
-						<span class="w-14 text-muted-foreground shrink-0">Hero:</span>
-						{#if heroImage && heroImage.length > 0}
-							<div class="flex items-center gap-2 flex-1 min-w-0">
-								<img src={getCachedUrl(heroImage)} alt="Hero" class="h-6 w-auto rounded border border-green-500 object-contain" />
-								<Check class="w-3 h-3 text-green-500 shrink-0" />
-							</div>
+					<div class="flex items-center gap-3">
+						<span class="w-12 text-xs text-muted-foreground shrink-0">Hero</span>
+						{#if heroImage}
+							<img src={heroImage} alt="Hero" class="h-8 w-auto rounded border-2 border-green-500 object-contain" />
 						{:else}
-							<span class="text-muted-foreground italic">None</span>
+							<div class="h-8 w-24 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
+								<span class="text-[10px] text-muted-foreground">—</span>
+							</div>
 						{/if}
 					</div>
 					<!-- Logo -->
-					<div class="flex items-center gap-2">
-						<span class="w-14 text-muted-foreground shrink-0">Logo:</span>
-						{#if logoImage && logoImage.length > 0}
-							<div class="flex items-center gap-2 flex-1 min-w-0">
-								<img src={getCachedUrl(logoImage)} alt="Logo" class="h-8 w-auto rounded border border-green-500 object-contain bg-muted" />
-								<Check class="w-3 h-3 text-green-500 shrink-0" />
-							</div>
+					<div class="flex items-center gap-3">
+						<span class="w-12 text-xs text-muted-foreground shrink-0">Logo</span>
+						{#if logoImage}
+							<img src={logoImage} alt="Logo" class="h-10 w-auto rounded border-2 border-green-500 object-contain bg-muted/50" />
 						{:else}
-							<span class="text-muted-foreground italic">None</span>
+							<div class="h-10 w-16 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
+								<span class="text-[10px] text-muted-foreground">—</span>
+							</div>
 						{/if}
 					</div>
 					<!-- Icon -->
-					<div class="flex items-center gap-2">
-						<span class="w-14 text-muted-foreground shrink-0">Icon:</span>
-						{#if iconImage && iconImage.length > 0}
-							<div class="flex items-center gap-2 flex-1 min-w-0">
-								<img src={getCachedUrl(iconImage)} alt="Icon" class="h-8 w-8 rounded border border-green-500 object-contain bg-muted" />
-								<Check class="w-3 h-3 text-green-500 shrink-0" />
-							</div>
+					<div class="flex items-center gap-3">
+						<span class="w-12 text-xs text-muted-foreground shrink-0">Icon</span>
+						{#if iconImage}
+							<img src={iconImage} alt="Icon" class="h-10 w-10 rounded border-2 border-green-500 object-contain bg-muted/50" />
 						{:else}
-							<span class="text-muted-foreground italic">None</span>
+							<div class="h-10 w-10 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
+								<span class="text-[10px] text-muted-foreground">—</span>
+							</div>
 						{/if}
 					</div>
 				</div>
@@ -973,3 +801,12 @@
 		</div>
 	</div>
 </div>
+
+<!-- Filters Modal -->
+<FiltersModal
+	bind:open={showFiltersModal}
+	assetType={activeTab}
+	{filters}
+	supportedFormats={$connectionStatus.supportedImageFormats}
+	onapply={handleFiltersApply}
+/>

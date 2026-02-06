@@ -50,12 +50,6 @@ export function GetVersion():Promise<main.VersionInfo>;
 
 export function OpenCacheFolder():Promise<void>;
 
-export function OpenCachedImage(arg1:number,arg2:string):Promise<void>;
-
-export function ProxyImage(arg1:string):Promise<string>;
-
-export function ProxyImageCached(arg1:number,arg2:string):Promise<string>;
-
 export function RefreshDiscovery():Promise<Array<main.DiscoveredAgentInfo>>;
 
 export function RemoveGameSetup(arg1:string):Promise<void>;

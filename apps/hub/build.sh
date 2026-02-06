@@ -247,18 +247,30 @@ else
     # Copy binary to dist/
     # ============================================
 
-    BINARY_NAME="capydeploy-hub"
-    if [ "$(uname -s)" = "Linux" ]; then
-        PLATFORM_DIR="$DIST_DIR/linux"
-    else
-        PLATFORM_DIR="$DIST_DIR/windows"
-        BINARY_NAME="capydeploy-hub.exe"
-    fi
-
-    mkdir -p "$PLATFORM_DIR"
-    cp "build/bin/$BINARY_NAME" "$PLATFORM_DIR/"
-    echo "  Copied to: $PLATFORM_DIR/$BINARY_NAME"
+    mkdir -p "$DIST_DIR/linux"
+    cp "build/bin/capydeploy-hub" "$DIST_DIR/linux/"
+    echo "  Copied to: $DIST_DIR/linux/capydeploy-hub"
     echo
+
+    # ============================================
+    # Cross-compile for Windows (if mingw available)
+    # ============================================
+
+    if command -v x86_64-w64-mingw32-gcc &> /dev/null; then
+        echo "  Cross-compiling for Windows..."
+        if wails build -platform windows/amd64 -clean -ldflags "$LDFLAGS" 2>/dev/null; then
+            mkdir -p "$DIST_DIR/windows"
+            cp "build/bin/capydeploy-hub.exe" "$DIST_DIR/windows/"
+            echo "  Copied to: $DIST_DIR/windows/capydeploy-hub.exe"
+        else
+            echo -e "  ${YELLOW}[WARN]${NC} Windows cross-compile failed, skipping"
+        fi
+        echo
+    else
+        echo -e "  ${YELLOW}[INFO]${NC} mingw-w64 not found, skipping Windows build"
+        echo "  Install with: rpm-ostree install mingw64-gcc"
+        echo
+    fi
 
     # ============================================
     # Generate AppImage (Linux only)
@@ -278,11 +290,10 @@ else
             echo "  Skipping AppImage generation."
             echo
             # Still show binary output
-            DIST_BINARY="$PLATFORM_DIR/capydeploy-hub"
-            if [ -f "$DIST_BINARY" ]; then
-                SIZE=$(stat -f%z "$DIST_BINARY" 2>/dev/null || stat -c%s "$DIST_BINARY" 2>/dev/null || echo "0")
+            if [ -f "$DIST_DIR/linux/capydeploy-hub" ]; then
+                SIZE=$(stat -f%z "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || stat -c%s "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || echo "0")
                 SIZE_MB=$((SIZE / 1048576))
-                echo "  Binary: $DIST_BINARY (${SIZE_MB} MB)"
+                echo "  Binary: $DIST_DIR/linux/capydeploy-hub (${SIZE_MB} MB)"
             fi
             echo
             echo "Done!"
@@ -469,11 +480,16 @@ APPRUN
     echo "  Output directory: $DIST_DIR"
     echo
 
-    DIST_BINARY="$PLATFORM_DIR/capydeploy-hub"
-    if [ -f "$DIST_BINARY" ]; then
-        SIZE=$(stat -f%z "$DIST_BINARY" 2>/dev/null || stat -c%s "$DIST_BINARY" 2>/dev/null || echo "0")
+    if [ -f "$DIST_DIR/linux/capydeploy-hub" ]; then
+        SIZE=$(stat -f%z "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || stat -c%s "$DIST_DIR/linux/capydeploy-hub" 2>/dev/null || echo "0")
         SIZE_MB=$((SIZE / 1048576))
-        echo "  Binary:   $DIST_BINARY (${SIZE_MB} MB)"
+        echo "  Linux:    $DIST_DIR/linux/capydeploy-hub (${SIZE_MB} MB)"
+    fi
+
+    if [ -f "$DIST_DIR/windows/capydeploy-hub.exe" ]; then
+        SIZE=$(stat -f%z "$DIST_DIR/windows/capydeploy-hub.exe" 2>/dev/null || stat -c%s "$DIST_DIR/windows/capydeploy-hub.exe" 2>/dev/null || echo "0")
+        SIZE_MB=$((SIZE / 1048576))
+        echo "  Windows:  $DIST_DIR/windows/capydeploy-hub.exe (${SIZE_MB} MB)"
     fi
 
     APPIMAGE_FILE="$APPIMAGE_DIR/$APPIMAGE_NAME"

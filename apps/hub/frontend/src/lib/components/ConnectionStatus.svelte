@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { connectionStatus } from '$lib/stores/connection';
-	import { cn } from '$lib/utils';
 
 	let status = $derived($connectionStatus);
 
@@ -14,18 +13,14 @@
 </script>
 
 <div class="flex items-center gap-2 text-sm">
-	<div
-		class={cn(
-			'w-2.5 h-2.5 rounded-full border border-gray-600',
-			status.connected ? 'bg-green-500' : 'bg-gray-500'
-		)}
-	></div>
-	<span class="text-muted-foreground italic">
-		{#if status.connected}
+	{#if status.connected}
+		<span class="cd-pulse"></span>
+		<span class="cd-status-connected">
 			{getPlatformIcon(status.platform)} {status.agentName}
-			<span class="text-xs">({status.ips?.[0] || status.host}:{status.port})</span>
-		{:else}
-			Not connected
-		{/if}
-	</span>
+			<span class="text-xs font-normal opacity-70">({status.ips?.[0] || status.host}:{status.port})</span>
+		</span>
+	{:else}
+		<div class="w-2 h-2 rounded-full bg-muted-foreground/50"></div>
+		<span class="cd-status-disconnected opacity-70">Not connected</span>
+	{/if}
 </div>

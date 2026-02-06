@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -29,6 +31,7 @@ func main() {
 	}
 
 	app := NewApp()
+	cacheHandler := NewCacheHandler()
 
 	err := wails.Run(&options.App{
 		Title:     "CapyDeploy Hub",
@@ -38,6 +41,15 @@ func main() {
 		MinHeight: 600,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Intercept /cache/ requests and serve from disk
+				if strings.HasPrefix(r.URL.Path, "/cache/") {
+					cacheHandler.ServeHTTP(w, r)
+					return
+				}
+				// Let Wails handle everything else
+				http.NotFound(w, r)
+			}),
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,

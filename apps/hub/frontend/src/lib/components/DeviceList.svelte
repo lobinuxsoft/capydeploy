@@ -57,10 +57,10 @@
 		try {
 			await ConnectAgent(agentID);
 			await loadConnectionStatus();
-			toast.success('Conectado');
+			toast.success('Connected');
 		} catch (e) {
 			console.error('Failed to connect:', e);
-			toast.error('Error de conexion', String(e));
+			toast.error('Connection error', String(e));
 		} finally {
 			connecting = null;
 		}
@@ -145,7 +145,7 @@
 
 <div class="space-y-4">
 	<div class="flex items-center justify-between">
-		<h3 class="text-sm font-medium text-muted-foreground">
+		<h3 class="cd-section-title">
 			Discovered Agents ({agents.length})
 		</h3>
 		<Button variant="outline" size="sm" onclick={refresh} disabled={refreshing}>
@@ -161,39 +161,43 @@
 	<div class="space-y-2">
 		{#each agents as agent}
 			{@const isConnected = $connectionStatus.connected && $connectionStatus.agentId === agent.id}
-			<Card class="p-4">
+			<div class="cd-section p-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-3">
 						<div class="relative">
-							<Monitor class="w-6 h-6" />
-							<div
-								class={cn(
-									'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background',
-									isConnected ? 'bg-green-500' : agent.online ? 'bg-yellow-500' : 'bg-gray-500'
-								)}
-							></div>
+							<Monitor class="w-6 h-6 cd-text-disabled" />
+							{#if isConnected}
+								<span class="cd-pulse absolute -bottom-0.5 -right-0.5"></span>
+							{:else}
+								<div
+									class={cn(
+										'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background',
+										agent.online ? 'bg-yellow-500' : 'bg-gray-500'
+									)}
+								></div>
+							{/if}
 						</div>
 						<div>
 							<div class="font-medium flex items-center gap-2">
-								<span>{agent.name || 'Unknown Agent'}</span>
-								<span class="text-xs px-1.5 py-0.5 rounded bg-muted">
+								<span class={isConnected ? 'cd-status-connected' : ''}>{agent.name || 'Unknown Agent'}</span>
+								<span class="text-xs px-1.5 py-0.5 rounded bg-muted/50 border border-border/50">
 									{getPlatformIcon(agent.platform)} {getPlatformLabel(agent.platform)}
 								</span>
 							</div>
-							<div class="text-sm text-muted-foreground flex items-center gap-2">
+							<div class="text-sm flex items-center gap-2">
 								{#if agent.ips && agent.ips.length > 0}
-									<span>{agent.ips[0]}:{agent.port}</span>
+									<span class="cd-mono text-xs">{agent.ips[0]}:{agent.port}</span>
 								{:else}
-									<span>{agent.host}:{agent.port}</span>
+									<span class="cd-mono text-xs">{agent.host}:{agent.port}</span>
 								{/if}
 								{#if agent.online}
-									<Wifi class="w-3 h-3 text-green-500" />
+									<Wifi class="w-3 h-3 cd-text-primary" />
 								{:else}
-									<WifiOff class="w-3 h-3 text-gray-500" />
+									<WifiOff class="w-3 h-3 cd-text-disabled" />
 								{/if}
 							</div>
 							{#if agent.version}
-								<div class="text-xs text-muted-foreground">
+								<div class="text-xs cd-text-disabled">
 									v{agent.version}
 								</div>
 							{/if}
@@ -219,18 +223,18 @@
 						{/if}
 					</div>
 				</div>
-			</Card>
+			</div>
 		{/each}
 
 		{#if agents.length === 0}
-			<div class="text-center py-8 space-y-4">
-				<div class="text-muted-foreground">
+			<div class="cd-section p-8 text-center space-y-4">
+				<div class="cd-text-disabled">
 					No agents discovered on the network.
 				</div>
-				<div class="text-sm text-muted-foreground">
+				<div class="text-sm cd-text-disabled">
 					Make sure the CapyDeploy Agent is running on your handheld device.
 				</div>
-				<Button variant="outline" onclick={refresh}>
+				<Button variant="gradient" onclick={refresh}>
 					<RefreshCw class="w-4 h-4 mr-2" />
 					Scan Network
 				</Button>

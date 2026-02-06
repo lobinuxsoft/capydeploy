@@ -47,6 +47,9 @@ export function getThemeCSS(): string {
   /* ── Custom section title (replaces PanelSection title) ── */
 
   .cd-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     text-transform: uppercase;
     font-size: 0.75em;
     font-weight: 600;
@@ -56,6 +59,18 @@ export function getThemeCSS(): string {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .cd-section-title:hover {
+    opacity: 0.8;
+  }
+
+  .cd-section-title svg {
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 3px ${colors.primaryMid});
   }
 
   ${fieldLabel ? `

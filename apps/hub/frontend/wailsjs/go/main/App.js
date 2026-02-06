@@ -94,18 +94,6 @@ export function OpenCacheFolder() {
   return window['go']['main']['App']['OpenCacheFolder']();
 }
 
-export function OpenCachedImage(arg1, arg2) {
-  return window['go']['main']['App']['OpenCachedImage'](arg1, arg2);
-}
-
-export function ProxyImage(arg1) {
-  return window['go']['main']['App']['ProxyImage'](arg1);
-}
-
-export function ProxyImageCached(arg1, arg2) {
-  return window['go']['main']['App']['ProxyImageCached'](arg1, arg2);
-}
-
 export function RefreshDiscovery() {
   return window['go']['main']['App']['RefreshDiscovery']();
 }

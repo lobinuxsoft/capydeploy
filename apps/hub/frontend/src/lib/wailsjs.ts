@@ -16,11 +16,6 @@ export const GetAgentInstallPath = App.GetAgentInstallPath;
 export const ConfirmPairing = App.ConfirmPairing;
 export const CancelPairing = App.CancelPairing;
 
-// Legacy device functions (deprecated - use Agent functions instead)
-export const GetDevices = App.GetDevices;
-export const ConnectDevice = App.ConnectDevice;
-export const DisconnectDevice = App.DisconnectAgent;
-
 // Game setup functions
 export const GetGameSetups = App.GetGameSetups;
 export const AddGameSetup = App.AddGameSetup;
@@ -56,9 +51,6 @@ export const GetGrids = App.GetGrids;
 export const GetHeroes = App.GetHeroes;
 export const GetLogos = App.GetLogos;
 export const GetIcons = App.GetIcons;
-export const ProxyImage = App.ProxyImage;
-export const ProxyImageCached = App.ProxyImageCached;
-export const OpenCachedImage = App.OpenCachedImage;
 
 // Runtime events
 export const EventsOn = runtime.EventsOn;

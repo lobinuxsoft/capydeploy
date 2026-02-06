@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
-	import { formatBytes } from '$lib/utils';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Trash2, FolderOpen, Save, Loader2, HardDrive, Info, Server } from 'lucide-svelte';
+	import { ExternalLink, Save, Loader2, Info, Server } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
-		GetCacheSize, ClearImageCache, OpenCacheFolder,
-		GetImageCacheEnabled, SetImageCacheEnabled,
 		GetVersion,
 		GetHubInfo, SetHubName
 	} from '$lib/wailsjs';
@@ -19,11 +16,7 @@
 	let hubPlatform = $state('');
 	let savingHubName = $state(false);
 	let apiKey = $state('');
-	let cacheEnabled = $state(true);
-	let cacheSize = $state('Calculating...');
 	let saving = $state(false);
-	let clearing = $state(false);
-	let togglingCache = $state(false);
 	let versionInfo = $state<VersionInfo | null>(null);
 
 	async function loadSettings() {
@@ -46,50 +39,9 @@
 		}
 
 		try {
-			cacheEnabled = await GetImageCacheEnabled();
-		} catch (e) {
-			console.error('Failed to load cache setting:', e);
-			cacheEnabled = true;
-		}
-
-		try {
 			versionInfo = await GetVersion();
 		} catch (e) {
 			console.error('Failed to load version:', e);
-		}
-
-		if (cacheEnabled) {
-			await updateCacheSize();
-		}
-	}
-
-	async function updateCacheSize() {
-		if (!browser) return;
-		try {
-			const size = await GetCacheSize();
-			cacheSize = formatBytes(size);
-		} catch (e) {
-			cacheSize = 'Unable to calculate';
-		}
-	}
-
-	async function toggleCache() {
-		togglingCache = true;
-		try {
-			const newValue = !cacheEnabled;
-			await SetImageCacheEnabled(newValue);
-			cacheEnabled = newValue;
-			if (newValue) {
-				await updateCacheSize();
-				toast.success('Cache activado');
-			} else {
-				cacheSize = '0 B';
-				toast.info('Cache desactivado', 'Las imagenes en cache fueron eliminadas');
-			}
-		} catch (e) {
-			toast.error('Error', String(e));
-		} finally {
-			togglingCache = false;
 		}
 	}
 
@@ -97,32 +49,11 @@
 		saving = true;
 		try {
 			await SetSteamGridDBAPIKey(apiKey);
-			toast.success('Configuracion guardada');
+			toast.success('Settings saved');
 		} catch (e) {
-			toast.error('Error al guardar', String(e));
+			toast.error('Error saving settings', String(e));
 		} finally {
 			saving = false;
-		}
-	}
-
-	async function clearCache() {
-		clearing = true;
-		try {
-			await ClearImageCache();
-			await updateCacheSize();
-			toast.success('Cache limpiado');
-		} catch (e) {
-			toast.error('Error al limpiar cache', String(e));
-		} finally {
-			clearing = false;
-		}
-	}
-
-	async function openCacheFolder() {
-		try {
-			await OpenCacheFolder();
-		} catch (e) {
-			toast.error('Error al abrir carpeta', String(e));
 		}
 	}
 
@@ -130,9 +61,9 @@
 		savingHubName = true;
 		try {
 			await SetHubName(hubName);
-			toast.success('Nombre del Hub actualizado');
+			toast.success('Hub name updated');
 		} catch (e) {
-			toast.error('Error al guardar', String(e));
+			toast.error('Error saving', String(e));
 		} finally {
 			savingHubName = false;
 		}
@@ -148,10 +79,11 @@
 	});
 </script>
 
-<div class="space-y-6 max-w-xl">
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">Hub Identity</h3>
-		<p class="text-sm text-muted-foreground mb-4">
+<div class="space-y-4">
+	<!-- Hub Identity Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">Hub Identity</h3>
+		<p class="text-sm cd-text-disabled mb-4">
 			This name will be shown to agents when they connect.
 		</p>
 
@@ -175,32 +107,31 @@
 				</div>
 			</div>
 
-			<div class="p-3 rounded-lg bg-secondary/50 space-y-2 text-sm">
+			<div class="space-y-2 text-sm pl-2">
 				<div class="flex items-center gap-2">
-					<Server class="w-4 h-4 text-muted-foreground" />
-					<span class="text-muted-foreground">Hub ID:</span>
-					<span class="font-mono text-xs">{hubId || 'Loading...'}</span>
+					<Server class="w-4 h-4 cd-text-disabled" />
+					<span class="cd-text-disabled">Hub ID:</span>
+					<span class="cd-mono text-xs">{hubId || 'Loading...'}</span>
 				</div>
 				<div class="flex items-center gap-2">
-					<span class="text-muted-foreground ml-6">Platform:</span>
-					<span>{hubPlatform || 'Loading...'}</span>
+					<span class="cd-text-disabled ml-6">Platform:</span>
+					<span class="cd-value">{hubPlatform || 'Loading...'}</span>
 				</div>
 			</div>
 		</div>
 	</div>
 
-	<hr class="border-border" />
-
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">SteamGridDB Integration</h3>
-		<p class="text-sm text-muted-foreground mb-4">
+	<!-- SteamGridDB Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">SteamGridDB Integration</h3>
+		<p class="text-sm cd-text-disabled mb-4">
 			SteamGridDB allows you to select custom artwork for your games.
 		</p>
 		<p class="text-sm mb-4">
 			Get your API key from
 			<button
 				onclick={openSteamGridDBApiPage}
-				class="text-blue-400 hover:underline inline-flex items-center gap-1"
+				class="cd-text-primary hover:underline inline-flex items-center gap-1"
 			>
 				steamgriddb.com/profile/preferences/api
 				<ExternalLink class="w-3 h-3" />
@@ -217,61 +148,7 @@
 		</div>
 	</div>
 
-	<hr class="border-border" />
-
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">Image Cache</h3>
-		<p class="text-sm text-muted-foreground mb-4">
-			Cache images locally for faster loading. Disabling will delete all cached images.
-		</p>
-
-		<!-- Cache toggle -->
-		<div class="flex items-center justify-between p-3 rounded-lg bg-secondary/50 mb-4">
-			<div class="flex items-center gap-3">
-				<HardDrive class="w-5 h-5 text-muted-foreground" />
-				<div>
-					<span class="text-sm font-medium">Enable Local Cache</span>
-					<p class="text-xs text-muted-foreground">Store downloaded images on disk</p>
-				</div>
-			</div>
-			<button
-				type="button"
-				onclick={toggleCache}
-				disabled={togglingCache}
-				class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background {cacheEnabled ? 'bg-primary' : 'bg-muted'}"
-			>
-				<span
-					class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 {cacheEnabled ? 'translate-x-5' : 'translate-x-0'}"
-				></span>
-			</button>
-		</div>
-
-		{#if cacheEnabled}
-			<div class="flex items-center gap-4 mb-4">
-				<span class="text-sm">Cache Size:</span>
-				<span class="font-medium">{cacheSize}</span>
-			</div>
-
-			<div class="flex gap-2">
-				<Button variant="outline" onclick={clearCache} disabled={clearing}>
-					{#if clearing}
-						<Loader2 class="w-4 h-4 mr-2 animate-spin" />
-					{:else}
-						<Trash2 class="w-4 h-4 mr-2" />
-					{/if}
-					Clear Cache
-				</Button>
-				<Button variant="outline" onclick={openCacheFolder}>
-					<FolderOpen class="w-4 h-4 mr-2" />
-					Open Cache Folder
-				</Button>
-			</div>
-		{/if}
-	</div>
-
-	<hr class="border-border" />
-
-	<Button onclick={saveSettings} disabled={saving}>
+	<Button variant="gradient" onclick={saveSettings} disabled={saving} class="w-full">
 		{#if saving}
 			<Loader2 class="w-4 h-4 mr-2 animate-spin" />
 		{:else}
@@ -280,37 +157,34 @@
 		Save Settings
 	</Button>
 
-	<hr class="border-border" />
-
-	<div>
-		<h3 class="text-lg font-semibold mb-4 gradient-text">About</h3>
-		<div class="p-4 rounded-lg bg-secondary/50">
-			<div class="flex items-center gap-2 mb-3">
-				<Info class="w-5 h-5 text-muted-foreground" />
-				<span class="font-medium">CapyDeploy Hub</span>
-			</div>
-			{#if versionInfo}
-				<div class="space-y-2 text-sm">
-					<div class="flex justify-between">
-						<span class="text-muted-foreground">Version</span>
-						<span class="font-mono">{versionInfo.version}</span>
-					</div>
-					{#if versionInfo.commit && versionInfo.commit !== 'unknown'}
-						<div class="flex justify-between">
-							<span class="text-muted-foreground">Commit</span>
-							<span class="font-mono text-xs">{versionInfo.commit}</span>
-						</div>
-					{/if}
-					{#if versionInfo.buildDate && versionInfo.buildDate !== 'unknown'}
-						<div class="flex justify-between">
-							<span class="text-muted-foreground">Build Date</span>
-							<span class="font-mono text-xs">{versionInfo.buildDate}</span>
-						</div>
-					{/if}
-				</div>
-			{:else}
-				<span class="text-sm text-muted-foreground">Loading version info...</span>
-			{/if}
+	<!-- About Section -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">About</h3>
+		<div class="flex items-center gap-2 mb-3">
+			<Info class="w-5 h-5 cd-text-disabled" />
+			<span class="font-medium cd-value">CapyDeploy Hub</span>
 		</div>
+		{#if versionInfo}
+			<div class="space-y-2 text-sm">
+				<div class="flex justify-between">
+					<span class="cd-text-disabled">Version</span>
+					<span class="cd-mono">{versionInfo.version}</span>
+				</div>
+				{#if versionInfo.commit && versionInfo.commit !== 'unknown'}
+					<div class="flex justify-between">
+						<span class="cd-text-disabled">Commit</span>
+						<span class="cd-mono text-xs">{versionInfo.commit}</span>
+					</div>
+				{/if}
+				{#if versionInfo.buildDate && versionInfo.buildDate !== 'unknown'}
+					<div class="flex justify-between">
+						<span class="cd-text-disabled">Build Date</span>
+						<span class="cd-mono text-xs">{versionInfo.buildDate}</span>
+					</div>
+				{/if}
+			</div>
+		{:else}
+			<span class="text-sm cd-text-disabled">Loading version info...</span>
+		{/if}
 	</div>
 </div>

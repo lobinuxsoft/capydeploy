@@ -11,7 +11,7 @@ import {
 } from "@decky/ui";
 import { call, toaster } from "@decky/api";
 import { VFC, useState, useEffect, useCallback } from "react";
-import { FaGamepad, FaTrash, FaFolderOpen } from "react-icons/fa6";
+import { FaGamepad, FaTrash, FaFolderOpen, FaChevronDown, FaChevronRight } from "react-icons/fa6";
 import { colors } from "../styles/theme";
 import ConfirmActionModal from "./ConfirmActionModal";
 
@@ -40,6 +40,7 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
   const [games, setGames] = useState<InstalledGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [uninstalling, setUninstalling] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(true);
 
   const loadGames = useCallback(async () => {
     try {
@@ -106,9 +107,13 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
 
   return (
     <div className="cd-section">
-      <div className="cd-section-title">Installed Games</div>
-      <PanelSection>
-        {loading ? (
+      <div className="cd-section-title" onClick={() => setExpanded(!expanded)}>
+        {expanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
+        Installed Games
+      </div>
+      {expanded && (
+        <PanelSection>
+          {loading ? (
           <PanelSectionRow>
             <Field label="Loading...">
               <span style={{ opacity: 0.6 }}>...</span>
@@ -142,9 +147,10 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
               </Focusable>
             </Field>
           </PanelSectionRow>
-        ))
+          ))
+        )}
+        </PanelSection>
       )}
-      </PanelSection>
     </div>
   );
 };

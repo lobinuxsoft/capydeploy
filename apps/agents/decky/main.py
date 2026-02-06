@@ -111,12 +111,18 @@ class Plugin:
         await self.ws_server.stop()
         decky.logger.info("CapyDeploy plugin unloaded")
 
+    # Maximum events to keep in queue to prevent memory/disk bloat
+    MAX_QUEUE_SIZE = 50
+
     async def notify_frontend(self, event: str, data: dict):
         """Send event to frontend via queue (critical) or overwrite (progress)."""
         decky.logger.info(f"Frontend event: {event} - {data}")
         if event in self.QUEUED_EVENTS:
             queue = self.settings.getSetting(f"_queue_{event}", []) or []
             queue.append({"timestamp": time.time(), "data": data})
+            # Limit queue size to prevent unbounded growth
+            if len(queue) > self.MAX_QUEUE_SIZE:
+                queue = queue[-self.MAX_QUEUE_SIZE:]
             self.settings.setSetting(f"_queue_{event}", queue)
         else:
             self.settings.setSetting(f"_event_{event}", {

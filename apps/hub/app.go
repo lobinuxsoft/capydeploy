@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -891,94 +889,6 @@ func (a *App) GetIcons(gameID int, filters steamgriddb.ImageFilters, page int) (
 
 	client := steamgriddb.NewClient(apiKey)
 	return client.GetIcons(gameID, &filters, page)
-}
-
-// ProxyImage fetches an image from URL and returns it as a base64 data URL (no cache)
-func (a *App) ProxyImage(imageURL string) (string, error) {
-	return a.ProxyImageCached(0, imageURL)
-}
-
-// ProxyImageCached fetches an image from URL with caching support
-func (a *App) ProxyImageCached(gameID int, imageURL string) (string, error) {
-	if imageURL == "" {
-		return "", fmt.Errorf("empty URL")
-	}
-
-	// Check if caching is enabled
-	cacheEnabled, _ := config.GetImageCacheEnabled()
-
-	// Try to get from cache first (only if gameID is provided and cache enabled)
-	if gameID > 0 && cacheEnabled {
-		if data, contentType, err := steamgriddb.GetCachedImage(gameID, imageURL); err == nil {
-			base64Data := base64.StdEncoding.EncodeToString(data)
-			return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
-		}
-	}
-
-	// Download from URL
-	resp, err := http.Get(imageURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read image: %w", err)
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		if strings.HasSuffix(strings.ToLower(imageURL), ".png") {
-			contentType = "image/png"
-		} else if strings.HasSuffix(strings.ToLower(imageURL), ".webp") {
-			contentType = "image/webp"
-		} else if strings.HasSuffix(strings.ToLower(imageURL), ".gif") {
-			contentType = "image/gif"
-		} else {
-			contentType = "image/jpeg"
-		}
-	}
-
-	// Save to cache (only if gameID is provided and cache enabled)
-	if gameID > 0 && cacheEnabled {
-		if err := steamgriddb.SaveImageToCache(gameID, imageURL, data, contentType); err != nil {
-			log.Printf("Failed to cache image: %v", err)
-		}
-	}
-
-	base64Data := base64.StdEncoding.EncodeToString(data)
-	return fmt.Sprintf("data:%s;base64,%s", contentType, base64Data), nil
-}
-
-// OpenCachedImage opens a cached image with the system's default image viewer
-func (a *App) OpenCachedImage(gameID int, imageURL string) error {
-	if gameID <= 0 || imageURL == "" {
-		return fmt.Errorf("invalid gameID or imageURL")
-	}
-
-	// Get the cached file path
-	filePath, err := steamgriddb.GetCachedImagePath(gameID, imageURL)
-	if err != nil {
-		return fmt.Errorf("image not in cache: %w", err)
-	}
-
-	// Open with system's default image viewer
-	var cmd *exec.Cmd
-	switch goruntime.GOOS {
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", filePath)
-	case "darwin":
-		cmd = exec.Command("open", filePath)
-	default: // linux and others
-		cmd = exec.Command("xdg-open", filePath)
-	}
-
-	return cmd.Start()
 }
 
 // =============================================================================

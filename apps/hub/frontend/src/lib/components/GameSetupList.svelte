@@ -47,9 +47,9 @@
 			if (data.done) {
 				uploading = null;
 				if (!data.error) {
-					toast.success('Subida completada', data.status);
+					toast.success('Upload complete', data.status);
 				} else {
-					toast.error('Error en la subida', data.error);
+					toast.error('Upload error', data.error);
 				}
 			}
 		});
@@ -113,7 +113,7 @@
 
 	async function saveSetup() {
 		if (!formName || !formLocalPath || !formExecutable) {
-			toast.warning('Campos requeridos', 'Nombre, carpeta local y ejecutable son obligatorios');
+			toast.warning('Required fields', 'Name, local folder and executable are required');
 			return;
 		}
 
@@ -144,7 +144,7 @@
 			resetForm();
 		} catch (e) {
 			console.error('Failed to save setup:', e);
-			toast.error('Error al guardar', String(e));
+			toast.error('Error saving', String(e));
 		}
 	}
 
@@ -160,18 +160,18 @@
 
 	async function uploadGameHandler(setup: GameSetup) {
 		if (!$connectionStatus.connected) {
-			toast.warning('Sin conexion', 'Conecta a un dispositivo primero');
+			toast.warning('No connection', 'Connect to a device first');
 			return;
 		}
 
 		uploading = setup.id;
-		uploadProgress.set({ progress: 0, status: 'Iniciando subida...', done: false });
+		uploadProgress.set({ progress: 0, status: 'Starting upload...', done: false });
 
 		try {
 			await UploadGame(setup.id);
 		} catch (e) {
 			console.error('Failed to start upload:', e);
-			toast.error('Error al iniciar subida', String(e));
+			toast.error('Error starting upload', String(e));
 			uploading = null;
 			uploadProgress.set(null);
 		}
@@ -195,13 +195,13 @@
 
 <div class="space-y-4">
 	<div class="flex gap-2">
-		<Button onclick={openAddForm}>
+		<Button variant="gradient" onclick={openAddForm}>
 			<Plus class="w-4 h-4 mr-2" />
 			New Game Setup
 		</Button>
 	</div>
 
-	<p class="text-sm text-muted-foreground">
+	<p class="text-sm cd-text-disabled">
 		Saved Game Setups (click upload icon to install):
 	</p>
 
@@ -209,21 +209,21 @@
 		{#each $gameSetups as setup}
 			{@const artworkCount = countArtwork(setup)}
 			{@const isUploading = uploading === setup.id}
-			<Card class="p-4">
+			<div class="cd-section p-4">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-3">
-						<Folder class="w-6 h-6 text-muted-foreground" />
+						<Folder class="w-6 h-6 cd-text-disabled" />
 						<div>
 							<div class="flex items-center gap-2">
-								<span class="font-medium">{setup.name}</span>
+								<span class="font-medium cd-value">{setup.name}</span>
 								{#if artworkCount > 0}
-									<span class="text-xs text-muted-foreground flex items-center gap-1">
+									<span class="text-xs cd-text-disabled flex items-center gap-1">
 										<Image class="w-3 h-3" />
 										{artworkCount}
 									</span>
 								{/if}
 							</div>
-							<div class="text-sm text-muted-foreground">
+							<div class="text-sm cd-text-disabled">
 								{truncatePath(setup.local_path, 40)}
 							</div>
 						</div>
@@ -248,11 +248,11 @@
 						</Button>
 					</div>
 				</div>
-			</Card>
+			</div>
 		{/each}
 
 		{#if $gameSetups.length === 0}
-			<div class="text-center text-muted-foreground py-8">
+			<div class="cd-section p-8 text-center cd-text-disabled">
 				No game setups configured. Create a new setup to get started.
 			</div>
 		{/if}
@@ -260,13 +260,15 @@
 
 	<!-- Upload Progress -->
 	{#if $uploadProgress && !$uploadProgress.done}
-		<Card class="p-4 space-y-2">
+		<div class="cd-section p-4 space-y-2">
 			<div class="flex justify-between text-sm">
-				<span>{$uploadProgress.status}</span>
-				<span>{Math.round($uploadProgress.progress * 100)}%</span>
+				<span class="cd-text-disabled">{$uploadProgress.status}</span>
+				<span class="cd-mono">{Math.round($uploadProgress.progress * 100)}%</span>
 			</div>
-			<Progress value={$uploadProgress.progress * 100} />
-		</Card>
+			<div class="cd-progress-bar">
+				<div class="cd-progress-fill" style="width: {$uploadProgress.progress * 100}%"></div>
+			</div>
+		</div>
 	{/if}
 </div>
 

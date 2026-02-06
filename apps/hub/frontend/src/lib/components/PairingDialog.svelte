@@ -78,7 +78,7 @@
 
 		<div class="flex justify-end gap-2">
 			<Button variant="outline" onclick={handleCancel} disabled={loading}>
-				Cancelar
+				Cancel
 			</Button>
 			<Button
 				onclick={handleSubmit}
