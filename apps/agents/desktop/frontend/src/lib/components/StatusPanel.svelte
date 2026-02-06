@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
-	import type { AgentStatus, VersionInfo } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info } from 'lucide-svelte';
+	import { GetStatus, GetVersion, GetCapabilities, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
+	import type { AgentStatus, VersionInfo, CapabilityInfo } from '$lib/types';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, Zap } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let versionInfo = $state<VersionInfo | null>(null);
+	let capabilities = $state<CapabilityInfo[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let editingName = $state(false);
@@ -21,6 +22,7 @@
 			status = await GetStatus();
 			installPath = await GetInstallPath();
 			versionInfo = await GetVersion();
+			capabilities = await GetCapabilities();
 			error = null;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error loading status';
@@ -268,6 +270,27 @@
 				{/each}
 			</div>
 		</div>
+
+		<!-- Capabilities -->
+		{#if capabilities.length > 0}
+			<div class="cd-section p-4">
+				<div class="flex items-center gap-2 mb-3">
+					<Zap class="w-4 h-4 cd-text-primary" />
+					<span class="cd-section-title">Capacidades</span>
+				</div>
+				<div class="pl-6 space-y-2">
+					{#each capabilities as cap}
+						<div class="flex items-start gap-2">
+							<span class="cd-pulse mt-1" style="width: 6px; height: 6px;"></span>
+							<div>
+								<span class="text-sm font-medium">{cap.name}</span>
+								<p class="text-xs cd-text-disabled">{cap.description}</p>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		<!-- Pairing Code (shown when a Hub requests pairing) -->
 		{#if pairingCode}

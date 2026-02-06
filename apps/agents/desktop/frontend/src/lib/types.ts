@@ -31,3 +31,9 @@ export interface ShortcutInfo {
 	exe: string;
 	startDir: string;
 }
+
+export interface CapabilityInfo {
+	id: string;
+	name: string;
+	description: string;
+}
