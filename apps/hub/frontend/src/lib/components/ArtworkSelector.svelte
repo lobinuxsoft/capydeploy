@@ -418,28 +418,29 @@
 		return cacheURLs.get(originalUrl) || originalUrl;
 	}
 
-	// Use thumbnail for grid display (much smaller, ~10KB vs 100-500KB)
+	// Tiny transparent placeholder (1x1 pixel)
+	const PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 	// Get the best image source for grid display
-	// For animated images, use static thumbnail to save memory
+	// For animated images, use static thumbnail to save memory (NO animated thumbs!)
 	function getImageSrc(img: any): string {
 		const url = img?.url || img?.Url || img?.URL || '';
 		const mime = img?.mime || '';
 
-		// For animated images, try to use static thumbnail (first frame as JPEG)
+		// For animated images, ONLY use static thumbnail - never show animation in grid
 		if (isAnimatedImage(mime, url)) {
-			// Check if we have a static thumbnail cached
 			const staticThumb = staticThumbnails.get(url);
 			if (staticThumb) return staticThumb;
 
-			// Start loading static thumbnail in background
+			// Start loading and show placeholder until ready
 			loadStaticThumbnail(url, mime);
+			return PLACEHOLDER;
 		}
 
-		// Fallback to SteamGridDB thumbnail
+		// For static images, use SteamGridDB thumbnail
 		const thumb = img?.thumb || img?.Thumb || '';
 		if (thumb) return thumb;
 
-		// Last resort: full URL
 		return url || '';
 	}
 
@@ -676,9 +677,10 @@
 				{#if activeTab === 'capsule'}
 					<div class="text-xs text-muted-foreground mb-2">600x900 - Portrait capsule</div>
 					<div class="grid grid-cols-5 gap-2">
-						{#each capsules as img}
+						{#each capsules as img (img.url)}
 							{@const isAnim = isAnimatedImage(img.mime, img.url)}
 							{@const selected = isSelected(img.url, 'capsule')}
+							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -688,7 +690,7 @@
 								onclick={() => selectCapsule(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									src={thumbSrc}
 									alt=""
 									class="w-full aspect-[2/3] object-cover bg-muted"
 									onerror={(e) => handleImageError(e, img)}
@@ -720,9 +722,10 @@
 				{:else if activeTab === 'wide'}
 					<div class="text-xs text-muted-foreground mb-2">920x430 - Wide capsule</div>
 					<div class="grid grid-cols-3 gap-2">
-						{#each wideCapsules as img}
+						{#each wideCapsules as img (img.url)}
 							{@const isAnim = isAnimatedImage(img.mime, img.url)}
 							{@const selected = isSelected(img.url, 'wide')}
+							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -732,7 +735,7 @@
 								onclick={() => selectWide(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									src={thumbSrc}
 									alt=""
 									class="w-full aspect-[460/215] object-cover bg-muted"
 									onerror={(e) => handleImageError(e, img)}
@@ -764,9 +767,10 @@
 				{:else if activeTab === 'hero'}
 					<div class="text-xs text-muted-foreground mb-2">1920x620 - Hero banner</div>
 					<div class="grid grid-cols-2 gap-2">
-						{#each heroes as img}
+						{#each heroes as img (img.url)}
 							{@const isAnim = isAnimatedImage(img.mime, img.url)}
 							{@const selected = isSelected(img.url, 'hero')}
+							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -776,7 +780,7 @@
 								onclick={() => selectHero(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									src={thumbSrc}
 									alt=""
 									class="w-full aspect-[1920/620] object-cover bg-muted"
 									onerror={(e) => handleImageError(e, img)}
@@ -808,8 +812,10 @@
 				{:else if activeTab === 'logo'}
 					<div class="text-xs text-muted-foreground mb-2">Game logo (transparent)</div>
 					<div class="grid grid-cols-5 gap-2">
-						{#each logos as img}
+						{#each logos as img (img.url)}
+							{@const isAnim = isAnimatedImage(img.mime, img.url)}
 							{@const selected = isSelected(img.url, 'logo')}
+							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -819,7 +825,7 @@
 								onclick={() => selectLogo(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									src={thumbSrc}
 									alt=""
 									class="w-full aspect-square object-contain"
 									onerror={(e) => handleImageError(e, img)}
@@ -848,8 +854,10 @@
 				{:else if activeTab === 'icon'}
 					<div class="text-xs text-muted-foreground mb-2">Square icon</div>
 					<div class="grid grid-cols-8 gap-2">
-						{#each icons as img}
+						{#each icons as img (img.url)}
+							{@const isAnim = isAnimatedImage(img.mime, img.url)}
 							{@const selected = isSelected(img.url, 'icon')}
+							{@const thumbSrc = isAnim ? (staticThumbnails.get(img.url) || (loadStaticThumbnail(img.url, img.mime), PLACEHOLDER)) : (img.thumb || img.url)}
 							<button
 								type="button"
 								class={cn(
@@ -859,7 +867,7 @@
 								onclick={() => selectIcon(img)}
 							>
 								<img
-									src={getImageSrc(img)}
+									src={thumbSrc}
 									alt=""
 									class="w-full aspect-square object-contain"
 									onerror={(e) => handleImageError(e, img)}
