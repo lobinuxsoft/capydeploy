@@ -129,6 +129,13 @@ export interface ImageFilters {
 	showHumor: boolean;
 }
 
+export interface ArtworkFileResult {
+	path: string;
+	dataURI: string;
+	contentType: string;
+	size: number;
+}
+
 export interface ArtworkSelection {
 	gridDBGameID: number;
 	gridPortrait: string;

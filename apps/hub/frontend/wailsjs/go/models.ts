@@ -41,6 +41,24 @@ export namespace config {
 
 export namespace main {
 	
+	export class ArtworkFileResult {
+	    path: string;
+	    dataURI: string;
+	    contentType: string;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ArtworkFileResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.dataURI = source["dataURI"];
+	        this.contentType = source["contentType"];
+	        this.size = source["size"];
+	    }
+	}
 	export class ConnectionStatus {
 	    connected: boolean;
 	    agentId: string;

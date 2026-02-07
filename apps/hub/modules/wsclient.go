@@ -176,6 +176,11 @@ func (c *WSClient) ApplyArtwork(ctx context.Context, userID string, appID uint32
 	return result, nil
 }
 
+// SendArtworkImage sends a binary artwork image to the agent.
+func (c *WSClient) SendArtworkImage(ctx context.Context, appID uint32, artworkType, contentType string, data []byte) error {
+	return c.client.SendArtworkImage(ctx, appID, artworkType, contentType, data)
+}
+
 // SteamController implementation
 
 func (c *WSClient) RestartSteam(ctx context.Context) (*agent.RestartSteamResult, error) {

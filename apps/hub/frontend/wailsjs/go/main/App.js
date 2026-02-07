@@ -34,6 +34,10 @@ export function GetAgentInstallPath() {
   return window['go']['main']['App']['GetAgentInstallPath']();
 }
 
+export function GetArtworkPreview(arg1) {
+  return window['go']['main']['App']['GetArtworkPreview'](arg1);
+}
+
 export function GetCacheSize() {
   return window['go']['main']['App']['GetCacheSize']();
 }
@@ -104,6 +108,10 @@ export function RemoveGameSetup(arg1) {
 
 export function SearchGames(arg1) {
   return window['go']['main']['App']['SearchGames'](arg1);
+}
+
+export function SelectArtworkFile() {
+  return window['go']['main']['App']['SelectArtworkFile']();
 }
 
 export function SelectFolder() {

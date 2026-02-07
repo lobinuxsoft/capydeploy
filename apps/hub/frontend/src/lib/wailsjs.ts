@@ -45,6 +45,10 @@ export const OpenCacheFolder = App.OpenCacheFolder;
 export const GetImageCacheEnabled = App.GetImageCacheEnabled;
 export const SetImageCacheEnabled = App.SetImageCacheEnabled;
 
+// Artwork local file functions
+export const SelectArtworkFile = App.SelectArtworkFile;
+export const GetArtworkPreview = App.GetArtworkPreview;
+
 // SteamGridDB functions
 export const SearchGames = App.SearchGames;
 export const GetGrids = App.GetGrids;

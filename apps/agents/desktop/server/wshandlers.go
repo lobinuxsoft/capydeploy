@@ -432,6 +432,30 @@ func (ws *WSServer) handleApplyArtwork(hub *HubConnection, msg *protocol.Message
 	ws.send(hub, resp)
 }
 
+// handleBinaryArtwork processes a binary artwork image message.
+func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID uint32, artworkType, contentType string, data []byte) {
+	log.Printf("WS: Received artwork image: appID=%d, type=%s, contentType=%s, size=%d",
+		appID, artworkType, contentType, len(data))
+
+	if err := artwork.ApplyFromData(appID, artworkType, data, contentType); err != nil {
+		log.Printf("WS: Failed to apply artwork image: %v", err)
+		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+			Success:     false,
+			ArtworkType: artworkType,
+			Error:       err.Error(),
+		})
+		ws.send(hub, resp)
+		return
+	}
+
+	log.Printf("WS: Applied artwork image: appID=%d, type=%s", appID, artworkType)
+	resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+		Success:     true,
+		ArtworkType: artworkType,
+	})
+	ws.send(hub, resp)
+}
+
 // handleRestartSteam restarts Steam.
 func (ws *WSServer) handleRestartSteam(hub *HubConnection, msg *protocol.Message) {
 	controller := agentSteam.NewController()
