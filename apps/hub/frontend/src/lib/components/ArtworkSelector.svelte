@@ -6,7 +6,7 @@
 	} from '$lib/types';
 	import { Search, X, Loader2, RefreshCw, Filter, Check, Upload } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, SelectArtworkFile } from '$lib/wailsjs';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, SelectArtworkFile, GetArtworkPreview } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
 
@@ -308,20 +308,20 @@
 			}
 
 			// Store data URI for preview display
-			localPreviews.set(fileUrl, result.dataURI);
+			localPreviews[fileUrl] = result.dataURI;
 			statusMessage = `Local image selected: ${result.path}`;
 		} catch (e) {
 			statusMessage = `Error: ${e}`;
 		}
 	}
 
-	// Map of file:// URLs to data URI previews
-	let localPreviews = $state(new Map<string, string>());
+	// Local file:// URLs to data URI previews (plain object for Svelte 5 reactivity)
+	let localPreviews = $state<Record<string, string>>({});
 
 	// Get preview URL — returns data URI for local files, original URL for remote
 	function previewUrl(url: string): string {
 		if (url.startsWith('file://')) {
-			return localPreviews.get(url) || '';
+			return localPreviews[url] || '';
 		}
 		return url;
 	}
@@ -361,6 +361,20 @@
 			default: return false;
 		}
 	}
+
+	// Load previews for existing local file:// selections on mount
+	$effect(() => {
+		if (!browser) return;
+		const urls = [gridPortrait, gridLandscape, heroImage, logoImage, iconImage];
+		for (const url of urls) {
+			if (url.startsWith('file://') && !localPreviews[url]) {
+				const localPath = url.slice(7);
+				GetArtworkPreview(localPath).then((dataURI) => {
+					localPreviews[url] = dataURI;
+				}).catch(() => {});
+			}
+		}
+	});
 
 	// Auto-search on mount if gameName is provided
 	$effect(() => {
