@@ -36,6 +36,7 @@ class WebSocketServer:
         self._send_queue: Optional[asyncio.Queue] = None
         self._write_task: Optional[asyncio.Task] = None
         self._active_websocket = None
+        self._pending_artwork: dict[str, dict] = {}  # artworkType → {data, format}
 
     async def start(self) -> bool:
         """Start the WebSocket server. Returns True on success."""
@@ -500,7 +501,14 @@ class WebSocketServer:
         })
 
     async def handle_binary_artwork(self, websocket, header: dict, data: bytes):
-        """Handle artwork_image binary message — write raw bytes to Steam grid."""
+        """Handle artwork_image binary message.
+
+        When appId=0 (pre-CompleteUpload phase): store artwork as pending
+        base64 so handle_complete_upload can include it in create_shortcut.
+        When appId>0: write directly to Steam grid directory.
+        """
+        import base64
+
         msg_id = header.get("id", "")
         app_id = header.get("appId", 0)
         artwork_type = header.get("artworkType", "")
@@ -510,6 +518,21 @@ class WebSocketServer:
             f"Artwork image: appId={app_id} type={artwork_type} "
             f"contentType={content_type} size={len(data)}"
         )
+
+        if app_id == 0:
+            # Pre-CompleteUpload: store as pending for the frontend flow
+            fmt = "png"
+            if "jpeg" in content_type or "jpg" in content_type:
+                fmt = "jpg"
+
+            b64 = base64.b64encode(data).decode("ascii")
+            self._pending_artwork[artwork_type] = {"data": b64, "format": fmt}
+            decky.logger.info(f"Stored pending artwork: {artwork_type} ({len(data)} bytes)")
+            await self.send(websocket, msg_id, "artwork_image_response", {
+                "success": True,
+                "artworkType": artwork_type,
+            })
+            return
 
         try:
             apply_from_data(app_id, artwork_type, data, content_type)
@@ -581,6 +604,15 @@ class WebSocketServer:
             raw_artwork = shortcut_config.get("artwork", {})
             if raw_artwork:
                 artwork_b64 = await download_artwork(raw_artwork)
+
+            # Merge pending local artwork (received via binary WS before CompleteUpload)
+            if self._pending_artwork:
+                decky.logger.info(
+                    f"Merging {len(self._pending_artwork)} pending local artwork(s)"
+                )
+                for art_type, art_data in self._pending_artwork.items():
+                    artwork_b64[art_type] = art_data
+                self._pending_artwork.clear()
 
             # Pass icon URL directly (backend will download it after shortcut creation)
             icon_url = raw_artwork.get("icon", "")

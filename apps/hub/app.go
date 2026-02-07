@@ -731,10 +731,15 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		file.Close()
 	}
 
+	// Send local artwork as binary WS messages BEFORE CompleteUpload.
+	// Agents that don't know the AppID yet (Decky) store it as pending
+	// and include it in the shortcut creation flow.
+	a.sendLocalArtwork(ctx, setup, 0, emitProgress)
+
 	emitProgress(0.85, "Creating shortcut...", "", false)
 
 	// Prepare shortcut config — only include remote (http) artwork URLs.
-	// Local (file://) artwork is sent as binary after shortcut creation.
+	// Local (file://) artwork was already sent as binary above.
 	artworkCfg := buildRemoteArtworkConfig(setup)
 
 	// Only send the executable filename — the agent knows its own install path
@@ -758,7 +763,8 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		return
 	}
 
-	// Send local artwork images via binary WS messages
+	// For Desktop agent (returns real AppID): re-send with the actual AppID
+	// so it can write artwork to the correct grid filenames.
 	if completeResp.AppID > 0 {
 		a.sendLocalArtwork(ctx, setup, completeResp.AppID, emitProgress)
 	}

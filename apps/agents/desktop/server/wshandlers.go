@@ -433,9 +433,24 @@ func (ws *WSServer) handleApplyArtwork(hub *HubConnection, msg *protocol.Message
 }
 
 // handleBinaryArtwork processes a binary artwork image message.
+// When appID is 0 (pre-CompleteUpload phase), the message is acknowledged
+// but artwork is not applied — the real AppID is not known yet.
+// The Hub will re-send with the actual AppID after CompleteUpload.
 func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID uint32, artworkType, contentType string, data []byte) {
 	log.Printf("WS: Received artwork image: appID=%d, type=%s, contentType=%s, size=%d",
 		appID, artworkType, contentType, len(data))
+
+	// appID=0 means the Hub is pre-sending artwork before CompleteUpload.
+	// Acknowledge but skip — the real AppID will arrive in a second send.
+	if appID == 0 {
+		log.Printf("WS: Artwork with appID=0 acknowledged (pending real AppID)")
+		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+			Success:     true,
+			ArtworkType: artworkType,
+		})
+		ws.send(hub, resp)
+		return
+	}
 
 	if err := artwork.ApplyFromData(appID, artworkType, data, contentType); err != nil {
 		log.Printf("WS: Failed to apply artwork image: %v", err)
