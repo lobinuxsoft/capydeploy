@@ -763,12 +763,6 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		return
 	}
 
-	// For Desktop agent (returns real AppID): re-send with the actual AppID
-	// so it can write artwork to the correct grid filenames.
-	if completeResp.AppID > 0 {
-		a.sendLocalArtwork(ctx, setup, completeResp.AppID, emitProgress)
-	}
-
 	emitProgress(0.95, "Restarting Steam...", "", false)
 
 	// Restart Steam to apply changes

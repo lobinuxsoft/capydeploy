@@ -14,16 +14,24 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 
+// pendingArtwork stores artwork data received before CompleteUpload (appId=0).
+type pendingArtwork struct {
+	ArtworkType string
+	ContentType string
+	Data        []byte
+}
+
 // WSServer handles WebSocket connections from the Hub.
 type WSServer struct {
 	server   *Server
 	authMgr  *auth.Manager
 	upgrader websocket.Upgrader
 
-	mu           sync.RWMutex
-	hubConn      *HubConnection
-	onConnect    func(hubID, hubName, hubIP string)
-	onDisconnect func()
+	mu             sync.RWMutex
+	hubConn        *HubConnection
+	onConnect      func(hubID, hubName, hubIP string)
+	onDisconnect   func()
+	pendingArtwork []pendingArtwork // artwork received with appId=0, applied during CompleteUpload
 }
 
 // HubConnection represents an active connection from a Hub.

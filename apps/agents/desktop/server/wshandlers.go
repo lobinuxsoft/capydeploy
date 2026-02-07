@@ -433,17 +433,23 @@ func (ws *WSServer) handleApplyArtwork(hub *HubConnection, msg *protocol.Message
 }
 
 // handleBinaryArtwork processes a binary artwork image message.
-// When appID is 0 (pre-CompleteUpload phase), the message is acknowledged
-// but artwork is not applied — the real AppID is not known yet.
-// The Hub will re-send with the actual AppID after CompleteUpload.
+// When appID is 0 (pre-CompleteUpload), artwork data is stored as pending
+// and applied during handleCompleteUpload with the real AppID.
+// When appID > 0, artwork is applied immediately.
 func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID uint32, artworkType, contentType string, data []byte) {
 	log.Printf("WS: Received artwork image: appID=%d, type=%s, contentType=%s, size=%d",
 		appID, artworkType, contentType, len(data))
 
-	// appID=0 means the Hub is pre-sending artwork before CompleteUpload.
-	// Acknowledge but skip — the real AppID will arrive in a second send.
 	if appID == 0 {
-		log.Printf("WS: Artwork with appID=0 acknowledged (pending real AppID)")
+		// Store for later — applied during handleCompleteUpload with real AppID
+		ws.mu.Lock()
+		ws.pendingArtwork = append(ws.pendingArtwork, pendingArtwork{
+			ArtworkType: artworkType,
+			ContentType: contentType,
+			Data:        data,
+		})
+		ws.mu.Unlock()
+		log.Printf("WS: Stored pending artwork: type=%s (%d bytes)", artworkType, len(data))
 		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
 			Success:     true,
 			ArtworkType: artworkType,
@@ -690,9 +696,19 @@ func (ws *WSServer) handleCompleteUpload(hub *HubConnection, msg *protocol.Messa
 					}
 					ws.server.NotifyShortcutChange()
 
-					// Restart Steam to apply changes
-					result := steamController.Restart()
-					log.Printf("WS: Steam restart: success=%v, message=%s", result.Success, result.Message)
+					// Apply pending local artwork now that we have the real AppID
+					ws.mu.Lock()
+					pending := ws.pendingArtwork
+					ws.pendingArtwork = nil
+					ws.mu.Unlock()
+
+					for _, pa := range pending {
+						if err := artwork.ApplyFromData(appID, pa.ArtworkType, pa.Data, pa.ContentType); err != nil {
+							log.Printf("WS: Failed to apply pending artwork %s: %v", pa.ArtworkType, err)
+						} else {
+							log.Printf("WS: Applied pending artwork: appID=%d, type=%s", appID, pa.ArtworkType)
+						}
+					}
 				}
 			}
 		}
