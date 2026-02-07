@@ -432,6 +432,51 @@ func (ws *WSServer) handleApplyArtwork(hub *HubConnection, msg *protocol.Message
 	ws.send(hub, resp)
 }
 
+// handleBinaryArtwork processes a binary artwork image message.
+// When appID is 0 (pre-CompleteUpload), artwork data is stored as pending
+// and applied during handleCompleteUpload with the real AppID.
+// When appID > 0, artwork is applied immediately.
+func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID uint32, artworkType, contentType string, data []byte) {
+	log.Printf("WS: Received artwork image: appID=%d, type=%s, contentType=%s, size=%d",
+		appID, artworkType, contentType, len(data))
+
+	if appID == 0 {
+		// Store for later — applied during handleCompleteUpload with real AppID
+		ws.mu.Lock()
+		ws.pendingArtwork = append(ws.pendingArtwork, pendingArtwork{
+			ArtworkType: artworkType,
+			ContentType: contentType,
+			Data:        data,
+		})
+		ws.mu.Unlock()
+		log.Printf("WS: Stored pending artwork: type=%s (%d bytes)", artworkType, len(data))
+		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+			Success:     true,
+			ArtworkType: artworkType,
+		})
+		ws.send(hub, resp)
+		return
+	}
+
+	if err := artwork.ApplyFromData(appID, artworkType, data, contentType); err != nil {
+		log.Printf("WS: Failed to apply artwork image: %v", err)
+		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+			Success:     false,
+			ArtworkType: artworkType,
+			Error:       err.Error(),
+		})
+		ws.send(hub, resp)
+		return
+	}
+
+	log.Printf("WS: Applied artwork image: appID=%d, type=%s", appID, artworkType)
+	resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+		Success:     true,
+		ArtworkType: artworkType,
+	})
+	ws.send(hub, resp)
+}
+
 // handleRestartSteam restarts Steam.
 func (ws *WSServer) handleRestartSteam(hub *HubConnection, msg *protocol.Message) {
 	controller := agentSteam.NewController()
@@ -651,9 +696,19 @@ func (ws *WSServer) handleCompleteUpload(hub *HubConnection, msg *protocol.Messa
 					}
 					ws.server.NotifyShortcutChange()
 
-					// Restart Steam to apply changes
-					result := steamController.Restart()
-					log.Printf("WS: Steam restart: success=%v, message=%s", result.Success, result.Message)
+					// Apply pending local artwork now that we have the real AppID
+					ws.mu.Lock()
+					pending := ws.pendingArtwork
+					ws.pendingArtwork = nil
+					ws.mu.Unlock()
+
+					for _, pa := range pending {
+						if err := artwork.ApplyFromData(appID, pa.ArtworkType, pa.Data, pa.ContentType); err != nil {
+							log.Printf("WS: Failed to apply pending artwork %s: %v", pa.ArtworkType, err)
+						} else {
+							log.Printf("WS: Applied pending artwork: appID=%d, type=%s", appID, pa.ArtworkType)
+						}
+					}
 				}
 			}
 		}

@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -492,6 +494,95 @@ func (a *App) SelectFolder() (string, error) {
 	})
 }
 
+// ArtworkFileResult contains the result of selecting a local artwork file.
+type ArtworkFileResult struct {
+	Path        string `json:"path"`
+	DataURI     string `json:"dataURI"`
+	ContentType string `json:"contentType"`
+	Size        int64  `json:"size"`
+}
+
+// maxArtworkSize is the maximum allowed artwork file size (8MB).
+const maxArtworkSize = 8 * 1024 * 1024
+
+// SelectArtworkFile opens a file dialog to select a local artwork image.
+func (a *App) SelectArtworkFile() (*ArtworkFileResult, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Artwork Image",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Images", Pattern: "*.png;*.jpg;*.jpeg;*.webp"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if path == "" {
+		return nil, nil // User cancelled
+	}
+
+	return readArtworkFile(path)
+}
+
+// GetArtworkPreview returns a data URI for the given artwork file path.
+func (a *App) GetArtworkPreview(path string) (string, error) {
+	result, err := readArtworkFile(path)
+	if err != nil {
+		return "", err
+	}
+	return result.DataURI, nil
+}
+
+// readArtworkFile reads and validates a local artwork file.
+func readArtworkFile(path string) (*ArtworkFileResult, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	if info.Size() > maxArtworkSize {
+		return nil, fmt.Errorf("file too large: %d bytes (max %d)", info.Size(), maxArtworkSize)
+	}
+
+	contentType := detectContentType(path)
+	if contentType == "" {
+		return nil, fmt.Errorf("unsupported image format: %s", filepath.Ext(path))
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	dataURI := fmt.Sprintf("data:%s;base64,%s", contentType, base64.StdEncoding.EncodeToString(data))
+
+	return &ArtworkFileResult{
+		Path:        path,
+		DataURI:     dataURI,
+		ContentType: contentType,
+		Size:        info.Size(),
+	}, nil
+}
+
+// detectContentType returns the MIME type based on file extension.
+func detectContentType(path string) string {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".webp":
+		return "image/webp"
+	default:
+		// Fallback to mime package
+		ct := mime.TypeByExtension(ext)
+		if strings.HasPrefix(ct, "image/") {
+			return ct
+		}
+		return ""
+	}
+}
+
 // UploadGame uploads a game to the connected agent
 func (a *App) UploadGame(setupID string) error {
 	a.mu.RLock()
@@ -640,20 +731,16 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 		file.Close()
 	}
 
+	// Send local artwork as binary WS messages BEFORE CompleteUpload.
+	// Agents that don't know the AppID yet (Decky) store it as pending
+	// and include it in the shortcut creation flow.
+	a.sendLocalArtwork(ctx, setup, 0, emitProgress)
+
 	emitProgress(0.85, "Creating shortcut...", "", false)
 
-	// Prepare shortcut config
-	var artworkCfg *protocol.ArtworkConfig
-	if setup.GridPortrait != "" || setup.GridLandscape != "" || setup.HeroImage != "" ||
-		setup.LogoImage != "" || setup.IconImage != "" {
-		artworkCfg = &protocol.ArtworkConfig{
-			Grid:   setup.GridPortrait,
-			Hero:   setup.HeroImage,
-			Logo:   setup.LogoImage,
-			Icon:   setup.IconImage,
-			Banner: setup.GridLandscape,
-		}
-	}
+	// Prepare shortcut config — only include remote (http) artwork URLs.
+	// Local (file://) artwork was already sent as binary above.
+	artworkCfg := buildRemoteArtworkConfig(setup)
 
 	// Only send the executable filename — the agent knows its own install path
 	shortcutCfg := &protocol.ShortcutConfig{
@@ -957,6 +1044,85 @@ func (a *App) SetHubName(name string) error {
 // =============================================================================
 // Helper functions
 // =============================================================================
+
+// buildRemoteArtworkConfig returns an ArtworkConfig with only remote (http) URLs.
+// Local file:// paths are excluded — they are sent as binary WS messages.
+func buildRemoteArtworkConfig(setup *config.GameSetup) *protocol.ArtworkConfig {
+	cfg := &protocol.ArtworkConfig{}
+	hasAny := false
+
+	if strings.HasPrefix(setup.GridPortrait, "http") {
+		cfg.Grid = setup.GridPortrait
+		hasAny = true
+	}
+	if strings.HasPrefix(setup.GridLandscape, "http") {
+		cfg.Banner = setup.GridLandscape
+		hasAny = true
+	}
+	if strings.HasPrefix(setup.HeroImage, "http") {
+		cfg.Hero = setup.HeroImage
+		hasAny = true
+	}
+	if strings.HasPrefix(setup.LogoImage, "http") {
+		cfg.Logo = setup.LogoImage
+		hasAny = true
+	}
+	if strings.HasPrefix(setup.IconImage, "http") {
+		cfg.Icon = setup.IconImage
+		hasAny = true
+	}
+
+	if !hasAny {
+		return nil
+	}
+	return cfg
+}
+
+// sendLocalArtwork sends local artwork images to the agent via binary WS messages.
+func (a *App) sendLocalArtwork(ctx context.Context, setup *config.GameSetup, appID uint32, emitProgress func(float64, string, string, bool)) {
+	a.mu.RLock()
+	wsClient := a.connectedAgent.WSClient
+	a.mu.RUnlock()
+
+	if wsClient == nil {
+		return
+	}
+
+	artworkFields := map[string]string{
+		"grid":   setup.GridPortrait,
+		"banner": setup.GridLandscape,
+		"hero":   setup.HeroImage,
+		"logo":   setup.LogoImage,
+		"icon":   setup.IconImage,
+	}
+
+	for artType, path := range artworkFields {
+		if !strings.HasPrefix(path, "file://") {
+			continue
+		}
+		localPath := strings.TrimPrefix(path, "file://")
+
+		data, err := os.ReadFile(localPath)
+		if err != nil {
+			log.Printf("Hub: Failed to read local artwork %s: %v", localPath, err)
+			continue
+		}
+
+		contentType := detectContentType(localPath)
+		if contentType == "" {
+			log.Printf("Hub: Unknown content type for artwork: %s", localPath)
+			continue
+		}
+
+		emitProgress(0.9, fmt.Sprintf("Sending %s artwork...", artType), "", false)
+
+		if err := wsClient.SendArtworkImage(ctx, appID, artType, contentType, data); err != nil {
+			log.Printf("Hub: Failed to send artwork %s: %v", artType, err)
+		} else {
+			log.Printf("Hub: Sent local artwork %s for AppID %d", artType, appID)
+		}
+	}
+}
 
 // scanFilesForUpload scans a directory and returns file entries for upload
 func scanFilesForUpload(rootPath string) ([]transfer.FileEntry, int64, error) {

@@ -14,16 +14,24 @@ import (
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 
+// pendingArtwork stores artwork data received before CompleteUpload (appId=0).
+type pendingArtwork struct {
+	ArtworkType string
+	ContentType string
+	Data        []byte
+}
+
 // WSServer handles WebSocket connections from the Hub.
 type WSServer struct {
 	server   *Server
 	authMgr  *auth.Manager
 	upgrader websocket.Upgrader
 
-	mu           sync.RWMutex
-	hubConn      *HubConnection
-	onConnect    func(hubID, hubName, hubIP string)
-	onDisconnect func()
+	mu             sync.RWMutex
+	hubConn        *HubConnection
+	onConnect      func(hubID, hubName, hubIP string)
+	onDisconnect   func()
+	pendingArtwork []pendingArtwork // artwork received with appId=0, applied during CompleteUpload
 }
 
 // HubConnection represents an active connection from a Hub.
@@ -238,10 +246,9 @@ func (ws *WSServer) handleTextMessage(hub *HubConnection, data []byte) {
 	}
 }
 
-// handleBinaryMessage processes binary data (upload chunks).
+// handleBinaryMessage processes binary data (upload chunks or artwork images).
 func (ws *WSServer) handleBinaryMessage(hub *HubConnection, data []byte) {
-	// Binary messages are upload chunks
-	// Format: [4 bytes: header length][header JSON][chunk data]
+	// Format: [4 bytes: header length][header JSON][binary data]
 	if len(data) < 4 {
 		log.Printf("WS: Binary message too short")
 		return
@@ -253,21 +260,47 @@ func (ws *WSServer) handleBinaryMessage(hub *HubConnection, data []byte) {
 		return
 	}
 
-	var header struct {
-		ID       string `json:"id"`
-		UploadID string `json:"uploadId"`
-		FilePath string `json:"filePath"`
-		Offset   int64  `json:"offset"`
-		Checksum string `json:"checksum,omitempty"`
+	// Peek at the header to determine message type
+	var peek struct {
+		Type string `json:"type"`
 	}
-
-	if err := json.Unmarshal(data[4:4+headerLen], &header); err != nil {
+	if err := json.Unmarshal(data[4:4+headerLen], &peek); err != nil {
 		log.Printf("WS: Invalid binary header: %v", err)
 		return
 	}
 
-	chunkData := data[4+headerLen:]
-	ws.handleBinaryChunk(hub, header.ID, header.UploadID, header.FilePath, header.Offset, header.Checksum, chunkData)
+	binaryData := data[4+headerLen:]
+
+	switch peek.Type {
+	case "artwork_image":
+		var header struct {
+			ID          string `json:"id"`
+			Type        string `json:"type"`
+			AppID       uint32 `json:"appId"`
+			ArtworkType string `json:"artworkType"`
+			ContentType string `json:"contentType"`
+		}
+		if err := json.Unmarshal(data[4:4+headerLen], &header); err != nil {
+			log.Printf("WS: Invalid artwork header: %v", err)
+			return
+		}
+		ws.handleBinaryArtwork(hub, header.ID, header.AppID, header.ArtworkType, header.ContentType, binaryData)
+
+	default:
+		// Upload chunk (default behavior)
+		var header struct {
+			ID       string `json:"id"`
+			UploadID string `json:"uploadId"`
+			FilePath string `json:"filePath"`
+			Offset   int64  `json:"offset"`
+			Checksum string `json:"checksum,omitempty"`
+		}
+		if err := json.Unmarshal(data[4:4+headerLen], &header); err != nil {
+			log.Printf("WS: Invalid binary header: %v", err)
+			return
+		}
+		ws.handleBinaryChunk(hub, header.ID, header.UploadID, header.FilePath, header.Offset, header.Checksum, binaryData)
+	}
 }
 
 // closeHub closes the hub connection and notifies.

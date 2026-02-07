@@ -20,6 +20,8 @@ export function DisconnectAgent():Promise<void>;
 
 export function GetAgentInstallPath():Promise<string>;
 
+export function GetArtworkPreview(arg1:string):Promise<string>;
+
 export function GetCacheSize():Promise<number>;
 
 export function GetConnectionStatus():Promise<main.ConnectionStatus>;
@@ -55,6 +57,8 @@ export function RefreshDiscovery():Promise<Array<main.DiscoveredAgentInfo>>;
 export function RemoveGameSetup(arg1:string):Promise<void>;
 
 export function SearchGames(arg1:string):Promise<Array<steamgriddb.SearchResult>>;
+
+export function SelectArtworkFile():Promise<main.ArtworkFileResult>;
 
 export function SelectFolder():Promise<string>;
 

@@ -17,6 +17,69 @@ from steam_utils import get_steam_dir, get_steam_users
 MAX_ICON_RETRIES = 5
 ICON_RETRY_BASE_DELAY = 1.0  # seconds
 
+# Artwork suffix map — matches Steam grid naming convention
+_ARTWORK_SUFFIX = {
+    "grid": "p",
+    "banner": "",
+    "hero": "_hero",
+    "logo": "_logo",
+    "icon": "_icon",
+}
+
+# Content-type to file extension
+_EXT_MAP = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}
+
+
+def apply_from_data(app_id: int, artwork_type: str, data: bytes, content_type: str) -> None:
+    """Write raw artwork bytes to the Steam grid directory.
+
+    Mirrors the Go agent's artwork.ApplyFromData — same naming convention,
+    same binary WS message origin.
+
+    Raises ValueError on invalid artwork_type or content_type.
+    Raises RuntimeError if Steam directory or users are not found.
+    """
+    ext = _EXT_MAP.get(content_type)
+    if not ext:
+        raise ValueError(f"unsupported content type: {content_type}")
+
+    suffix = _ARTWORK_SUFFIX.get(artwork_type)
+    if suffix is None:
+        raise ValueError(f"unknown artwork type: {artwork_type}")
+
+    steam_dir = get_steam_dir()
+    if not steam_dir:
+        raise RuntimeError("Steam directory not found")
+
+    users = get_steam_users()
+    if not users:
+        raise RuntimeError("no Steam users found")
+
+    user_id = users[0]["id"]
+    grid_dir = os.path.join(steam_dir, "userdata", user_id, "config", "grid")
+    os.makedirs(grid_dir, exist_ok=True)
+
+    # Remove existing artwork with different extensions to avoid stale files
+    base = f"{app_id}{suffix}"
+    for old_ext in ("png", "jpg", "jpeg", "webp", "ico"):
+        old_path = os.path.join(grid_dir, f"{base}.{old_ext}")
+        try:
+            os.remove(old_path)
+        except FileNotFoundError:
+            pass
+
+    filename = f"{base}.{ext}"
+    dest_path = os.path.join(grid_dir, filename)
+
+    with open(dest_path, "wb") as f:
+        f.write(data)
+
+    decky.logger.info(f"Applied {artwork_type} artwork: {dest_path} ({len(data)} bytes)")
+
 
 async def download_artwork(artwork: dict) -> dict:
     """Download artwork URLs and return base64-encoded data with format info."""
