@@ -8,7 +8,7 @@ import (
 // WebSocket timing constants.
 const (
 	// WSWriteWait is the time allowed to write a message.
-	WSWriteWait = 10 * time.Second
+	WSWriteWait = 30 * time.Second
 
 	// WSPongWait is the time to wait for a pong response.
 	WSPongWait = 15 * time.Second
@@ -16,8 +16,8 @@ const (
 	// WSPingPeriod is how often to send pings (must be < PongWait).
 	WSPingPeriod = 5 * time.Second
 
-	// WSMaxMessageSize is the maximum message size in bytes (10MB).
-	WSMaxMessageSize = 10 * 1024 * 1024
+	// WSMaxMessageSize is the maximum message size in bytes (50MB).
+	WSMaxMessageSize = 50 * 1024 * 1024
 
 	// WSChunkSize is the size for binary chunks (1MB).
 	WSChunkSize = 1024 * 1024

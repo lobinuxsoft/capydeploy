@@ -4,6 +4,7 @@ package steam
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,6 +12,13 @@ import (
 )
 
 const (
+	// CEF debugger endpoint
+	cefEndpoint = "http://localhost:8080/json"
+	// Max time to wait for CEF to be available
+	cefTimeout = 30 * time.Second
+	// Interval between CEF checks
+	cefCheckInterval = 2 * time.Second
+	// Max time to wait for Steam to close
 	shutdownTimeout = 10 * time.Second
 )
 
@@ -49,23 +57,44 @@ func (c *Controller) Start() error {
 	return cmd.Start()
 }
 
-// IsCEFAvailable returns false on Windows (CEF not supported).
+// IsCEFAvailable checks if Steam's CEF debugger is responding.
 func (c *Controller) IsCEFAvailable() bool {
-	return false
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(cefEndpoint)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
-// WaitForCEF is a no-op on Windows (CEF not supported).
+// WaitForCEF waits until Steam's CEF debugger is available or timeout.
 func (c *Controller) WaitForCEF() error {
-	return nil
+	deadline := time.Now().Add(cefTimeout)
+
+	for time.Now().Before(deadline) {
+		if c.IsCEFAvailable() {
+			return nil
+		}
+		time.Sleep(cefCheckInterval)
+	}
+
+	return fmt.Errorf("timeout waiting for Steam CEF (waited %v)", cefTimeout)
 }
 
-// EnsureRunning makes sure Steam is running.
-// On Windows, CEF is not available so we just ensure Steam is running.
+// EnsureRunning makes sure Steam is running and CEF is available.
 func (c *Controller) EnsureRunning() error {
-	if c.IsRunning() {
+	if c.IsCEFAvailable() {
 		return nil
 	}
-	return c.Start()
+
+	if !c.IsRunning() {
+		if err := c.Start(); err != nil {
+			return err
+		}
+	}
+
+	return c.WaitForCEF()
 }
 
 // Shutdown gracefully closes Steam.

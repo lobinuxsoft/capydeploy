@@ -6,19 +6,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"
 )
-
-// newTestShortcuts creates a Shortcuts struct with named shortcuts for testing.
-func newTestShortcuts(entries map[string]string) *shortcut.Shortcuts {
-	sc := shortcut.NewShortcuts()
-	for key, name := range entries {
-		sc.Shortcuts[key] = shortcut.Shortcut{AppName: name}
-	}
-	return sc
-}
 
 // --- Pure function tests ---
 
@@ -214,29 +204,6 @@ func TestIsSubPath(t *testing.T) {
 	}
 }
 
-func TestReindexShortcuts(t *testing.T) {
-	// Create a shortcut collection with non-sequential keys
-	sc := newTestShortcuts(map[string]string{
-		"5":  "GameA",
-		"10": "GameB",
-		"2":  "GameC",
-	})
-
-	result := reindexShortcuts(sc)
-
-	if len(result.Shortcuts) != 3 {
-		t.Fatalf("reindexShortcuts() returned %d shortcuts, want 3", len(result.Shortcuts))
-	}
-
-	// Keys should be "0", "1", "2"
-	for i := 0; i < 3; i++ {
-		key := string(rune('0') + rune(i))
-		if _, ok := result.Shortcuts[key]; !ok {
-			t.Errorf("reindexShortcuts(): missing key %q", key)
-		}
-	}
-}
-
 func TestDeleteGameDirectory_Safety(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -295,7 +262,40 @@ func TestDeleteGameDirectory_ActualDelete(t *testing.T) {
 	}
 }
 
-// --- Manager CRUD tests with VDF library ---
+// --- Manager tests ---
+
+// saveTestShortcut writes a shortcut directly to VDF for test setup
+// (bypassing Create which now requires CEF).
+func saveTestShortcut(t *testing.T, paths *steam.Paths, userID string, name, exe, startDir string, appID int64) {
+	t.Helper()
+	shortcutsPath := paths.ShortcutsPath(userID)
+	configDir := paths.ConfigDir(userID)
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	var shortcuts *shortcut.Shortcuts
+	if _, err := os.Stat(shortcutsPath); os.IsNotExist(err) {
+		shortcuts = shortcut.NewShortcuts()
+	} else {
+		var loadErr error
+		shortcuts, loadErr = shortcut.Load(shortcutsPath)
+		if loadErr != nil {
+			t.Fatalf("failed to load shortcuts: %v", loadErr)
+		}
+	}
+
+	sc := shortcut.NewShortcut(name, exe, shortcut.DefaultShortcut)
+	sc.StartDir = startDir
+	sc.Appid = appID
+	if err := shortcuts.Add(sc); err != nil {
+		t.Fatalf("failed to add test shortcut: %v", err)
+	}
+	if err := shortcut.Save(shortcuts, shortcutsPath); err != nil {
+		t.Fatalf("failed to save test shortcuts: %v", err)
+	}
+}
 
 func TestManager_ListEmpty(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -312,36 +312,14 @@ func TestManager_ListEmpty(t *testing.T) {
 	}
 }
 
-func TestManager_CreateAndList(t *testing.T) {
+func TestManager_ListWithVDFShortcut(t *testing.T) {
 	tmpDir := t.TempDir()
 	paths := steam.NewPathsWithBase(tmpDir)
 	mgr := NewManagerWithPaths(paths)
-
 	userID := "12345"
 
-	// Ensure config dir exists for the user
-	configDir := paths.ConfigDir(userID)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
+	saveTestShortcut(t, paths, userID, "Test Game", "/usr/bin/test-game", "/usr/bin", 12345)
 
-	cfg := protocol.ShortcutConfig{
-		Name:          "Test Game",
-		Exe:           "/usr/bin/test-game",
-		StartDir:      "/usr/bin",
-		LaunchOptions: "--fullscreen",
-		Tags:          []string{"RPG", "Action"},
-	}
-
-	appID, err := mgr.Create(userID, cfg)
-	if err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-	if appID == 0 {
-		t.Error("Create() returned appID 0")
-	}
-
-	// List should return the shortcut
 	list, err := mgr.List(userID)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
@@ -352,130 +330,16 @@ func TestManager_CreateAndList(t *testing.T) {
 	if list[0].Name != "Test Game" {
 		t.Errorf("List()[0].Name = %q, want %q", list[0].Name, "Test Game")
 	}
-	if list[0].AppID != appID {
-		t.Errorf("List()[0].AppID = %d, want %d", list[0].AppID, appID)
-	}
 }
 
-func TestManager_CreateDuplicate(t *testing.T) {
-	tmpDir := t.TempDir()
-	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
-
-	userID := "12345"
-	if err := os.MkdirAll(paths.ConfigDir(userID), 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	cfg := protocol.ShortcutConfig{
-		Name: "Test Game",
-		Exe:  "/usr/bin/test-game",
-	}
-
-	if _, err := mgr.Create(userID, cfg); err != nil {
-		t.Fatalf("first Create() error = %v", err)
-	}
-
-	// Second create with same exe+name should fail
-	_, err := mgr.Create(userID, cfg)
-	if err == nil {
-		t.Error("second Create() should return error for duplicate shortcut")
-	}
+func TestManager_Create_RequiresCEF(t *testing.T) {
+	t.Skip("requires Steam CEF debugger — integration test")
 }
 
-func TestManager_Delete(t *testing.T) {
-	tmpDir := t.TempDir()
-	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
-
-	userID := "12345"
-	if err := os.MkdirAll(paths.ConfigDir(userID), 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	cfg := protocol.ShortcutConfig{
-		Name:     "Test Game",
-		Exe:      "/usr/bin/test-game",
-		StartDir: "/usr/bin",
-	}
-
-	appID, err := mgr.Create(userID, cfg)
-	if err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-
-	// Delete without cleanup to avoid filesystem side effects
-	if err := mgr.DeleteWithCleanup(userID, appID, "", false); err != nil {
-		t.Fatalf("DeleteWithCleanup() error = %v", err)
-	}
-
-	// List should be empty
-	list, err := mgr.List(userID)
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if len(list) != 0 {
-		t.Errorf("List() returned %d shortcuts after delete, want 0", len(list))
-	}
+func TestManager_Delete_RequiresCEF(t *testing.T) {
+	t.Skip("requires Steam CEF debugger — integration test")
 }
 
-func TestManager_DeleteByName(t *testing.T) {
-	tmpDir := t.TempDir()
-	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
-
-	userID := "12345"
-	if err := os.MkdirAll(paths.ConfigDir(userID), 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	cfg := protocol.ShortcutConfig{
-		Name:     "My Game",
-		Exe:      "/usr/bin/my-game",
-		StartDir: "/usr/bin",
-	}
-
-	if _, err := mgr.Create(userID, cfg); err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-
-	// Delete by name (appID=0)
-	if err := mgr.DeleteWithCleanup(userID, 0, "My Game", false); err != nil {
-		t.Fatalf("DeleteWithCleanup() by name error = %v", err)
-	}
-
-	list, err := mgr.List(userID)
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if len(list) != 0 {
-		t.Errorf("List() returned %d shortcuts after delete by name, want 0", len(list))
-	}
-}
-
-func TestManager_DeleteNotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
-
-	userID := "12345"
-	if err := os.MkdirAll(paths.ConfigDir(userID), 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	// Create one shortcut so shortcuts.vdf exists
-	cfg := protocol.ShortcutConfig{
-		Name:     "Existing Game",
-		Exe:      "/usr/bin/existing",
-		StartDir: "/usr/bin",
-	}
-	if _, err := mgr.Create(userID, cfg); err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-
-	// Try to delete a non-existent shortcut
-	err := mgr.DeleteWithCleanup(userID, 99999, "", false)
-	if err == nil {
-		t.Error("DeleteWithCleanup() should return error for non-existent shortcut")
-	}
+func TestManager_DeleteNotFound_RequiresCEF(t *testing.T) {
+	t.Skip("requires Steam CEF debugger — integration test")
 }

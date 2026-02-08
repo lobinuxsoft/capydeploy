@@ -502,8 +502,9 @@ type ArtworkFileResult struct {
 	Size        int64  `json:"size"`
 }
 
-// maxArtworkSize is the maximum allowed artwork file size (8MB).
-const maxArtworkSize = 8 * 1024 * 1024
+// maxArtworkSize is the maximum allowed artwork file size (50MB).
+// Animated WebP files for Steam artwork can be 20-30MB.
+const maxArtworkSize = 50 * 1024 * 1024
 
 // SelectArtworkFile opens a file dialog to select a local artwork image.
 func (a *App) SelectArtworkFile() (*ArtworkFileResult, error) {
@@ -761,13 +762,6 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 	if !completeResp.Success {
 		emitProgress(0, "", fmt.Sprintf("Upload failed: %s", completeResp.Error), true)
 		return
-	}
-
-	emitProgress(0.95, "Restarting Steam...", "", false)
-
-	// Restart Steam to apply changes
-	if steamCtrl, ok := modules.AsSteamController(client); ok {
-		steamCtrl.RestartSteam(ctx)
 	}
 
 	emitProgress(1.0, "Upload complete!", "", true)

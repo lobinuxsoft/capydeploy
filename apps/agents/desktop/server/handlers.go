@@ -255,7 +255,7 @@ func (s *Server) handleDeleteShortcut(w http.ResponseWriter, r *http.Request) {
 	// Notify UI about delete start
 	s.NotifyOperation("delete", "start", gameName, 0, "Eliminando...")
 
-	if err := mgr.Delete(userID, appID, ""); err != nil {
+	if err := mgr.Delete(userID, appID); err != nil {
 		s.NotifyOperation("delete", "error", gameName, 0, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ShortcutsResponse{Error: err.Error()})
@@ -268,20 +268,9 @@ func (s *Server) handleDeleteShortcut(w http.ResponseWriter, r *http.Request) {
 	// Notify UI about delete complete
 	s.NotifyOperation("delete", "complete", gameName, 100, "Eliminado")
 
-	// Restart Steam if requested
-	restartSteam := r.URL.Query().Get("restart") == "true"
-	var steamRestarted bool
-	if restartSteam {
-		controller := agentSteam.NewController()
-		result := controller.Restart()
-		steamRestarted = result.Success
-		log.Printf("Steam restart after delete: %v", result.Message)
-	}
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":         "deleted",
-		"steamRestarted": steamRestarted,
+		"status": "deleted",
 	})
 }
 
