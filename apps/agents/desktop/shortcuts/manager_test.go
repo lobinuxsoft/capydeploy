@@ -2,11 +2,13 @@ package shortcuts
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
 
@@ -173,7 +175,7 @@ func TestDeleteGameDirectory_ActualDelete(t *testing.T) {
 	}
 }
 
-// --- Manager tests ---
+// --- Tracking tests ---
 
 // writeTestVDF writes a minimal binary VDF shortcuts file for testing.
 func writeTestVDF(t *testing.T, paths *steam.Paths, userID string, name, exe string, appID uint32) {
@@ -219,12 +221,25 @@ func writeTestVDF(t *testing.T, paths *steam.Paths, userID string, name, exe str
 	}
 }
 
+// writeTestTracking writes a tracked shortcuts JSON file for testing.
+func writeTestTracking(t *testing.T, trackingPath string, shortcuts []protocol.ShortcutInfo) {
+	t.Helper()
+	data, err := json.MarshalIndent(shortcuts, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal tracking data: %v", err)
+	}
+	if err := os.WriteFile(trackingPath, data, 0600); err != nil {
+		t.Fatalf("failed to write tracking file: %v", err)
+	}
+}
+
 func TestManager_ListEmpty(t *testing.T) {
 	tmpDir := t.TempDir()
 	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
+	trackingPath := filepath.Join(tmpDir, "tracked.json")
+	mgr := NewManagerWithPaths(paths, trackingPath)
 
-	// No shortcuts.vdf exists yet — CEF will fail, VDF fallback returns empty
+	// No VDF and no tracking file — seeds empty, returns empty
 	list, err := mgr.List("12345")
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
@@ -232,17 +247,24 @@ func TestManager_ListEmpty(t *testing.T) {
 	if len(list) != 0 {
 		t.Errorf("List() returned %d shortcuts, want 0", len(list))
 	}
+
+	// Tracking file should have been created (empty array)
+	if _, err := os.Stat(trackingPath); os.IsNotExist(err) {
+		t.Error("tracking file should have been created after first List()")
+	}
 }
 
-func TestManager_ListVDFFallback(t *testing.T) {
+func TestManager_ListSeedsFromVDF(t *testing.T) {
 	tmpDir := t.TempDir()
 	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
+	trackingPath := filepath.Join(tmpDir, "tracked.json")
 	userID := "12345"
 
 	writeTestVDF(t, paths, userID, "Test Game", "/usr/bin/test-game", 12345)
 
-	// Without CEF, List() falls back to VDF
+	mgr := NewManagerWithPaths(paths, trackingPath)
+
+	// First List() should seed from VDF
 	list, err := mgr.List(userID)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
@@ -253,20 +275,102 @@ func TestManager_ListVDFFallback(t *testing.T) {
 	if list[0].Name != "Test Game" {
 		t.Errorf("List()[0].Name = %q, want %q", list[0].Name, "Test Game")
 	}
+
+	// Tracking file should now exist with the seeded data
+	data, err := os.ReadFile(trackingPath)
+	if err != nil {
+		t.Fatalf("failed to read tracking file: %v", err)
+	}
+	var tracked []protocol.ShortcutInfo
+	if err := json.Unmarshal(data, &tracked); err != nil {
+		t.Fatalf("failed to parse tracking file: %v", err)
+	}
+	if len(tracked) != 1 || tracked[0].Name != "Test Game" {
+		t.Errorf("tracking file has unexpected content: %+v", tracked)
+	}
 }
 
-func TestManager_List_RequiresCEF(t *testing.T) {
-	t.Skip("requires Steam CEF debugger — integration test")
+func TestManager_ListUsesTrackingOverVDF(t *testing.T) {
+	tmpDir := t.TempDir()
+	paths := steam.NewPathsWithBase(tmpDir)
+	trackingPath := filepath.Join(tmpDir, "tracked.json")
+	userID := "12345"
+
+	// Write VDF with one game
+	writeTestVDF(t, paths, userID, "VDF Game", "/vdf/game", 111)
+
+	// Write tracking with a DIFFERENT game
+	writeTestTracking(t, trackingPath, []protocol.ShortcutInfo{
+		{AppID: 222, Name: "Tracked Game", Exe: "/tracked/game"},
+	})
+
+	mgr := NewManagerWithPaths(paths, trackingPath)
+
+	// List() should return tracked data, NOT VDF data
+	list, err := mgr.List(userID)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("List() returned %d shortcuts, want 1", len(list))
+	}
+	if list[0].Name != "Tracked Game" {
+		t.Errorf("List()[0].Name = %q, want %q (tracking should take priority over VDF)", list[0].Name, "Tracked Game")
+	}
 }
+
+func TestManager_TrackingPersistence(t *testing.T) {
+	tmpDir := t.TempDir()
+	paths := steam.NewPathsWithBase(tmpDir)
+	trackingPath := filepath.Join(tmpDir, "tracked.json")
+
+	// Write tracked data
+	shortcuts := []protocol.ShortcutInfo{
+		{AppID: 100, Name: "Game A", Exe: "/a", StartDir: "/dir-a"},
+		{AppID: 200, Name: "Game B", Exe: "/b", StartDir: "/dir-b"},
+	}
+	writeTestTracking(t, trackingPath, shortcuts)
+
+	// Create a new manager — should load persisted data
+	mgr := NewManagerWithPaths(paths, trackingPath)
+	list, err := mgr.List("99999")
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("List() returned %d shortcuts, want 2", len(list))
+	}
+	if list[0].AppID != 100 || list[1].AppID != 200 {
+		t.Errorf("unexpected shortcuts: %+v", list)
+	}
+}
+
+func TestManager_ListReturnsCopy(t *testing.T) {
+	tmpDir := t.TempDir()
+	paths := steam.NewPathsWithBase(tmpDir)
+	trackingPath := filepath.Join(tmpDir, "tracked.json")
+
+	writeTestTracking(t, trackingPath, []protocol.ShortcutInfo{
+		{AppID: 42, Name: "Original"},
+	})
+
+	mgr := NewManagerWithPaths(paths, trackingPath)
+	list, _ := mgr.List("12345")
+
+	// Mutating the returned slice should not affect internal state
+	list[0].Name = "Mutated"
+	list2, _ := mgr.List("12345")
+	if list2[0].Name != "Original" {
+		t.Errorf("List() returned reference to internal slice (mutation propagated)")
+	}
+}
+
+// --- CEF-dependent tests (skipped in CI) ---
 
 func TestManager_Create_RequiresCEF(t *testing.T) {
 	t.Skip("requires Steam CEF debugger — integration test")
 }
 
 func TestManager_Delete_RequiresCEF(t *testing.T) {
-	t.Skip("requires Steam CEF debugger — integration test")
-}
-
-func TestManager_DeleteNotFound_RequiresCEF(t *testing.T) {
 	t.Skip("requires Steam CEF debugger — integration test")
 }

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
 
@@ -339,65 +338,6 @@ func (c *CEFClient) SpecifyCompatTool(ctx context.Context, appID uint32, toolNam
 
 	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
 	return err
-}
-
-// CEFShortcut represents a shortcut as returned by SteamClient.Apps.GetAllShortcuts().
-// Field names match the JSON keys from Steam's CEF API response.
-type CEFShortcut struct {
-	AppID         uint32                 `json:"appid"`
-	Name          string                 `json:"strAppName"`
-	Exe           string                 `json:"strExePath"`
-	StartDir      string                 `json:"strStartDir"`
-	LaunchOptions string                 `json:"strLaunchOptions"`
-	LastPlayed    int64                  `json:"rtLastPlayed"`
-	Tags          map[string]interface{} `json:"tags"`
-}
-
-// GetAllShortcuts retrieves all non-Steam shortcuts via CEF API.
-// Does NOT call EnsureCEFReady — this is a read-only operation that should
-// not trigger a Steam restart just to list shortcuts.
-func (c *CEFClient) GetAllShortcuts(ctx context.Context) ([]CEFShortcut, error) {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, `SteamClient.Apps.GetAllShortcuts()`)
-	if err != nil {
-		return nil, fmt.Errorf("GetAllShortcuts failed: %w", err)
-	}
-
-	var shortcuts []CEFShortcut
-	if err := json.Unmarshal(raw, &shortcuts); err != nil {
-		return nil, fmt.Errorf("failed to parse GetAllShortcuts result: %w (raw: %s)", err, string(raw))
-	}
-
-	return shortcuts, nil
-}
-
-// CEFShortcutToInfo converts a CEFShortcut to protocol.ShortcutInfo.
-func CEFShortcutToInfo(sc CEFShortcut) protocol.ShortcutInfo {
-	var tags []string
-	for _, v := range sc.Tags {
-		if s, ok := v.(string); ok {
-			tags = append(tags, s)
-		}
-	}
-
-	return protocol.ShortcutInfo{
-		AppID:         sc.AppID,
-		Name:          sc.Name,
-		Exe:           sc.Exe,
-		StartDir:      sc.StartDir,
-		LaunchOptions: sc.LaunchOptions,
-		Tags:          tags,
-		LastPlayed:    sc.LastPlayed,
-	}
 }
 
 // ArtworkTypeToCEFAsset maps artwork type strings to CEF asset type constants.
