@@ -70,6 +70,16 @@ async function handleCreateShortcut(config: ShortcutConfig) {
 
     if (appId) {
       SteamClient.Apps.SetShortcutName(appId, config.name);
+
+      // Set Proton for Windows executables (Decky always runs on Linux)
+      if (config.exe.toLowerCase().endsWith(".exe")) {
+        try {
+          SteamClient.Apps.SpecifyCompatTool(appId, "proton_experimental");
+        } catch (e) {
+          console.warn("Failed to set Proton:", e);
+        }
+      }
+
       await call<[string, number], void>("register_shortcut", config.name, appId);
 
       // Apply artwork (backend sends {data: base64, format: "png"|"jpg"})
@@ -124,7 +134,6 @@ async function handleCreateShortcut(config: ShortcutConfig) {
         }
       }
 
-      brandToast({ title: "Shortcut created!", body: config.name });
     }
   } catch (e) {
     console.error("Failed to create shortcut:", e);
@@ -202,10 +211,6 @@ async function pollAllEvents() {
         if (event.status === "start") {
           progressState.update(event, null);
           showProgressModal();
-          brandToast({
-            title: event.type === "install" ? "Installing game" : "Removing game",
-            body: event.gameName,
-          });
         } else if (event.status === "complete") {
           progressState.update(event, null);
           closeProgressModal();

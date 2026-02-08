@@ -59,7 +59,7 @@ class WebSocketServer:
                 self.handle_connection,
                 "0.0.0.0",
                 0,
-                max_size=10 * 1024 * 1024,  # 10MB max message
+                max_size=50 * 1024 * 1024,  # 50MB max message (matches Go agents)
                 reuse_address=True,
             )
             # Get the actual port assigned by the OS
