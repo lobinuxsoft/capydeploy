@@ -12,12 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/auth"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/pathutil"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
@@ -288,7 +288,7 @@ func (s *Server) GetUploadPath(gameName, installPath string) string {
 	}
 
 	// Expand ~ to home directory
-	basePath = expandPath(basePath)
+	basePath = pathutil.ExpandHome(basePath)
 
 	return filepath.Join(basePath, gameName)
 }
@@ -301,18 +301,7 @@ func (s *Server) GetInstallPath() string {
 	} else {
 		path = s.cfg.UploadPath
 	}
-	return expandPath(path)
-}
-
-// expandPath expands ~ to the user's home directory.
-func expandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			return filepath.Join(home, path[2:])
-		}
-	}
-	return path
+	return pathutil.ExpandHome(path)
 }
 
 // NotifyShortcutChange calls the OnShortcutChange callback if set.

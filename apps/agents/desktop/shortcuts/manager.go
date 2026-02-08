@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/artwork"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/pathutil"
 	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
@@ -135,8 +136,8 @@ func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
 // The userID parameter is kept for signature compatibility but is not used
 // for creation — CEF handles persistence internally.
 func (m *Manager) Create(userID string, cfg protocol.ShortcutConfig) (uint32, error) {
-	exePath := expandPath(cfg.Exe)
-	startDir := expandPath(cfg.StartDir)
+	exePath := pathutil.ExpandHome(cfg.Exe)
+	startDir := pathutil.ExpandHome(cfg.StartDir)
 
 	// On Windows, Steam expects quoted paths
 	if runtime.GOOS == "windows" {
@@ -292,17 +293,6 @@ func (m *Manager) deleteArtwork(userID string, appID uint32) error {
 	return nil
 }
 
-// expandPath expands ~ to the user's home directory.
-func expandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			return filepath.Join(home, path[2:])
-		}
-	}
-	return path
-}
-
 // quotePath wraps a path in double quotes for Steam on Windows.
 // Linux shortcuts must NOT have quotes around paths.
 func quotePath(path string) string {
@@ -331,7 +321,7 @@ func deleteGameDirectory(path string) error {
 	}
 
 	// Expand path if it uses ~
-	path = expandPath(path)
+	path = pathutil.ExpandHome(path)
 
 	// Safety checks - don't delete system paths or root directories
 	absPath, err := filepath.Abs(path)

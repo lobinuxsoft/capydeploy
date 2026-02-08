@@ -8,13 +8,14 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/pathutil"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
 
 // --- Pure function tests ---
 
-func TestExpandPath(t *testing.T) {
+func TestExpandHome(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skip("cannot determine home directory")
@@ -34,8 +35,8 @@ func TestExpandPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := expandPath(tt.path); got != tt.want {
-				t.Errorf("expandPath(%q) = %q, want %q", tt.path, got, tt.want)
+			if got := pathutil.ExpandHome(tt.path); got != tt.want {
+				t.Errorf("ExpandHome(%q) = %q, want %q", tt.path, got, tt.want)
 			}
 		})
 	}
