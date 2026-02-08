@@ -110,7 +110,8 @@ jobs:
         run: |
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          VERSION="0.1.0-dev+${COMMIT}"
+          BASE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          VERSION="${BASE_VERSION}-dev+${COMMIT}"
           echo "ldflags=-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE" >> "$GITHUB_OUTPUT"
 
       - name: Build Hub

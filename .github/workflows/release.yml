@@ -52,6 +52,11 @@ jobs:
         id: version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [ "$VERSION" != "$FILE_VERSION" ]; then
+            echo "::error::Tag version ($VERSION) does not match VERSION file ($FILE_VERSION)"
+            exit 1
+          fi
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
