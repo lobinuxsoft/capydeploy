@@ -11,9 +11,6 @@ dist/
 capydeploy-hub
 capydeploy-agent
 
-# Embedded binaries (generated during build)
-internal/embedded/steam-shortcut-manager
-
 # Frontend - Hub
 apps/hub/frontend/node_modules/
 apps/hub/frontend/dist/

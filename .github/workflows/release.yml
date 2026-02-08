@@ -30,8 +30,6 @@ jobs:
             agent_bin: capydeploy-agent.exe
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - uses: actions/setup-go@v5
         with:

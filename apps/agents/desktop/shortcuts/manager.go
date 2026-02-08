@@ -15,7 +15,6 @@ import (
 	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
-	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"
 )
 
 // Manager handles Steam shortcut operations locally on the Agent.
@@ -37,61 +36,20 @@ func NewManagerWithPaths(paths *steam.Paths) *Manager {
 	return &Manager{paths: paths}
 }
 
-// List returns all shortcuts for a user.
-// Tries CEF API first (instant, reflects live state), falls back to VDF file.
+// List returns all shortcuts for a user via CEF API.
 func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
-	result, err := m.listViaCEF()
-	if err == nil {
-		return result, nil
-	}
-	log.Printf("[shortcuts] CEF list failed, falling back to VDF: %v", err)
-	return m.listViaVDF(userID)
-}
-
-// listViaCEF retrieves shortcuts from Steam's CEF API.
-func (m *Manager) listViaCEF() ([]protocol.ShortcutInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	client := agentSteam.NewCEFClient()
 	cefShortcuts, err := client.GetAllShortcuts(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list shortcuts via CEF: %w", err)
 	}
 
 	result := make([]protocol.ShortcutInfo, 0, len(cefShortcuts))
 	for _, sc := range cefShortcuts {
 		result = append(result, agentSteam.CEFShortcutToInfo(sc))
-	}
-
-	return result, nil
-}
-
-// listViaVDF reads shortcuts from the VDF file on disk.
-func (m *Manager) listViaVDF(userID string) ([]protocol.ShortcutInfo, error) {
-	shortcutsPath := m.paths.ShortcutsPath(userID)
-
-	// Return empty list if file doesn't exist
-	if _, err := os.Stat(shortcutsPath); os.IsNotExist(err) {
-		return []protocol.ShortcutInfo{}, nil
-	}
-
-	shortcuts, err := shortcut.Load(shortcutsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load shortcuts: %w", err)
-	}
-
-	var result []protocol.ShortcutInfo
-	for _, sc := range shortcuts.Shortcuts {
-		result = append(result, protocol.ShortcutInfo{
-			AppID:         uint32(sc.Appid),
-			Name:          sc.AppName,
-			Exe:           sc.Exe,
-			StartDir:      sc.StartDir,
-			LaunchOptions: sc.LaunchOptions,
-			Tags:          tagsToSlice(sc.Tags),
-			LastPlayed:    int64(sc.LastPlayTime),
-		})
 	}
 
 	return result, nil
@@ -227,20 +185,6 @@ func (m *Manager) deleteArtwork(userID string, appID uint32) error {
 	}
 
 	return nil
-}
-
-// tagsToSlice converts VDF tags map to string slice.
-func tagsToSlice(tags map[string]interface{}) []string {
-	if tags == nil {
-		return nil
-	}
-	var result []string
-	for _, v := range tags {
-		if s, ok := v.(string); ok {
-			result = append(result, s)
-		}
-	}
-	return result
 }
 
 // expandPath expands ~ to the user's home directory.

@@ -5,41 +5,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/lobinuxsoft/capydeploy/pkg/steam"
-	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"
 )
 
 // --- Pure function tests ---
-
-func TestTagsToSlice(t *testing.T) {
-	tests := []struct {
-		name string
-		tags map[string]interface{}
-		want int // expected length (order is non-deterministic from map)
-	}{
-		{"nil map", nil, 0},
-		{"empty map", map[string]interface{}{}, 0},
-		{"single tag", map[string]interface{}{"0": "RPG"}, 1},
-		{"multiple tags", map[string]interface{}{"0": "RPG", "1": "Action"}, 2},
-		{"non-string values ignored", map[string]interface{}{"0": "RPG", "1": 42}, 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tagsToSlice(tt.tags)
-			if tt.tags == nil {
-				if got != nil {
-					t.Errorf("tagsToSlice(nil) = %v, want nil", got)
-				}
-				return
-			}
-			if len(got) != tt.want {
-				t.Errorf("tagsToSlice() len = %d, want %d", len(got), tt.want)
-			}
-		})
-	}
-}
 
 func TestExpandPath(t *testing.T) {
 	home, err := os.UserHomeDir()
@@ -204,73 +172,8 @@ func TestDeleteGameDirectory_ActualDelete(t *testing.T) {
 
 // --- Manager tests ---
 
-// saveTestShortcut writes a shortcut directly to VDF for test setup
-// (bypassing Create which now requires CEF).
-func saveTestShortcut(t *testing.T, paths *steam.Paths, userID string, name, exe, startDir string, appID int64) {
-	t.Helper()
-	shortcutsPath := paths.ShortcutsPath(userID)
-	configDir := paths.ConfigDir(userID)
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatalf("failed to create config dir: %v", err)
-	}
-
-	var shortcuts *shortcut.Shortcuts
-	if _, err := os.Stat(shortcutsPath); os.IsNotExist(err) {
-		shortcuts = shortcut.NewShortcuts()
-	} else {
-		var loadErr error
-		shortcuts, loadErr = shortcut.Load(shortcutsPath)
-		if loadErr != nil {
-			t.Fatalf("failed to load shortcuts: %v", loadErr)
-		}
-	}
-
-	sc := shortcut.NewShortcut(name, exe, shortcut.DefaultShortcut)
-	sc.StartDir = startDir
-	sc.Appid = appID
-	if err := shortcuts.Add(sc); err != nil {
-		t.Fatalf("failed to add test shortcut: %v", err)
-	}
-	if err := shortcut.Save(shortcuts, shortcutsPath); err != nil {
-		t.Fatalf("failed to save test shortcuts: %v", err)
-	}
-}
-
-func TestManager_ListEmpty(t *testing.T) {
-	tmpDir := t.TempDir()
-	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
-
-	// No shortcuts.vdf exists yet
-	list, err := mgr.List("12345")
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if len(list) != 0 {
-		t.Errorf("List() returned %d shortcuts, want 0", len(list))
-	}
-}
-
-func TestManager_ListVDFFallback(t *testing.T) {
-	// Without CEF available, List() falls back to reading the VDF file.
-	tmpDir := t.TempDir()
-	paths := steam.NewPathsWithBase(tmpDir)
-	mgr := NewManagerWithPaths(paths)
-	userID := "12345"
-
-	saveTestShortcut(t, paths, userID, "Test Game", "/usr/bin/test-game", "/usr/bin", 12345)
-
-	list, err := mgr.List(userID)
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if len(list) != 1 {
-		t.Fatalf("List() returned %d shortcuts, want 1", len(list))
-	}
-	if list[0].Name != "Test Game" {
-		t.Errorf("List()[0].Name = %q, want %q", list[0].Name, "Test Game")
-	}
+func TestManager_List_RequiresCEF(t *testing.T) {
+	t.Skip("requires Steam CEF debugger — integration test")
 }
 
 func TestManager_Create_RequiresCEF(t *testing.T) {

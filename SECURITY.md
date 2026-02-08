@@ -33,7 +33,7 @@ This policy applies to:
 - Embedded binaries
 
 **Out of scope**:
-- Third-party dependencies (Wails, steam-shortcut-manager upstream) - report to their respective projects
+- Third-party dependencies (Wails upstream) - report to their respective projects
 - User-provided device configurations
 - Remote device security
 

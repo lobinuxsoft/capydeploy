@@ -5,13 +5,15 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
 	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
-	ssmSteam "github.com/shadowblip/steam-shortcut-manager/pkg/steam"
+	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
 
 // ArtworkResult contains the result of applying a single artwork type.
@@ -88,7 +90,7 @@ func applyViaCEF(appID uint32, artworkType string, data []byte) error {
 func applyViaFilesystem(appID uint32, artworkType string, data []byte, ext string) error {
 	suffix, _ := artworkSuffix(artworkType)
 
-	users, err := ssmSteam.GetUsers()
+	users, err := steam.GetUsers()
 	if err != nil {
 		return fmt.Errorf("failed to get steam users: %w", err)
 	}
@@ -96,10 +98,12 @@ func applyViaFilesystem(appID uint32, artworkType string, data []byte, ext strin
 		return fmt.Errorf("no steam users found")
 	}
 
-	gridDir, err := ssmSteam.GetImagesDir(users[0])
+	paths, err := steam.NewPaths()
 	if err != nil {
-		return fmt.Errorf("failed to get grid directory: %w", err)
+		return fmt.Errorf("failed to get steam paths: %w", err)
 	}
+
+	gridDir := paths.GridDir(users[0].ID)
 
 	if err := os.MkdirAll(gridDir, 0755); err != nil {
 		return fmt.Errorf("failed to create grid directory: %w", err)
@@ -156,4 +160,27 @@ func removeExistingArtwork(gridDir string, appID uint32, suffix string) {
 		path := filepath.Join(gridDir, fmt.Sprintf("%s.%s", base, ext))
 		os.Remove(path)
 	}
+}
+
+// downloadURL fetches the given URL and returns the body bytes and Content-Type.
+func downloadURL(url string) ([]byte, string, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to download %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("download %s returned status %d", url, resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read response body from %s: %w", url, err)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	return data, contentType, nil
 }

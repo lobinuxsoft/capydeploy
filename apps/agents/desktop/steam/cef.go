@@ -16,7 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
-	ssmSteam "github.com/shadowblip/steam-shortcut-manager/pkg/steam"
+	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
 
 // CEF asset type constants matching SteamClient.Apps.SetCustomArtworkForApp.
@@ -423,10 +423,11 @@ func ArtworkTypeToCEFAsset(artworkType string) (int, bool) {
 // remote debugger on port 8080. Returns true if the file was just created
 // (meaning Steam needs a restart for CEF to become available).
 func EnsureCEFDebugFile() (created bool, err error) {
-	baseDir, err := ssmSteam.GetBaseDir()
+	paths, err := steam.NewPaths()
 	if err != nil {
-		return false, fmt.Errorf("failed to get Steam base dir: %w", err)
+		return false, fmt.Errorf("failed to get Steam paths: %w", err)
 	}
+	baseDir := paths.BaseDir()
 
 	debugPath := filepath.Join(baseDir, cefDebugFile)
 
