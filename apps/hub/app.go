@@ -46,8 +46,8 @@ type App struct {
 // ConnectedAgent represents a connected agent with its client
 type ConnectedAgent struct {
 	Agent    *discovery.DiscoveredAgent
-	Client   modules.PlatformClient
-	WSClient *modules.WSClient       // WebSocket client (nil if using HTTP)
+	Client   modules.PlatformClient  // Interface for capability checks (type assertions)
+	WSClient *modules.WSClient       // WebSocket client for WS-specific operations
 	Info     *protocol.AgentInfo     // Full agent info from WS connection (includes capabilities)
 }
 
@@ -768,7 +768,7 @@ func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.
 	}
 
 	if !completeResp.Success {
-		emitProgress(0, "", fmt.Sprintf("Upload failed: %s", completeResp.Error), true)
+		emitProgress(0, "", "Upload completion failed", true)
 		return
 	}
 

@@ -8,7 +8,6 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/wailsapp/wails/v2 v2.11.0
-	golang.org/x/image v0.35.0
 	golang.org/x/sys v0.39.0
 )
 
