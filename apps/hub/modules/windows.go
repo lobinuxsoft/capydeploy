@@ -18,13 +18,7 @@ func (m *WindowsModule) Platform() string {
 	return PlatformWindows
 }
 
-// NewClient creates a new client for communicating with a Windows Agent.
-func (m *WindowsModule) NewClient(host string, port int) PlatformClient {
-	return newBaseClient(host, port, PlatformWindows)
-}
-
 // SupportedImageFormats returns the image formats supported by Windows Steam.
-// Windows uses filesystem method only (no CEF API), so only static formats.
 func (m *WindowsModule) SupportedImageFormats() []string {
 	return []string{"image/png", "image/jpeg"}
 }

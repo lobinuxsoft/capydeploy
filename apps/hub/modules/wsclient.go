@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/lobinuxsoft/capydeploy/apps/hub/wsclient"
-	"github.com/lobinuxsoft/capydeploy/internal/agent"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
@@ -101,14 +100,8 @@ func (c *WSClient) GetInfo(ctx context.Context) (*protocol.AgentInfo, error) {
 	return c.client.GetInfo(ctx)
 }
 
-func (c *WSClient) GetConfig(ctx context.Context) (*agent.AgentConfig, error) {
-	resp, err := c.client.GetConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &agent.AgentConfig{
-		InstallPath: resp.InstallPath,
-	}, nil
+func (c *WSClient) GetConfig(ctx context.Context) (*protocol.ConfigResponse, error) {
+	return c.client.GetConfig(ctx)
 }
 
 // SteamUserProvider implementation
@@ -154,26 +147,8 @@ func (c *WSClient) DeleteShortcut(ctx context.Context, userID string, appID uint
 
 // ArtworkManager implementation
 
-func (c *WSClient) ApplyArtwork(ctx context.Context, userID string, appID uint32, cfg *protocol.ArtworkConfig) (*agent.ApplyArtworkResult, error) {
-	resp, err := c.client.ApplyArtwork(ctx, userID, appID, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert protocol.ArtworkResponse to agent.ApplyArtworkResult
-	result := &agent.ApplyArtworkResult{
-		Applied: resp.Applied,
-	}
-	for _, f := range resp.Failed {
-		result.Failed = append(result.Failed, struct {
-			Type  string `json:"type"`
-			Error string `json:"error,omitempty"`
-		}{
-			Type:  f.Type,
-			Error: f.Error,
-		})
-	}
-	return result, nil
+func (c *WSClient) ApplyArtwork(ctx context.Context, userID string, appID uint32, cfg *protocol.ArtworkConfig) (*protocol.ArtworkResponse, error) {
+	return c.client.ApplyArtwork(ctx, userID, appID, cfg)
 }
 
 // SendArtworkImage sends a binary artwork image to the agent.
@@ -183,20 +158,13 @@ func (c *WSClient) SendArtworkImage(ctx context.Context, appID uint32, artworkTy
 
 // SteamController implementation
 
-func (c *WSClient) RestartSteam(ctx context.Context) (*agent.RestartSteamResult, error) {
-	resp, err := c.client.RestartSteam(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &agent.RestartSteamResult{
-		Success: resp.Success,
-		Message: resp.Message,
-	}, nil
+func (c *WSClient) RestartSteam(ctx context.Context) (*protocol.RestartSteamResponse, error) {
+	return c.client.RestartSteam(ctx)
 }
 
 // FileUploader implementation
 
-func (c *WSClient) InitUpload(ctx context.Context, config protocol.UploadConfig, totalSize int64, files []transfer.FileEntry) (*agent.InitUploadResponse, error) {
+func (c *WSClient) InitUpload(ctx context.Context, config protocol.UploadConfig, totalSize int64, files []transfer.FileEntry) (*protocol.InitUploadResponseFull, error) {
 	// Convert transfer.FileEntry to protocol.FileEntry
 	protoFiles := make([]protocol.FileEntry, len(files))
 	for i, f := range files {
@@ -206,33 +174,15 @@ func (c *WSClient) InitUpload(ctx context.Context, config protocol.UploadConfig,
 		}
 	}
 
-	resp, err := c.client.InitUpload(ctx, config, totalSize, protoFiles)
-	if err != nil {
-		return nil, err
-	}
-
-	return &agent.InitUploadResponse{
-		UploadID:   resp.UploadID,
-		ChunkSize:  resp.ChunkSize,
-		ResumeFrom: resp.ResumeFrom,
-	}, nil
+	return c.client.InitUpload(ctx, config, totalSize, protoFiles)
 }
 
 func (c *WSClient) UploadChunk(ctx context.Context, uploadID string, chunk *transfer.Chunk) error {
 	return c.client.UploadChunk(ctx, uploadID, chunk.FilePath, chunk.Offset, chunk.Data, chunk.Checksum)
 }
 
-func (c *WSClient) CompleteUpload(ctx context.Context, uploadID string, createShortcut bool, shortcut *protocol.ShortcutConfig) (*agent.CompleteUploadResponse, error) {
-	resp, err := c.client.CompleteUpload(ctx, uploadID, createShortcut, shortcut)
-	if err != nil {
-		return nil, err
-	}
-
-	return &agent.CompleteUploadResponse{
-		Success: resp.Success,
-		Path:    resp.Path,
-		AppID:   resp.AppID,
-	}, nil
+func (c *WSClient) CompleteUpload(ctx context.Context, uploadID string, createShortcut bool, shortcut *protocol.ShortcutConfig) (*protocol.CompleteUploadResponseFull, error) {
+	return c.client.CompleteUpload(ctx, uploadID, createShortcut, shortcut)
 }
 
 func (c *WSClient) CancelUpload(ctx context.Context, uploadID string) error {
@@ -246,14 +196,6 @@ func (c *WSClient) GetUploadStatus(ctx context.Context, uploadID string) (*proto
 
 // GameManager implementation
 
-func (c *WSClient) DeleteGame(ctx context.Context, appID uint32) (*agent.DeleteGameResult, error) {
-	resp, err := c.client.DeleteGame(ctx, appID)
-	if err != nil {
-		return nil, err
-	}
-	return &agent.DeleteGameResult{
-		Status:         resp.Status,
-		GameName:       resp.GameName,
-		SteamRestarted: resp.SteamRestarted,
-	}, nil
+func (c *WSClient) DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error) {
+	return c.client.DeleteGame(ctx, appID)
 }

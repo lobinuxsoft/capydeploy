@@ -4,21 +4,17 @@ package modules
 import (
 	"context"
 
-	"github.com/lobinuxsoft/capydeploy/internal/agent"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
 )
 
-// PlatformModule defines the interface for platform-specific Agent communication.
-// Each platform (Linux, Windows) implements this interface to create clients
-// that communicate with Agents running on that platform.
+// PlatformModule defines the interface for platform-specific configuration.
+// Each platform (Linux, Windows) implements this interface to provide
+// platform-specific metadata like supported image formats.
 type PlatformModule interface {
 	// Platform returns the platform identifier (e.g., "linux", "windows").
 	Platform() string
-
-	// NewClient creates a new client for communicating with an Agent.
-	NewClient(host string, port int) PlatformClient
 
 	// SupportedImageFormats returns the MIME types supported for Steam artwork.
 	SupportedImageFormats() []string
@@ -34,7 +30,7 @@ type PlatformClient interface {
 	GetInfo(ctx context.Context) (*protocol.AgentInfo, error)
 
 	// GetConfig returns the agent configuration.
-	GetConfig(ctx context.Context) (*agent.AgentConfig, error)
+	GetConfig(ctx context.Context) (*protocol.ConfigResponse, error)
 }
 
 // SteamUserProvider provides Steam user information.
@@ -58,32 +54,32 @@ type ShortcutManager interface {
 // ArtworkManager handles Steam artwork operations.
 type ArtworkManager interface {
 	// ApplyArtwork applies artwork to a shortcut.
-	ApplyArtwork(ctx context.Context, userID string, appID uint32, cfg *protocol.ArtworkConfig) (*agent.ApplyArtworkResult, error)
+	ApplyArtwork(ctx context.Context, userID string, appID uint32, cfg *protocol.ArtworkConfig) (*protocol.ArtworkResponse, error)
 }
 
 // SteamController manages Steam process operations.
 type SteamController interface {
 	// RestartSteam restarts the Steam client.
-	RestartSteam(ctx context.Context) (*agent.RestartSteamResult, error)
+	RestartSteam(ctx context.Context) (*protocol.RestartSteamResponse, error)
 }
 
 // GameManager handles high-level game operations.
 // The Agent handles everything internally (user detection, Steam restart, etc.)
 type GameManager interface {
 	// DeleteGame removes a game completely (shortcut, files, artwork) and restarts Steam.
-	DeleteGame(ctx context.Context, appID uint32) (*agent.DeleteGameResult, error)
+	DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error)
 }
 
 // FileUploader handles file upload operations.
 type FileUploader interface {
 	// InitUpload initializes a new upload session.
-	InitUpload(ctx context.Context, config protocol.UploadConfig, totalSize int64, files []transfer.FileEntry) (*agent.InitUploadResponse, error)
+	InitUpload(ctx context.Context, config protocol.UploadConfig, totalSize int64, files []transfer.FileEntry) (*protocol.InitUploadResponseFull, error)
 
 	// UploadChunk sends a single chunk to the agent.
 	UploadChunk(ctx context.Context, uploadID string, chunk *transfer.Chunk) error
 
 	// CompleteUpload finalizes an upload session.
-	CompleteUpload(ctx context.Context, uploadID string, createShortcut bool, shortcut *protocol.ShortcutConfig) (*agent.CompleteUploadResponse, error)
+	CompleteUpload(ctx context.Context, uploadID string, createShortcut bool, shortcut *protocol.ShortcutConfig) (*protocol.CompleteUploadResponseFull, error)
 
 	// CancelUpload cancels an upload session.
 	CancelUpload(ctx context.Context, uploadID string) error
