@@ -321,6 +321,25 @@ func (c *CEFClient) SetShortcutLaunchOptions(ctx context.Context, appID uint32, 
 	return err
 }
 
+// SpecifyCompatTool sets the compatibility tool (e.g. Proton) for a shortcut via CEF API.
+// Uses SteamClient.Apps.SpecifyCompatTool(appID, toolName).
+func (c *CEFClient) SpecifyCompatTool(ctx context.Context, appID uint32, toolName string) error {
+	tabs, err := c.getTabs(ctx)
+	if err != nil {
+		return err
+	}
+
+	tab, err := c.findJSContext(tabs)
+	if err != nil {
+		return err
+	}
+
+	js := fmt.Sprintf(`SteamClient.Apps.SpecifyCompatTool(%d, %s)`, appID, jsString(toolName))
+
+	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	return err
+}
+
 // ArtworkTypeToCEFAsset maps artwork type strings to CEF asset type constants.
 func ArtworkTypeToCEFAsset(artworkType string) (int, bool) {
 	switch artworkType {

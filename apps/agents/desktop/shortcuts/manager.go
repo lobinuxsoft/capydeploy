@@ -4,6 +4,7 @@ package shortcuts
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -97,6 +98,13 @@ func (m *Manager) Create(userID string, cfg protocol.ShortcutConfig) (uint32, er
 	// so we must rename it afterwards.
 	if err := client.SetShortcutName(ctx, appID, cfg.Name); err != nil {
 		fmt.Printf("Warning: failed to set shortcut name: %v\n", err)
+	}
+
+	// On Linux, automatically set Proton as the compatibility tool
+	if runtime.GOOS == "linux" {
+		if err := client.SpecifyCompatTool(ctx, appID, "proton_experimental"); err != nil {
+			log.Printf("[shortcuts] warning: failed to set Proton for appID %d: %v", appID, err)
+		}
 	}
 
 	return appID, nil
