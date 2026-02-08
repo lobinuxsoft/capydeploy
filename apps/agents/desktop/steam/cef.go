@@ -153,10 +153,24 @@ func (c *CEFClient) evaluateAsync(ctx context.Context, wsURL string, jsExpr stri
 		return nil, fmt.Errorf("failed to send CEF message: %w", err)
 	}
 
+	// Close the connection when context is cancelled so ReadMessage unblocks.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			conn.Close()
+		case <-done:
+		}
+	}()
+
 	conn.SetReadDeadline(time.Now().Add(cefWSRead))
 	for {
 		_, rawMsg, err := conn.ReadMessage()
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, fmt.Errorf("CEF evaluation cancelled: %w", ctx.Err())
+			}
 			return nil, fmt.Errorf("failed to read CEF response: %w", err)
 		}
 
@@ -177,6 +191,21 @@ func (c *CEFClient) evaluateAsync(ctx context.Context, wsURL string, jsExpr stri
 	}
 }
 
+// eval is the common pattern: find JS context tab, evaluate JS expression.
+func (c *CEFClient) eval(ctx context.Context, jsExpr string) (json.RawMessage, error) {
+	tabs, err := c.getTabs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tab, err := c.findJSContext(tabs)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, jsExpr)
+}
+
 // jsString produces a safely escaped JS string literal using JSON encoding.
 // Handles paths with backslashes (Windows), quotes, spaces, and special chars.
 func jsString(s string) string {
@@ -186,46 +215,21 @@ func jsString(s string) string {
 
 // SetCustomArtwork applies custom artwork to a Steam app via CEF API.
 func (c *CEFClient) SetCustomArtwork(ctx context.Context, appID uint32, base64Data string, assetType int) error {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return err
-	}
-
 	js := fmt.Sprintf(
 		`SteamClient.Apps.SetCustomArtworkForApp(%d, "%s", "png", %d)`,
 		appID, base64Data, assetType,
 	)
-
-	// SetCustomArtworkForApp returns a Promise — must await it to ensure
-	// the operation completes before applying the next artwork type.
-	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	_, err := c.eval(ctx, js)
 	return err
 }
 
 // ClearCustomArtwork removes custom artwork from a Steam app via CEF API.
 func (c *CEFClient) ClearCustomArtwork(ctx context.Context, appID uint32, assetType int) error {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return err
-	}
-
 	js := fmt.Sprintf(
 		`SteamClient.Apps.ClearCustomArtworkForApp(%d, %d)`,
 		appID, assetType,
 	)
-
-	// ClearCustomArtworkForApp returns a Promise — must await it.
-	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	_, err := c.eval(ctx, js)
 	return err
 }
 
@@ -233,22 +237,12 @@ func (c *CEFClient) ClearCustomArtwork(ctx context.Context, appID uint32, assetT
 // Uses SteamClient.Apps.AddShortcut(name, exe, startDir, launchOptions) which
 // returns a Promise<number>.
 func (c *CEFClient) AddShortcut(ctx context.Context, name, exe, startDir, launchOptions string) (uint32, error) {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return 0, err
-	}
-
 	js := fmt.Sprintf(
 		`SteamClient.Apps.AddShortcut(%s, %s, %s, %s)`,
 		jsString(name), jsString(exe), jsString(startDir), jsString(launchOptions),
 	)
 
-	raw, err := c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	raw, err := c.eval(ctx, js)
 	if err != nil {
 		return 0, fmt.Errorf("AddShortcut failed: %w", err)
 	}
@@ -267,19 +261,7 @@ func (c *CEFClient) AddShortcut(ctx context.Context, name, exe, startDir, launch
 
 // RemoveShortcut removes a Steam shortcut via CEF API.
 func (c *CEFClient) RemoveShortcut(ctx context.Context, appID uint32) error {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return err
-	}
-
-	js := fmt.Sprintf(`SteamClient.Apps.RemoveShortcut(%d)`, appID)
-
-	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	_, err := c.eval(ctx, fmt.Sprintf(`SteamClient.Apps.RemoveShortcut(%d)`, appID))
 	return err
 }
 
@@ -287,56 +269,20 @@ func (c *CEFClient) RemoveShortcut(ctx context.Context, appID uint32) error {
 // AddShortcut ignores the name parameter and uses the executable filename,
 // so this must be called after creation to set the correct name.
 func (c *CEFClient) SetShortcutName(ctx context.Context, appID uint32, name string) error {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return err
-	}
-
-	js := fmt.Sprintf(`SteamClient.Apps.SetShortcutName(%d, %s)`, appID, jsString(name))
-
-	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	_, err := c.eval(ctx, fmt.Sprintf(`SteamClient.Apps.SetShortcutName(%d, %s)`, appID, jsString(name)))
 	return err
 }
 
 // SetShortcutLaunchOptions sets launch options for a shortcut via CEF API.
 func (c *CEFClient) SetShortcutLaunchOptions(ctx context.Context, appID uint32, options string) error {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return err
-	}
-
-	js := fmt.Sprintf(`SteamClient.Apps.SetShortcutLaunchOptions(%d, %s)`, appID, jsString(options))
-
-	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	_, err := c.eval(ctx, fmt.Sprintf(`SteamClient.Apps.SetShortcutLaunchOptions(%d, %s)`, appID, jsString(options)))
 	return err
 }
 
 // SpecifyCompatTool sets the compatibility tool (e.g. Proton) for a shortcut via CEF API.
 // Uses SteamClient.Apps.SpecifyCompatTool(appID, toolName).
 func (c *CEFClient) SpecifyCompatTool(ctx context.Context, appID uint32, toolName string) error {
-	tabs, err := c.getTabs(ctx)
-	if err != nil {
-		return err
-	}
-
-	tab, err := c.findJSContext(tabs)
-	if err != nil {
-		return err
-	}
-
-	js := fmt.Sprintf(`SteamClient.Apps.SpecifyCompatTool(%d, %s)`, appID, jsString(toolName))
-
-	_, err = c.evaluateAsync(ctx, tab.WebSocketDebuggerURL, js)
+	_, err := c.eval(ctx, fmt.Sprintf(`SteamClient.Apps.SpecifyCompatTool(%d, %s)`, appID, jsString(toolName)))
 	return err
 }
 
