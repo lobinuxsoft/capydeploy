@@ -4,6 +4,7 @@ package shortcuts
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,7 +39,37 @@ func NewManagerWithPaths(paths *steam.Paths) *Manager {
 }
 
 // List returns all shortcuts for a user.
+// Tries CEF API first (instant, reflects live state), falls back to VDF file.
 func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
+	result, err := m.listViaCEF()
+	if err == nil {
+		return result, nil
+	}
+	log.Printf("[shortcuts] CEF list failed, falling back to VDF: %v", err)
+	return m.listViaVDF(userID)
+}
+
+// listViaCEF retrieves shortcuts from Steam's CEF API.
+func (m *Manager) listViaCEF() ([]protocol.ShortcutInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client := agentSteam.NewCEFClient()
+	cefShortcuts, err := client.GetAllShortcuts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]protocol.ShortcutInfo, 0, len(cefShortcuts))
+	for _, sc := range cefShortcuts {
+		result = append(result, agentSteam.CEFShortcutToInfo(sc))
+	}
+
+	return result, nil
+}
+
+// listViaVDF reads shortcuts from the VDF file on disk.
+func (m *Manager) listViaVDF(userID string) ([]protocol.ShortcutInfo, error) {
 	shortcutsPath := m.paths.ShortcutsPath(userID)
 
 	// Return empty list if file doesn't exist
@@ -99,6 +130,13 @@ func (m *Manager) Create(userID string, cfg protocol.ShortcutConfig) (uint32, er
 		fmt.Printf("Warning: failed to set shortcut name: %v\n", err)
 	}
 
+	// On Linux, automatically set Proton for Windows executables
+	if runtime.GOOS == "linux" && strings.HasSuffix(strings.ToLower(exePath), ".exe") {
+		if err := client.SpecifyCompatTool(ctx, appID, "proton_experimental"); err != nil {
+			log.Printf("[shortcuts] warning: failed to set Proton for appID %d: %v", appID, err)
+		}
+	}
+
 	return appID, nil
 }
 
@@ -124,14 +162,12 @@ func (m *Manager) Delete(userID string, appID uint32) error {
 
 // DeleteWithCleanup removes a shortcut via CEF API and optionally its game folder.
 func (m *Manager) DeleteWithCleanup(userID string, appID uint32, deleteGameFolder bool) error {
-	shortcutsPath := m.paths.ShortcutsPath(userID)
-
-	// Read VDF to extract StartDir (needed to know which game folder to delete)
+	// Look up StartDir before deleting (needed to know which game folder to remove)
 	var gameFolderPath string
-	shortcuts, vdfErr := shortcut.Load(shortcutsPath)
-	if vdfErr == nil {
-		for _, sc := range shortcuts.Shortcuts {
-			if uint32(sc.Appid) == appID {
+	shortcuts, err := m.List(userID)
+	if err == nil {
+		for _, sc := range shortcuts {
+			if sc.AppID == appID {
 				gameFolderPath = unquotePath(sc.StartDir)
 				break
 			}
@@ -149,21 +185,6 @@ func (m *Manager) DeleteWithCleanup(userID string, appID uint32, deleteGameFolde
 	client := agentSteam.NewCEFClient()
 	if err := client.RemoveShortcut(ctx, appID); err != nil {
 		return fmt.Errorf("failed to remove shortcut via CEF: %w", err)
-	}
-
-	// Sync VDF: remove the entry from disk so List() reflects the change
-	// immediately (Steam updates its in-memory state via CEF but doesn't
-	// flush the VDF file to disk right away).
-	if vdfErr == nil {
-		for key, sc := range shortcuts.Shortcuts {
-			if uint32(sc.Appid) == appID {
-				delete(shortcuts.Shortcuts, key)
-				if err := shortcut.Save(shortcuts, shortcutsPath); err != nil {
-					fmt.Printf("Warning: failed to sync VDF after CEF delete: %v\n", err)
-				}
-				break
-			}
-		}
 	}
 
 	// Delete game folder if requested and path is valid

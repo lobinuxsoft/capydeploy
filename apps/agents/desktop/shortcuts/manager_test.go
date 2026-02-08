@@ -312,7 +312,8 @@ func TestManager_ListEmpty(t *testing.T) {
 	}
 }
 
-func TestManager_ListWithVDFShortcut(t *testing.T) {
+func TestManager_ListVDFFallback(t *testing.T) {
+	// Without CEF available, List() falls back to reading the VDF file.
 	tmpDir := t.TempDir()
 	paths := steam.NewPathsWithBase(tmpDir)
 	mgr := NewManagerWithPaths(paths)
