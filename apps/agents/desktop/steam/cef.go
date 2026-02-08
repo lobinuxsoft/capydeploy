@@ -126,56 +126,6 @@ func (c *CEFClient) findJSContext(tabs []cefTab) (*cefTab, error) {
 	return nil, fmt.Errorf("no suitable JS context found (need SharedJSContext or SP tab)")
 }
 
-// evaluate connects to a tab's WebSocket and evaluates a JS expression.
-func (c *CEFClient) evaluate(ctx context.Context, wsURL string, jsExpr string) (string, error) {
-	dialer := websocket.Dialer{
-		HandshakeTimeout: cefWSHandshake,
-	}
-
-	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to connect to CEF WebSocket: %w", err)
-	}
-	defer conn.Close()
-
-	msg := cefMessage{
-		ID:     1,
-		Method: "Runtime.evaluate",
-		Params: map[string]interface{}{
-			"expression":    jsExpr,
-			"returnByValue": true,
-		},
-	}
-
-	if err := conn.WriteJSON(msg); err != nil {
-		return "", fmt.Errorf("failed to send CEF message: %w", err)
-	}
-
-	// Read responses until we get the one matching our ID
-	conn.SetReadDeadline(time.Now().Add(cefWSRead))
-	for {
-		_, rawMsg, err := conn.ReadMessage()
-		if err != nil {
-			return "", fmt.Errorf("failed to read CEF response: %w", err)
-		}
-
-		var resp cefResponse
-		if err := json.Unmarshal(rawMsg, &resp); err != nil {
-			continue // skip non-matching messages
-		}
-
-		if resp.ID != 1 {
-			continue // not our response
-		}
-
-		if resp.Result.ExceptionDetails != nil {
-			return "", fmt.Errorf("JS exception: %s", string(*resp.Result.ExceptionDetails))
-		}
-
-		return string(resp.Result.Result.Value), nil
-	}
-}
-
 // evaluateAsync connects to a tab's WebSocket and evaluates a JS expression
 // that returns a Promise, waiting for it to resolve via CDP's awaitPromise.
 func (c *CEFClient) evaluateAsync(ctx context.Context, wsURL string, jsExpr string) (json.RawMessage, error) {
