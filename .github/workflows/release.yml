@@ -360,23 +360,11 @@ jobs:
           cd release
           sha256sum * > checksums-sha256.txt
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
-          CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
-          echo "changelog<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          name: CapyDeploy v${{ steps.version.outputs.version }}
+          append_body: true
           body: |
-            ## What's Changed
-
-            ${{ steps.changelog.outputs.changelog }}
 
             ## Downloads
 

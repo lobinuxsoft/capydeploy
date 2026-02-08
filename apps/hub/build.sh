@@ -171,8 +171,8 @@ fi
 echo -e "${YELLOW}[4/7]${NC} Collecting version info..."
 echo
 
-# Base version (must match pkg/version/version.go)
-BASE_VERSION="0.1.0"
+# Read base version from single source of truth
+BASE_VERSION=$(cat "$ROOT_DIR/VERSION" | tr -d '[:space:]')
 
 # Get commit hash
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")

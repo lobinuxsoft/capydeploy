@@ -6,24 +6,10 @@ import (
 	"testing"
 )
 
-func TestVersionConstants(t *testing.T) {
-	// Major, Minor, Patch should be non-negative integers
-	if Major < 0 {
-		t.Errorf("Major = %d, want >= 0", Major)
-	}
-	if Minor < 0 {
-		t.Errorf("Minor = %d, want >= 0", Minor)
-	}
-	if Patch < 0 {
-		t.Errorf("Patch = %d, want >= 0", Patch)
-	}
-}
-
-func TestVersionFormat(t *testing.T) {
-	// Default (dev) version should contain major.minor.patch
-	expected := fmt.Sprintf("%d.%d.%d", Major, Minor, Patch)
-	if !strings.Contains(Version, expected) {
-		t.Errorf("Version = %q, want to contain %q", Version, expected)
+func TestVersionDefault(t *testing.T) {
+	// Without ldflags injection, Version defaults to "dev"
+	if Version == "" {
+		t.Error("Version should not be empty")
 	}
 }
 
@@ -55,5 +41,19 @@ func TestFullFormat(t *testing.T) {
 	expected := fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
 	if got := Full(); got != expected {
 		t.Errorf("Full() = %q, want %q", got, expected)
+	}
+}
+
+func TestGetInfo(t *testing.T) {
+	info := GetInfo()
+
+	if info.Version != Version {
+		t.Errorf("GetInfo().Version = %q, want %q", info.Version, Version)
+	}
+	if info.Commit != Commit {
+		t.Errorf("GetInfo().Commit = %q, want %q", info.Commit, Commit)
+	}
+	if info.BuildDate != BuildDate {
+		t.Errorf("GetInfo().BuildDate = %q, want %q", info.BuildDate, BuildDate)
 	}
 }
