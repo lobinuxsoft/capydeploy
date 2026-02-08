@@ -36,15 +36,26 @@ func NewManagerWithPaths(paths *steam.Paths) *Manager {
 	return &Manager{paths: paths}
 }
 
-// List returns all shortcuts for a user via CEF API.
+// List returns all shortcuts for a user.
+// Tries CEF API first (instant, reflects live state), falls back to VDF file.
 func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
+	result, err := m.listViaCEF()
+	if err == nil {
+		return result, nil
+	}
+	log.Printf("[shortcuts] CEF list failed, falling back to VDF: %v", err)
+	return m.listViaVDF(userID)
+}
+
+// listViaCEF retrieves shortcuts from Steam's CEF API.
+func (m *Manager) listViaCEF() ([]protocol.ShortcutInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	client := agentSteam.NewCEFClient()
 	cefShortcuts, err := client.GetAllShortcuts(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list shortcuts via CEF: %w", err)
+		return nil, err
 	}
 
 	result := make([]protocol.ShortcutInfo, 0, len(cefShortcuts))
@@ -53,6 +64,17 @@ func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
 	}
 
 	return result, nil
+}
+
+// listViaVDF reads shortcuts from the VDF file on disk.
+func (m *Manager) listViaVDF(userID string) ([]protocol.ShortcutInfo, error) {
+	shortcutsPath := m.paths.ShortcutsPath(userID)
+
+	if _, err := os.Stat(shortcutsPath); os.IsNotExist(err) {
+		return []protocol.ShortcutInfo{}, nil
+	}
+
+	return steam.LoadShortcutsVDF(shortcutsPath)
 }
 
 // Create adds a new shortcut via CEF API (instant, no Steam restart needed).

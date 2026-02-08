@@ -1,10 +1,13 @@
 package shortcuts
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/lobinuxsoft/capydeploy/pkg/steam"
 )
 
 // --- Pure function tests ---
@@ -171,6 +174,86 @@ func TestDeleteGameDirectory_ActualDelete(t *testing.T) {
 }
 
 // --- Manager tests ---
+
+// writeTestVDF writes a minimal binary VDF shortcuts file for testing.
+func writeTestVDF(t *testing.T, paths *steam.Paths, userID string, name, exe string, appID uint32) {
+	t.Helper()
+	configDir := paths.ConfigDir(userID)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	var buf []byte
+	// Root object
+	buf = append(buf, 0x00)
+	buf = append(buf, []byte("shortcuts")...)
+	buf = append(buf, 0x00)
+	// Single shortcut entry
+	buf = append(buf, 0x00)
+	buf = append(buf, []byte("0")...)
+	buf = append(buf, 0x00)
+	// appid
+	buf = append(buf, 0x02)
+	buf = append(buf, []byte("appid")...)
+	buf = append(buf, 0x00)
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, appID)
+	buf = append(buf, b...)
+	// AppName
+	buf = append(buf, 0x01)
+	buf = append(buf, []byte("AppName")...)
+	buf = append(buf, 0x00)
+	buf = append(buf, []byte(name)...)
+	buf = append(buf, 0x00)
+	// Exe
+	buf = append(buf, 0x01)
+	buf = append(buf, []byte("Exe")...)
+	buf = append(buf, 0x00)
+	buf = append(buf, []byte(exe)...)
+	buf = append(buf, 0x00)
+	// End shortcut + end root
+	buf = append(buf, 0x08, 0x08)
+
+	if err := os.WriteFile(paths.ShortcutsPath(userID), buf, 0644); err != nil {
+		t.Fatalf("failed to write test VDF: %v", err)
+	}
+}
+
+func TestManager_ListEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	paths := steam.NewPathsWithBase(tmpDir)
+	mgr := NewManagerWithPaths(paths)
+
+	// No shortcuts.vdf exists yet — CEF will fail, VDF fallback returns empty
+	list, err := mgr.List("12345")
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("List() returned %d shortcuts, want 0", len(list))
+	}
+}
+
+func TestManager_ListVDFFallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	paths := steam.NewPathsWithBase(tmpDir)
+	mgr := NewManagerWithPaths(paths)
+	userID := "12345"
+
+	writeTestVDF(t, paths, userID, "Test Game", "/usr/bin/test-game", 12345)
+
+	// Without CEF, List() falls back to VDF
+	list, err := mgr.List(userID)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("List() returned %d shortcuts, want 1", len(list))
+	}
+	if list[0].Name != "Test Game" {
+		t.Errorf("List()[0].Name = %q, want %q", list[0].Name, "Test Game")
+	}
+}
 
 func TestManager_List_RequiresCEF(t *testing.T) {
 	t.Skip("requires Steam CEF debugger — integration test")
