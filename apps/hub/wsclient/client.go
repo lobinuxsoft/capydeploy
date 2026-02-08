@@ -495,12 +495,17 @@ func (c *Client) sendBinaryChunk(ctx context.Context, msgID, uploadID, filePath 
 		Checksum: checksum,
 	}
 
+	return c.sendBinary(conn, header, data)
+}
+
+// buildBinaryMessage encodes a header+data pair into the wire format:
+// [4 bytes big-endian header length][JSON header][binary data].
+func buildBinaryMessage(header any, data []byte) ([]byte, error) {
 	headerBytes, err := json.Marshal(header)
 	if err != nil {
-		return fmt.Errorf("failed to marshal header: %w", err)
+		return nil, fmt.Errorf("failed to marshal header: %w", err)
 	}
 
-	// Build binary message: [4 bytes: header len][header][data]
 	headerLen := len(headerBytes)
 	message := make([]byte, 4+headerLen+len(data))
 	message[0] = byte(headerLen >> 24)
@@ -510,7 +515,16 @@ func (c *Client) sendBinaryChunk(ctx context.Context, msgID, uploadID, filePath 
 	copy(message[4:], headerBytes)
 	copy(message[4+headerLen:], data)
 
-	// Send binary message directly (not through sendCh)
+	return message, nil
+}
+
+// sendBinary builds a binary message from header+data and writes it to the WS connection.
+func (c *Client) sendBinary(conn *websocket.Conn, header any, data []byte) error {
+	message, err := buildBinaryMessage(header, data)
+	if err != nil {
+		return err
+	}
+
 	conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
 	return conn.WriteMessage(websocket.BinaryMessage, message)
 }
@@ -698,23 +712,7 @@ func (c *Client) sendBinaryArtwork(ctx context.Context, msgID string, appID uint
 		ContentType: contentType,
 	}
 
-	headerBytes, err := json.Marshal(header)
-	if err != nil {
-		return fmt.Errorf("failed to marshal header: %w", err)
-	}
-
-	// Build binary message: [4 bytes: header len][header][data]
-	headerLen := len(headerBytes)
-	message := make([]byte, 4+headerLen+len(data))
-	message[0] = byte(headerLen >> 24)
-	message[1] = byte(headerLen >> 16)
-	message[2] = byte(headerLen >> 8)
-	message[3] = byte(headerLen)
-	copy(message[4:], headerBytes)
-	copy(message[4+headerLen:], data)
-
-	conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
-	return conn.WriteMessage(websocket.BinaryMessage, message)
+	return c.sendBinary(conn, header, data)
 }
 
 // RestartSteam restarts Steam on the agent.

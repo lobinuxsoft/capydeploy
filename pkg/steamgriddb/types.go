@@ -9,26 +9,7 @@ type SearchResult struct {
 	Verified bool     `json:"verified"`
 }
 
-// GridData represents a grid image
-type GridData struct {
-	ID        int    `json:"id"`
-	Score     int    `json:"score"`
-	Style     string `json:"style"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
-	Nsfw      bool   `json:"nsfw"`
-	Humor     bool   `json:"humor"`
-	Mime      string `json:"mime"`
-	Language  string `json:"language"`
-	URL       string `json:"url"`
-	Thumb     string `json:"thumb"`
-	Lock      bool   `json:"lock"`
-	Epilepsy  bool   `json:"epilepsy"`
-	Upvotes   int    `json:"upvotes"`
-	Downvotes int    `json:"downvotes"`
-}
-
-// ImageData represents a hero/logo/icon image
+// ImageData represents a SteamGridDB image (grid, hero, logo, or icon).
 type ImageData struct {
 	ID        int    `json:"id"`
 	Score     int    `json:"score"`
@@ -46,6 +27,9 @@ type ImageData struct {
 	Upvotes   int    `json:"upvotes"`
 	Downvotes int    `json:"downvotes"`
 }
+
+// GridData is an alias for ImageData (grids share the same API schema).
+type GridData = ImageData
 
 // ImageFilters represents filters for image queries
 type ImageFilters struct {
@@ -66,11 +50,6 @@ type apiResponse struct {
 type searchResponse struct {
 	apiResponse
 	Data []SearchResult `json:"data"`
-}
-
-type gridResponse struct {
-	apiResponse
-	Data []GridData `json:"data"`
 }
 
 type imageResponse struct {

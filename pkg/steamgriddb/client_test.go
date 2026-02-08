@@ -81,9 +81,9 @@ func TestGetGrids(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 
-		resp := gridResponse{
+		resp := imageResponse{
 			apiResponse: apiResponse{Success: true},
-			Data: []GridData{
+			Data: []ImageData{
 				{ID: 100, URL: "https://example.com/grid.png", Width: 920, Height: 430},
 			},
 		}
