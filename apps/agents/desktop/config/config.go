@@ -6,18 +6,19 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 )
 
 // AuthorizedHub represents a Hub that has been paired with this Agent.
 type AuthorizedHub struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Platform string `json:"platform,omitempty"`
-	Token    string `json:"token"`
-	PairedAt string `json:"pairedAt"`
-	LastSeen string `json:"lastSeen"`
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Platform string    `json:"platform,omitempty"`
+	Token    string    `json:"token"`
+	PairedAt time.Time `json:"pairedAt"`
+	LastSeen time.Time `json:"lastSeen"`
 }
 
 // Config holds the agent configuration.
@@ -179,7 +180,7 @@ func (m *Manager) RemoveAuthorizedHub(hubID string) error {
 }
 
 // UpdateHubLastSeen updates the LastSeen timestamp for a Hub.
-func (m *Manager) UpdateHubLastSeen(hubID string, lastSeen string) error {
+func (m *Manager) UpdateHubLastSeen(hubID string, lastSeen time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

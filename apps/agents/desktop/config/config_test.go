@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestNewManager(t *testing.T) {
@@ -227,13 +228,14 @@ func TestUpdateHubLastSeen(t *testing.T) {
 
 	mgr.AddAuthorizedHub(AuthorizedHub{ID: "hub-1", Name: "Hub"})
 
-	if err := mgr.UpdateHubLastSeen("hub-1", "2025-01-15T10:30:00Z"); err != nil {
+	lastSeen := time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC)
+	if err := mgr.UpdateHubLastSeen("hub-1", lastSeen); err != nil {
 		t.Fatalf("UpdateHubLastSeen() error = %v", err)
 	}
 
 	hubs := mgr.GetAuthorizedHubs()
-	if len(hubs) != 1 || hubs[0].LastSeen != "2025-01-15T10:30:00Z" {
-		t.Errorf("hub LastSeen = %q, want %q", hubs[0].LastSeen, "2025-01-15T10:30:00Z")
+	if len(hubs) != 1 || !hubs[0].LastSeen.Equal(lastSeen) {
+		t.Errorf("hub LastSeen = %v, want %v", hubs[0].LastSeen, lastSeen)
 	}
 }
 

@@ -26,8 +26,8 @@ func (s *ConfigStorageAdapter) GetAuthorizedHubs() []AuthorizedHub {
 			Name:     h.Name,
 			Platform: h.Platform,
 			Token:    h.Token,
-			PairedAt: parseTime(h.PairedAt),
-			LastSeen: parseTime(h.LastSeen),
+			PairedAt: h.PairedAt,
+			LastSeen: h.LastSeen,
 		}
 	}
 	return hubs
@@ -40,8 +40,8 @@ func (s *ConfigStorageAdapter) AddAuthorizedHub(hub AuthorizedHub) error {
 		Name:     hub.Name,
 		Platform: hub.Platform,
 		Token:    hub.Token,
-		PairedAt: hub.PairedAt.Format(time.RFC3339),
-		LastSeen: hub.LastSeen.Format(time.RFC3339),
+		PairedAt: hub.PairedAt,
+		LastSeen: hub.LastSeen,
 	}
 	return s.cfg.AddAuthorizedHub(cfgHub)
 }
@@ -53,15 +53,10 @@ func (s *ConfigStorageAdapter) RemoveAuthorizedHub(hubID string) error {
 
 // UpdateHubLastSeen updates the LastSeen timestamp for a Hub.
 func (s *ConfigStorageAdapter) UpdateHubLastSeen(hubID string, lastSeen time.Time) error {
-	return s.cfg.UpdateHubLastSeen(hubID, lastSeen.Format(time.RFC3339))
+	return s.cfg.UpdateHubLastSeen(hubID, lastSeen)
 }
 
 // Save persists the storage (no-op, config saves on each change).
 func (s *ConfigStorageAdapter) Save() error {
 	return nil
-}
-
-func parseTime(s string) time.Time {
-	t, _ := time.Parse(time.RFC3339, s)
-	return t
 }
