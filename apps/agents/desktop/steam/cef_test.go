@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 )
 
 func TestArtworkTypeToCEFAsset(t *testing.T) {
@@ -205,98 +203,3 @@ func TestEnsureCEFDebugFile_Idempotent(t *testing.T) {
 	}
 }
 
-func TestCEFShortcutToInfo(t *testing.T) {
-	tests := []struct {
-		name string
-		in   CEFShortcut
-		want protocol.ShortcutInfo
-	}{
-		{
-			name: "full shortcut",
-			in: CEFShortcut{
-				AppID:         12345,
-				Name:          "My Game",
-				Exe:           "/usr/bin/game",
-				StartDir:      "/usr/bin",
-				LaunchOptions: "--fullscreen",
-				LastPlayed:    1700000000,
-				Tags:          map[string]interface{}{"0": "RPG", "1": "Action"},
-			},
-			want: protocol.ShortcutInfo{
-				AppID:         12345,
-				Name:          "My Game",
-				Exe:           "/usr/bin/game",
-				StartDir:      "/usr/bin",
-				LaunchOptions: "--fullscreen",
-				LastPlayed:    1700000000,
-			},
-		},
-		{
-			name: "empty shortcut",
-			in:   CEFShortcut{},
-			want: protocol.ShortcutInfo{},
-		},
-		{
-			name: "nil tags",
-			in: CEFShortcut{
-				AppID: 99999,
-				Name:  "No Tags Game",
-				Tags:  nil,
-			},
-			want: protocol.ShortcutInfo{
-				AppID: 99999,
-				Name:  "No Tags Game",
-			},
-		},
-		{
-			name: "non-string tag values ignored",
-			in: CEFShortcut{
-				AppID: 55555,
-				Name:  "Mixed Tags",
-				Tags:  map[string]interface{}{"0": "Valid", "1": 42, "2": true},
-			},
-			want: protocol.ShortcutInfo{
-				AppID: 55555,
-				Name:  "Mixed Tags",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := CEFShortcutToInfo(tt.in)
-
-			if got.AppID != tt.want.AppID {
-				t.Errorf("AppID = %d, want %d", got.AppID, tt.want.AppID)
-			}
-			if got.Name != tt.want.Name {
-				t.Errorf("Name = %q, want %q", got.Name, tt.want.Name)
-			}
-			if got.Exe != tt.want.Exe {
-				t.Errorf("Exe = %q, want %q", got.Exe, tt.want.Exe)
-			}
-			if got.StartDir != tt.want.StartDir {
-				t.Errorf("StartDir = %q, want %q", got.StartDir, tt.want.StartDir)
-			}
-			if got.LaunchOptions != tt.want.LaunchOptions {
-				t.Errorf("LaunchOptions = %q, want %q", got.LaunchOptions, tt.want.LaunchOptions)
-			}
-			if got.LastPlayed != tt.want.LastPlayed {
-				t.Errorf("LastPlayed = %d, want %d", got.LastPlayed, tt.want.LastPlayed)
-			}
-
-			// Tags: verify count of string tags (order is non-deterministic from map)
-			wantTagCount := 0
-			if tt.in.Tags != nil {
-				for _, v := range tt.in.Tags {
-					if _, ok := v.(string); ok {
-						wantTagCount++
-					}
-				}
-			}
-			if len(got.Tags) != wantTagCount {
-				t.Errorf("Tags count = %d, want %d", len(got.Tags), wantTagCount)
-			}
-		})
-	}
-}

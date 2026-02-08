@@ -258,8 +258,7 @@ capydeploy/
 │   └── transfer/               # Chunked file transfer
 ├── internal/
 │   └── agent/                  # Agent HTTP client (legacy)
-├── docs/                       # Documentation website
-└── steam-shortcut-manager/     # VDF library (submodule)
+└── docs/                       # Documentation website
 ```
 
 ## Documentation
@@ -302,5 +301,5 @@ If you find CapyDeploy useful, consider supporting development:
 
 - Built with [Wails](https://wails.io/) + [Svelte 5](https://svelte.dev/)
 - Decky plugin with [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) + React
-- Steam shortcut management via [steam-shortcut-manager](https://github.com/shadowblip/steam-shortcut-manager)
+- Steam shortcut management via native CEF API integration
 - Artwork from [SteamGridDB](https://www.steamgriddb.com/)
