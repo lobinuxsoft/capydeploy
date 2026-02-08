@@ -320,6 +320,7 @@ func (ws *WSServer) closeHub(hub *HubConnection) {
 	if ws.hubConn == hub {
 		ws.hubConn = nil
 	}
+	ws.pendingArtwork = nil
 	ws.mu.Unlock()
 
 	log.Printf("WS: Hub disconnected (%s)", hub.name)

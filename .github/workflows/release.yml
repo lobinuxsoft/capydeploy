@@ -50,11 +50,6 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Build steam-shortcut-manager
-        run: |
-          cd steam-shortcut-manager
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
-
       - name: Collect version info
         id: version
         run: |

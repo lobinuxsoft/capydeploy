@@ -28,11 +28,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
 
-      - name: Build steam-shortcut-manager (required by go:embed)
-        run: |
-          cd steam-shortcut-manager
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
-
       - name: Build frontend dist (required by go:embed)
         uses: oven-sh/setup-bun@v2
       - run: |
@@ -61,11 +56,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
-
-      - name: Build steam-shortcut-manager (required by go:embed)
-        run: |
-          cd steam-shortcut-manager
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
 
       - name: Build frontend dist (required by go:embed)
         uses: oven-sh/setup-bun@v2
@@ -120,11 +110,6 @@ jobs:
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Build steam-shortcut-manager
-        run: |
-          cd steam-shortcut-manager
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
 
       - name: Collect version info
         id: version

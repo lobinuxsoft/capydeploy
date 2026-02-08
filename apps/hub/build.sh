@@ -199,25 +199,6 @@ LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMI
 LDFLAGS="$LDFLAGS -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE"
 
 # ============================================
-# Build embedded binary (steam-shortcut-manager for Linux)
-# ============================================
-
-echo -e "${YELLOW}[5/7]${NC} Building embedded steam-shortcut-manager (Linux)..."
-echo
-
-pushd ../../steam-shortcut-manager > /dev/null
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
-if [ $? -ne 0 ]; then
-    echo -e "${RED}[ERROR]${NC} Failed to build steam-shortcut-manager."
-    popd > /dev/null
-    exit 1
-fi
-popd > /dev/null
-
-echo "  steam-shortcut-manager built successfully."
-echo
-
-# ============================================
 # Build
 # ============================================
 

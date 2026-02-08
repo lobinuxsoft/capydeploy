@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -240,18 +239,6 @@ func tagsToSlice(tags map[string]interface{}) []string {
 		if s, ok := v.(string); ok {
 			result = append(result, s)
 		}
-	}
-	return result
-}
-
-// sliceToTags converts string slice to VDF tags map.
-func sliceToTags(tags []string) map[string]interface{} {
-	if len(tags) == 0 {
-		return nil
-	}
-	result := make(map[string]interface{})
-	for i, tag := range tags {
-		result[strconv.Itoa(i)] = tag
 	}
 	return result
 }

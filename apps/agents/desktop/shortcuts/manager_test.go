@@ -41,66 +41,6 @@ func TestTagsToSlice(t *testing.T) {
 	}
 }
 
-func TestSliceToTags(t *testing.T) {
-	tests := []struct {
-		name string
-		tags []string
-		want int
-	}{
-		{"nil slice", nil, 0},
-		{"empty slice", []string{}, 0},
-		{"single tag", []string{"RPG"}, 1},
-		{"multiple tags", []string{"RPG", "Action", "Indie"}, 3},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := sliceToTags(tt.tags)
-			if len(tt.tags) == 0 {
-				if got != nil {
-					t.Errorf("sliceToTags(%v) = %v, want nil", tt.tags, got)
-				}
-				return
-			}
-			if len(got) != tt.want {
-				t.Errorf("sliceToTags() len = %d, want %d", len(got), tt.want)
-			}
-			// Verify values are accessible
-			for i, tag := range tt.tags {
-				key := string(rune('0') + rune(i))
-				if i >= 10 {
-					// sliceToTags uses strconv.Itoa, not rune math
-					break
-				}
-				if got[key] != tag {
-					t.Errorf("sliceToTags()[%q] = %v, want %q", key, got[key], tag)
-				}
-			}
-		})
-	}
-}
-
-func TestSliceToTagsRoundTrip(t *testing.T) {
-	input := []string{"RPG", "Action", "Indie"}
-	tags := sliceToTags(input)
-	result := tagsToSlice(tags)
-
-	if len(result) != len(input) {
-		t.Fatalf("round trip: got %d tags, want %d", len(result), len(input))
-	}
-
-	// Since map iteration order is non-deterministic, check all input values are present
-	have := make(map[string]bool)
-	for _, v := range result {
-		have[v] = true
-	}
-	for _, v := range input {
-		if !have[v] {
-			t.Errorf("round trip: missing tag %q", v)
-		}
-	}
-}
-
 func TestExpandPath(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

@@ -623,6 +623,9 @@ func (ws *WSServer) handleCompleteUpload(hub *HubConnection, msg *protocol.Messa
 		}
 	}
 
+	// Clean up upload session from memory
+	defer ws.server.DeleteUpload(req.UploadID)
+
 	resp := protocol.CompleteUploadResponseFull{
 		Success: true,
 		Path:    gamePath,
@@ -703,6 +706,13 @@ func (ws *WSServer) handleCancelUpload(hub *HubConnection, msg *protocol.Message
 	}
 
 	session.Cancel()
+	ws.server.DeleteUpload(req.UploadID)
+
+	// Clean up pending artwork data to free memory
+	ws.mu.Lock()
+	ws.pendingArtwork = nil
+	ws.mu.Unlock()
+
 	log.Printf("WS: Upload cancelled: %s", req.UploadID)
 
 	resp, _ := msg.Reply(protocol.MsgTypeOperationResult, protocol.OperationResult{
