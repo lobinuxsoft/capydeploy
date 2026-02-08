@@ -109,6 +109,20 @@ func TestApplyFromData_InvalidArtworkType(t *testing.T) {
 	}
 }
 
+func TestApplyViaCEF_NoSteam(t *testing.T) {
+	// Verify applyViaCEF does not panic or hang regardless of Steam state.
+	// If Steam CEF is not running, it should return an error.
+	// If Steam is running, it may succeed — either way, no panic is the goal.
+	_ = applyViaCEF(123456, "grid", []byte("fake-image-data"))
+}
+
+func TestApplyViaCEF_InvalidType(t *testing.T) {
+	err := applyViaCEF(123456, "invalid", []byte("data"))
+	if err == nil {
+		t.Error("expected error for invalid artwork type")
+	}
+}
+
 func TestFilenameConventions(t *testing.T) {
 	// Verify the filename pattern matches Steam's convention
 	tests := []struct {
