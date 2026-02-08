@@ -54,8 +54,8 @@ func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string, string
 		server:  s,
 		authMgr: authMgr,
 		upgrader: websocket.Upgrader{
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
+			ReadBufferSize:  64 * 1024,
+			WriteBufferSize: 64 * 1024,
 			CheckOrigin: func(r *http.Request) bool {
 				return true // Allow all origins for local network
 			},

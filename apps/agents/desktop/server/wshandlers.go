@@ -705,6 +705,7 @@ func (ws *WSServer) handleCancelUpload(hub *HubConnection, msg *protocol.Message
 		return
 	}
 
+	gamePath := ws.server.GetUploadPath(session.Config.GameName, session.Config.InstallPath)
 	session.Cancel()
 	ws.server.DeleteUpload(req.UploadID)
 
@@ -713,7 +714,12 @@ func (ws *WSServer) handleCancelUpload(hub *HubConnection, msg *protocol.Message
 	ws.pendingArtwork = nil
 	ws.mu.Unlock()
 
-	log.Printf("WS: Upload cancelled: %s", req.UploadID)
+	// Clean up partial files left on disk
+	if err := os.RemoveAll(gamePath); err != nil {
+		log.Printf("WS: Warning: failed to clean up partial upload at %s: %v", gamePath, err)
+	}
+
+	log.Printf("WS: Upload cancelled: %s (cleaned %s)", req.UploadID, gamePath)
 
 	resp, _ := msg.Reply(protocol.MsgTypeOperationResult, protocol.OperationResult{
 		Success: true,

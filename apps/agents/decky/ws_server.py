@@ -211,7 +211,7 @@ class WebSocketServer:
             self.connected_hub = {"id": hub_id, "name": hub_name, "version": hub_version, "platform": hub_platform}
             await self.send(websocket, msg_id, "agent_status", {
                 "name": self.plugin.agent_name,
-                "version": "0.1.0",
+                "version": self.plugin.version,
                 "platform": "linux",
                 "acceptConnections": self.plugin.accept_connections,
             })
@@ -255,7 +255,7 @@ class WebSocketServer:
                 "id": self.plugin.agent_id,
                 "name": self.plugin.agent_name,
                 "platform": "linux",
-                "version": "0.1.0",
+                "version": self.plugin.version,
                 "acceptConnections": self.plugin.accept_connections,
                 "capabilities": ["file_upload", "steam_shortcuts", "steam_artwork"],
             }
@@ -391,13 +391,9 @@ class WebSocketServer:
             "chunkSize": CHUNK_SIZE,
         })
 
-    async def handle_upload_chunk(self, websocket, msg_id: str, payload: dict):
-        """Handle a chunk upload."""
-        upload_id = payload.get("uploadId", "")
-        file_path = payload.get("filePath", "")
-        offset = payload.get("offset", 0)
-        data = payload.get("data", b"")
-
+    async def _write_chunk(self, websocket, msg_id: str, upload_id: str,
+                           file_path: str, offset: int, chunk_data: bytes):
+        """Write a chunk to disk and emit progress. Shared by JSON and binary paths."""
         session = self.uploads.get(upload_id)
         if not session:
             await self.send_error(websocket, msg_id, 404, "Upload not found")
@@ -406,16 +402,11 @@ class WebSocketServer:
         full_path = os.path.join(session.install_path, file_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-        if isinstance(data, str):
-            import base64
-
-            data = base64.b64decode(data)
-
         with open(full_path, "ab" if offset > 0 else "wb") as f:
             f.seek(offset)
-            f.write(data)
+            f.write(chunk_data)
 
-        session.transferred += len(data)
+        session.transferred += len(chunk_data)
         session.current_file = file_path
 
         progress = session.progress()
@@ -429,9 +420,22 @@ class WebSocketServer:
 
         await self.send(websocket, msg_id, "upload_chunk_response", {
             "uploadId": upload_id,
-            "bytesWritten": len(data),
+            "bytesWritten": len(chunk_data),
             "totalWritten": session.transferred,
         })
+
+    async def handle_upload_chunk(self, websocket, msg_id: str, payload: dict):
+        """Handle a chunk upload (JSON path)."""
+        upload_id = payload.get("uploadId", "")
+        file_path = payload.get("filePath", "")
+        offset = payload.get("offset", 0)
+        data = payload.get("data", b"")
+
+        if isinstance(data, str):
+            import base64
+            data = base64.b64decode(data)
+
+        await self._write_chunk(websocket, msg_id, upload_id, file_path, offset, data)
 
     async def handle_binary(self, websocket, data: bytes):
         """Handle binary messages. Format: [4 bytes: header len][header JSON][binary data]
@@ -469,36 +473,7 @@ class WebSocketServer:
         offset = header.get("offset", 0)
 
         decky.logger.info(f"Binary chunk: {upload_id}/{file_path} offset={offset} size={len(binary_data)}")
-
-        session = self.uploads.get(upload_id)
-        if not session:
-            await self.send_error(websocket, msg_id, 404, "Upload not found")
-            return
-
-        full_path = os.path.join(session.install_path, file_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
-        with open(full_path, "ab" if offset > 0 else "wb") as f:
-            f.seek(offset)
-            f.write(binary_data)
-
-        session.transferred += len(binary_data)
-        session.current_file = file_path
-
-        progress = session.progress()
-        await self.plugin.notify_frontend("upload_progress", {
-            "uploadId": upload_id,
-            "transferredBytes": session.transferred,
-            "totalBytes": session.total_size,
-            "currentFile": file_path,
-            "percentage": progress,
-        })
-
-        await self.send(websocket, msg_id, "upload_chunk_response", {
-            "uploadId": upload_id,
-            "bytesWritten": len(binary_data),
-            "totalWritten": session.transferred,
-        })
+        await self._write_chunk(websocket, msg_id, upload_id, file_path, offset, binary_data)
 
     async def handle_binary_artwork(self, websocket, header: dict, data: bytes):
         """Handle artwork_image binary message.

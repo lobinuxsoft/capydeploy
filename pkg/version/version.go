@@ -29,3 +29,19 @@ var (
 func Full() string {
 	return fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
 }
+
+// Info represents version information for frontend consumption.
+type Info struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"buildDate"`
+}
+
+// GetInfo returns the current version information.
+func GetInfo() Info {
+	return Info{
+		Version:   Version,
+		Commit:    Commit,
+		BuildDate: BuildDate,
+	}
+}

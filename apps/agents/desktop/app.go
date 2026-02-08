@@ -606,20 +606,9 @@ func (a *App) getAddress() string {
 // Helper functions
 // =============================================================================
 
-// VersionInfo represents version information for the frontend.
-type VersionInfo struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	BuildDate string `json:"buildDate"`
-}
-
 // GetVersion returns the current version information.
-func (a *App) GetVersion() VersionInfo {
-	return VersionInfo{
-		Version:   version.Version,
-		Commit:    version.Commit,
-		BuildDate: version.BuildDate,
-	}
+func (a *App) GetVersion() version.Info {
+	return version.GetInfo()
 }
 
 // CapabilityInfo represents a capability for the frontend.

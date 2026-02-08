@@ -61,6 +61,7 @@ class Plugin:
             name="capydeploy",
             settings_directory=decky.DECKY_PLUGIN_SETTINGS_DIR
         )
+        self.version = PLUGIN_VERSION
         self.pairing = PairingManager(self.settings)
         self.ws_server = WebSocketServer(self)
         self.mdns_service = None

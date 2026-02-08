@@ -293,11 +293,16 @@ func (s *Server) handleCancelUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gamePath := s.GetUploadPath(session.Config.GameName, session.Config.InstallPath)
 	session.Cancel()
 	s.DeleteUpload(uploadID)
 
-	// TODO: Clean up partial files
-	log.Printf("Upload cancelled: %s", uploadID)
+	// Clean up partial files left on disk
+	if err := os.RemoveAll(gamePath); err != nil {
+		log.Printf("Warning: failed to clean up partial upload at %s: %v", gamePath, err)
+	}
+
+	log.Printf("Upload cancelled: %s (cleaned %s)", uploadID, gamePath)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})
