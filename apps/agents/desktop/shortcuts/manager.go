@@ -130,8 +130,8 @@ func (m *Manager) Create(userID string, cfg protocol.ShortcutConfig) (uint32, er
 		fmt.Printf("Warning: failed to set shortcut name: %v\n", err)
 	}
 
-	// On Linux, automatically set Proton as the compatibility tool
-	if runtime.GOOS == "linux" {
+	// On Linux, automatically set Proton for Windows executables
+	if runtime.GOOS == "linux" && strings.HasSuffix(strings.ToLower(exePath), ".exe") {
 		if err := client.SpecifyCompatTool(ctx, appID, "proton_experimental"); err != nil {
 			log.Printf("[shortcuts] warning: failed to set Proton for appID %d: %v", appID, err)
 		}
