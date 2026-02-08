@@ -451,6 +451,9 @@ func (c *Client) sendRequest(ctx context.Context, msgType protocol.MessageType, 
 	}
 
 	// Wait for response
+	timer := time.NewTimer(protocol.WSRequestTimeout)
+	defer timer.Stop()
+
 	select {
 	case resp, ok := <-respCh:
 		if !ok {
@@ -462,7 +465,7 @@ func (c *Client) sendRequest(ctx context.Context, msgType protocol.MessageType, 
 		return resp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-time.After(protocol.WSRequestTimeout):
+	case <-timer.C:
 		return nil, fmt.Errorf("request timeout")
 	}
 }
@@ -645,6 +648,9 @@ func (c *Client) SendArtworkImage(ctx context.Context, appID uint32, artworkType
 	}
 
 	// Wait for response
+	artTimer := time.NewTimer(protocol.WSRequestTimeout)
+	defer artTimer.Stop()
+
 	select {
 	case resp, ok := <-respCh:
 		if !ok {
@@ -663,7 +669,7 @@ func (c *Client) SendArtworkImage(ctx context.Context, appID uint32, artworkType
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-time.After(protocol.WSRequestTimeout):
+	case <-artTimer.C:
 		return fmt.Errorf("artwork image upload timeout")
 	}
 }
@@ -767,6 +773,9 @@ func (c *Client) UploadChunk(ctx context.Context, uploadID, filePath string, off
 	}
 
 	// Wait for response
+	chunkTimer := time.NewTimer(protocol.WSRequestTimeout)
+	defer chunkTimer.Stop()
+
 	select {
 	case resp, ok := <-respCh:
 		if !ok {
@@ -778,7 +787,7 @@ func (c *Client) UploadChunk(ctx context.Context, uploadID, filePath string, off
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-time.After(protocol.WSRequestTimeout):
+	case <-chunkTimer.C:
 		return fmt.Errorf("chunk upload timeout")
 	}
 }

@@ -123,34 +123,6 @@ if "%MODE%"=="production" (
 )
 
 :: ============================================
-:: Build embedded binary (steam-shortcut-manager for Linux)
-:: ============================================
-
-echo [4/6] Building embedded steam-shortcut-manager (Linux)...
-echo.
-
-:: Cross-compile steam-shortcut-manager for Linux
-pushd ..\..\steam-shortcut-manager
-set GOOS=linux
-set GOARCH=amd64
-set CGO_ENABLED=0
-go build -o ..\internal\embedded\steam-shortcut-manager .
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Failed to build steam-shortcut-manager.
-    popd
-    exit /b 1
-)
-popd
-
-:: Reset environment variables
-set GOOS=
-set GOARCH=
-set CGO_ENABLED=
-
-echo   steam-shortcut-manager built successfully.
-echo.
-
-:: ============================================
 :: Build
 :: ============================================
 

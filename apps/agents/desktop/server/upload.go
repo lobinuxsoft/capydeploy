@@ -220,6 +220,9 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Clean up upload session from memory
+	defer s.DeleteUpload(uploadID)
+
 	resp := CompleteUploadResponse{
 		Success: true,
 		Path:    gamePath,
@@ -291,6 +294,7 @@ func (s *Server) handleCancelUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session.Cancel()
+	s.DeleteUpload(uploadID)
 
 	// TODO: Clean up partial files
 	log.Printf("Upload cancelled: %s", uploadID)

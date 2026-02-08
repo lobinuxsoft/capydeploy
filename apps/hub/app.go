@@ -32,14 +32,15 @@ import (
 
 // App struct holds the application state
 type App struct {
-	ctx             context.Context
-	connectedAgent  *ConnectedAgent
-	discoveryClient *discovery.Client
-	discoveredMu    sync.RWMutex
-	discoveredCache map[string]*discovery.DiscoveredAgent
-	mu              sync.RWMutex
-	tokenStore      *auth.TokenStore
-	configMgr       *hubconfig.Manager
+	ctx              context.Context
+	connectedAgent   *ConnectedAgent
+	discoveryClient  *discovery.Client
+	discoveryCancel  context.CancelFunc
+	discoveredMu     sync.RWMutex
+	discoveredCache  map[string]*discovery.DiscoveredAgent
+	mu               sync.RWMutex
+	tokenStore       *auth.TokenStore
+	configMgr        *hubconfig.Manager
 }
 
 // ConnectedAgent represents a connected agent with its client
@@ -128,7 +129,12 @@ func (a *App) shutdown(ctx context.Context) {
 	// Disconnect from agent
 	a.DisconnectAgent()
 
-	// Stop discovery
+	// Cancel discovery goroutine context
+	if a.discoveryCancel != nil {
+		a.discoveryCancel()
+	}
+
+	// Stop discovery client
 	if a.discoveryClient != nil {
 		a.discoveryClient.Close()
 	}
@@ -136,7 +142,8 @@ func (a *App) shutdown(ctx context.Context) {
 
 // runDiscovery handles mDNS discovery and emits events
 func (a *App) runDiscovery() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	a.discoveryCancel = cancel
 
 	// Start continuous discovery
 	go a.discoveryClient.StartContinuousDiscovery(ctx, 5*time.Second)
@@ -620,7 +627,8 @@ func (a *App) UploadGame(setupID string) error {
 }
 
 func (a *App) performUpload(client modules.PlatformClient, agentInfo *discovery.DiscoveredAgent, setup *config.GameSetup) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(a.ctx)
+	defer cancel()
 
 	emitProgress := func(progress float64, status string, errMsg string, done bool) {
 		runtime.EventsEmit(a.ctx, "upload:progress", UploadProgress{

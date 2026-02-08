@@ -17,6 +17,7 @@ type ProgressTracker struct {
 	sessions  map[string]*UploadSession
 	interval  time.Duration
 	stopCh    chan struct{}
+	stopOnce  sync.Once
 }
 
 // NewProgressTracker creates a new progress tracker.
@@ -105,9 +106,11 @@ func (t *ProgressTracker) Start() {
 	}()
 }
 
-// Stop stops the progress tracker.
+// Stop stops the progress tracker. Safe to call multiple times.
 func (t *ProgressTracker) Stop() {
-	close(t.stopCh)
+	t.stopOnce.Do(func() {
+		close(t.stopCh)
+	})
 }
 
 // SpeedCalculator calculates transfer speed.
