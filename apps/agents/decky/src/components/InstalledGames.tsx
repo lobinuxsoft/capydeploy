@@ -32,12 +32,11 @@ interface InstalledGame {
 }
 
 interface InstalledGamesProps {
-  enabled: boolean;
   installPath: string;
   refreshTrigger?: number;
 }
 
-const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refreshTrigger }) => {
+const InstalledGames: VFC<InstalledGamesProps> = ({ installPath, refreshTrigger }) => {
   const [games, setGames] = useState<InstalledGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [uninstalling, setUninstalling] = useState<string | null>(null);
@@ -55,10 +54,8 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
   }, []);
 
   useEffect(() => {
-    if (enabled) {
-      loadGames();
-    }
-  }, [enabled, loadGames, installPath, refreshTrigger]);
+    loadGames();
+  }, [loadGames, installPath, refreshTrigger]);
 
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -103,8 +100,6 @@ const InstalledGames: VFC<InstalledGamesProps> = ({ enabled, installPath, refres
       />
     );
   };
-
-  if (!enabled) return null;
 
   return (
     <div className="cd-section">
