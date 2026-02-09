@@ -61,11 +61,11 @@ Pre-built binaries are available for each release:
 
 | Component | Linux | Windows |
 |-----------|-------|---------|
-| **Hub** (your PC) | AppImage | ZIP |
-| **Agent** (handheld) | AppImage | ZIP |
-| **Decky Plugin** (gaming mode) | ZIP | — |
+| **Hub** (your PC) | [AppImage](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Hub.AppImage) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip) |
+| **Agent** (handheld) | [AppImage](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Agent.AppImage) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip) |
+| **Decky Plugin** (gaming mode) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy-Decky.zip) | — |
 
-**[Download Latest Release](https://github.com/lobinuxsoft/capydeploy/releases/latest)** · [All releases](https://github.com/lobinuxsoft/capydeploy/releases)
+Also available: [Linux tar.gz](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-linux-amd64.tar.gz) (Hub + Agent) · [Checksums](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/checksums-sha256.txt) · [All releases](https://github.com/lobinuxsoft/capydeploy/releases)
 
 See the [Installation Guide](https://lobinuxsoft.github.io/capydeploy/install) for platform-specific instructions.
 
@@ -112,7 +112,7 @@ The Decky plugin is an alternative Agent for gaming mode. Requires [Decky Loader
 
 ```bash
 cd apps/agents/decky && ./build.sh
-# Output: dist/decky/CapyDeploy-vX.Y.Z.zip
+# Output: dist/decky/CapyDeploy-Decky.zip
 # Install via Decky Settings > Install from ZIP
 ```
 

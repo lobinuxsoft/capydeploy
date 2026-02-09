@@ -285,7 +285,6 @@ jobs:
 
       - name: Package plugin
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           cd apps/agents/decky
 
           PLUGIN_NAME="CapyDeploy"
@@ -303,13 +302,13 @@ jobs:
           if [ -d "assets" ]; then cp -r assets "$BUILD_DIR/"; fi
 
           cd /tmp/decky-build
-          zip -r "$GITHUB_WORKSPACE/CapyDeploy-v${VERSION}.zip" "$PLUGIN_NAME"
+          zip -r "$GITHUB_WORKSPACE/CapyDeploy-Decky.zip" "$PLUGIN_NAME"
 
       - name: Upload Decky plugin
         uses: actions/upload-artifact@v4
         with:
           name: decky-plugin
-          path: CapyDeploy-v*.zip
+          path: CapyDeploy-Decky.zip
 
   release:
     name: Create Release
@@ -320,10 +319,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -331,7 +326,6 @@ jobs:
 
       - name: Package release assets
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           mkdir -p release
 
           # Linux tar.gz
@@ -339,13 +333,13 @@ jobs:
           cp artifacts/hub-linux-amd64/capydeploy-hub staging/linux/
           cp artifacts/agent-linux-amd64/capydeploy-agent staging/linux/
           chmod +x staging/linux/*
-          tar -czf "release/capydeploy-${VERSION}-linux-amd64.tar.gz" -C staging/linux .
+          tar -czf "release/capydeploy-linux-amd64.tar.gz" -C staging/linux .
 
           # Windows zip
           mkdir -p staging/windows
           cp artifacts/hub-windows-amd64/capydeploy-hub.exe staging/windows/
           cp artifacts/agent-windows-amd64/capydeploy-agent.exe staging/windows/
-          cd staging/windows && zip -r "../../release/capydeploy-${VERSION}-windows-amd64.zip" . && cd ../..
+          cd staging/windows && zip -r "../../release/capydeploy-windows-amd64.zip" . && cd ../..
 
           # AppImages
           cp artifacts/appimages/CapyDeploy_Hub.AppImage release/
@@ -353,7 +347,7 @@ jobs:
           chmod +x release/*.AppImage
 
           # Decky plugin
-          cp artifacts/decky-plugin/CapyDeploy-v*.zip release/
+          cp artifacts/decky-plugin/CapyDeploy-Decky.zip release/
 
           # Checksums
           cd release
@@ -369,11 +363,11 @@ jobs:
 
             | File | Description |
             |------|-------------|
-            | `capydeploy-${{ steps.version.outputs.version }}-linux-amd64.tar.gz` | Linux binaries (Hub + Agent) |
-            | `capydeploy-${{ steps.version.outputs.version }}-windows-amd64.zip` | Windows binaries (Hub + Agent) |
+            | `capydeploy-linux-amd64.tar.gz` | Linux binaries (Hub + Agent) |
+            | `capydeploy-windows-amd64.zip` | Windows binaries (Hub + Agent) |
             | `CapyDeploy_Hub.AppImage` | Hub AppImage (auto-install support) |
             | `CapyDeploy_Agent.AppImage` | Agent AppImage (auto-install support) |
-            | `CapyDeploy-v${{ steps.version.outputs.version }}.zip` | Decky Loader plugin |
+            | `CapyDeploy-Decky.zip` | Decky Loader plugin |
             | `checksums-sha256.txt` | SHA-256 checksums for all files |
           files: release/*
           generate_release_notes: false
