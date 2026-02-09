@@ -7,7 +7,7 @@ Thank you for your interest in contributing! This document outlines our developm
 | Item | Value |
 |------|-------|
 | PRs target | `development` branch |
-| Commit language | Spanish |
+| Commit language | English |
 | Commit format | [Conventional Commits](https://www.conventionalcommits.org/) |
 | Code comments | English |
 
@@ -36,15 +36,15 @@ Example: `feature/issue-42-add-artwork-cache`
 
 ## Commit Messages
 
-Write commits in **Spanish** using Conventional Commits format:
+Write commits in **English** using Conventional Commits format:
 
 ```
-feat: agregar caché de artwork
-fix: corregir conexión WebSocket en Windows
-docs: actualizar guía de instalación
-refactor: simplificar protocolo de transferencia
-test: agregar tests para shortcuts
-chore: actualizar dependencias
+feat: add artwork cache
+fix: fix WebSocket connection on Windows
+docs: update installation guide
+refactor: simplify transfer protocol
+test: add shortcut tests
+chore: update dependencies
 ```
 
 ### Types
