@@ -69,9 +69,6 @@ func TestGetInfo(t *testing.T) {
 	if !info.AcceptConnections {
 		t.Error("info.AcceptConnections = false, want true (default)")
 	}
-	if len(info.Capabilities) == 0 {
-		t.Error("info.Capabilities is empty")
-	}
 	if len(info.SupportedImageFormats) == 0 {
 		t.Error("info.SupportedImageFormats is empty")
 	}

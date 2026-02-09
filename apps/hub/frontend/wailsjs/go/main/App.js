@@ -130,6 +130,10 @@ export function SetSteamGridDBAPIKey(arg1) {
   return window['go']['main']['App']['SetSteamGridDBAPIKey'](arg1);
 }
 
+export function UpdateGameArtwork(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['UpdateGameArtwork'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
 export function UpdateGameSetup(arg1, arg2) {
   return window['go']['main']['App']['UpdateGameSetup'](arg1, arg2);
 }

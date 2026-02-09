@@ -69,8 +69,6 @@ const StatusPanel: VFC<StatusPanelProps> = ({
   const [statusExpanded, toggleStatus] = usePanelState("status");
   const [infoExpanded, toggleInfo] = usePanelState("info");
   const [networkExpanded, toggleNetwork] = usePanelState("network");
-  const [capabilitiesExpanded, toggleCapabilities] = usePanelState("capabilities");
-
   const handleEditName = () => {
     showModal(<NameEditModal currentName={agentName} onSaved={onRefresh} />);
   };
@@ -242,31 +240,6 @@ const StatusPanel: VFC<StatusPanelProps> = ({
         </div>
       )}
 
-      <div className="cd-section">
-        <div className="cd-section-title" onClick={toggleCapabilities}>
-          {capabilitiesExpanded ? <FaChevronDown size={10} color={colors.primary} /> : <FaChevronRight size={10} color={colors.disabled} />}
-          Capabilities
-        </div>
-        {capabilitiesExpanded && (
-          <PanelSection>
-            <PanelSectionRow>
-              <Field label="File upload">
-                <span className="cd-text-primary">Yes</span>
-              </Field>
-            </PanelSectionRow>
-            <PanelSectionRow>
-              <Field label="Steam Shortcuts">
-                <span className="cd-text-primary">Yes</span>
-              </Field>
-            </PanelSectionRow>
-            <PanelSectionRow>
-              <Field label="Steam Artwork">
-                <span className="cd-text-primary">Yes</span>
-              </Field>
-            </PanelSectionRow>
-          </PanelSection>
-        )}
-      </div>
     </>
   );
 };

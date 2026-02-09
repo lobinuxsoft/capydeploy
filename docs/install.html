@@ -2,10 +2,160 @@
 layout: default
 title: Installation
 ---
+<!-- Download Section (for users) -->
 <section class="py-20 px-4 pt-32">
   <div class="max-w-4xl mx-auto">
-    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Installation</h2>
-    <p class="text-slate-400 text-center mb-12">Get CapyDeploy running in a few steps.</p>
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Download</h2>
+    <p class="text-slate-400 text-center mb-12">Pre-built binaries ready to use. No compilation required.</p>
+
+    <!-- Download Cards -->
+    <div class="grid md:grid-cols-3 gap-6 mb-12">
+      <!-- Hub -->
+      <div class="bg-slate-900/50 border border-capy-500/20 rounded-2xl p-6 flex flex-col">
+        <div class="w-12 h-12 rounded-xl bg-capy-500/10 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-capy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Hub <span class="text-sm text-slate-500 font-normal">(Your PC)</span></h3>
+        <p class="text-slate-400 text-sm mb-4 flex-1">Discovers agents, sends games, manages your library.</p>
+        <div class="flex flex-wrap gap-2">
+          <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Hub.AppImage" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Linux AppImage
+          </a>
+          <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Windows ZIP
+          </a>
+        </div>
+      </div>
+
+      <!-- Agent -->
+      <div class="bg-slate-900/50 border border-water-500/20 rounded-2xl p-6 flex flex-col">
+        <div class="w-12 h-12 rounded-xl bg-water-500/10 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-water-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Agent <span class="text-sm text-slate-500 font-normal">(Handheld)</span></h3>
+        <p class="text-slate-400 text-sm mb-4 flex-1">Receives games, creates Steam shortcuts, applies artwork.</p>
+        <div class="flex flex-wrap gap-2">
+          <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Agent.AppImage" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium hover:bg-green-500/20 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Linux AppImage
+          </a>
+          <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Windows ZIP
+          </a>
+        </div>
+      </div>
+
+      <!-- Decky Plugin -->
+      <div class="bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 flex flex-col">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Decky Plugin <span class="text-sm text-slate-500 font-normal">(Gaming Mode)</span></h3>
+        <p class="text-slate-400 text-sm mb-4 flex-1">Alternative Agent inside <a href="https://github.com/SteamDeckHomebrew/decky-loader" class="text-purple-400 hover:underline">Decky Loader</a>. No Steam restart needed.</p>
+        <div class="flex flex-wrap gap-2">
+          <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy-Decky.zip" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Decky Plugin ZIP
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extra Downloads -->
+    <div class="text-center mb-16">
+      <div class="flex flex-wrap justify-center gap-3 mb-4">
+        <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-linux-amd64.tar.gz" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Linux tar.gz (Hub + Agent)
+        </a>
+        <a href="https://github.com/lobinuxsoft/capydeploy/releases/latest/download/checksums-sha256.txt" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Checksums (SHA-256)
+        </a>
+      </div>
+      <p class="text-slate-500 text-sm">
+        <a href="https://github.com/lobinuxsoft/capydeploy/releases" class="hover:text-slate-300 transition">Browse all releases &rarr;</a>
+      </p>
+    </div>
+
+    <!-- Platform Install Instructions -->
+    <div class="grid md:grid-cols-3 gap-6 mb-16">
+      <!-- Linux -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h4 class="font-semibold text-green-400 mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.368 1.884 1.43.585.047 1.042-.245 1.484-.93.4-.644.752-1.474.939-2.386.029-.143.057-.26.127-.397.063-.119.185-.277.316-.333.349-.153.561-.347.672-.628.117-.282.127-.627.049-1.084-.058-.328-.63-1.256-.12-1.593.488-.31 1.44-1.147 1.852-2.238.191-.555.203-1.16.042-1.775-.162-.607-.543-1.233-.959-1.7-.816-.936-1.658-1.244-2.123-1.79-.455-.533-.636-1.15-.702-1.75-.065-.572.004-1.134-.074-1.7C17.1 1.894 14.897.003 12.504 0z"/></svg>
+          Linux
+        </h4>
+        <div class="text-sm text-slate-400 space-y-2">
+          <p>1. Download the <code class="text-capy-400">.AppImage</code> file</p>
+          <p>2. Make it executable:</p>
+          <div class="bg-slate-950 rounded-lg p-3 mt-1">
+            <code class="text-xs text-slate-300">chmod +x CapyDeploy_*.AppImage</code>
+          </div>
+          <p>3. Run it &mdash; it will prompt to install automatically</p>
+          <div class="mt-3 text-xs text-slate-500">
+            <p>Installs to <code>~/.local/bin/</code> with desktop entry and icon.</p>
+            <p class="mt-1">CLI: <code>--install</code>, <code>--uninstall</code>, <code>--help</code></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Windows -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h4 class="font-semibold text-blue-400 mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+          Windows
+        </h4>
+        <div class="text-sm text-slate-400 space-y-2">
+          <p>1. Download the <code class="text-capy-400">.zip</code> file</p>
+          <p>2. Extract the ZIP</p>
+          <p>3. Run <code class="text-capy-400">capydeploy-hub.exe</code> or <code class="text-capy-400">capydeploy-agent.exe</code></p>
+          <div class="mt-3 text-xs text-slate-500">
+            <p>WebView2 is pre-installed on Windows 10/11.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Decky -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h4 class="font-semibold text-purple-400 mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/></svg>
+          Decky Plugin
+        </h4>
+        <div class="text-sm text-slate-400 space-y-2">
+          <p>1. Download <code class="text-capy-400">CapyDeploy-Decky.zip</code> from the card above</p>
+          <p>2. On your handheld, open <strong class="text-slate-300">Decky Settings</strong></p>
+          <p>3. Select <strong class="text-slate-300">Install Plugin from ZIP</strong></p>
+          <div class="mt-3 bg-slate-950 rounded-lg p-3">
+            <h5 class="text-xs font-semibold text-purple-400 mb-2">Agent vs Decky Plugin</h5>
+            <div class="text-xs text-slate-400 space-y-1">
+              <div class="flex justify-between"><span>Shortcuts</span><span class="text-slate-300">Instant (SteamClient API)</span></div>
+              <div class="flex justify-between"><span>Artwork</span><span class="text-slate-300">Instant (no file copy)</span></div>
+              <div class="flex justify-between"><span>Steam restart</span><span class="text-slate-300">Not needed</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="relative mb-16">
+      <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+      <div class="relative flex justify-center"><span class="bg-slate-950 px-4 text-sm text-slate-500">For contributors</span></div>
+    </div>
+
+    <!-- Build from Source -->
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Building from Source</h2>
+    <p class="text-slate-400 text-center mb-12">For contributors and developers who want to build from source code.</p>
 
     <div class="space-y-8">
       <!-- Step 1 -->
@@ -52,88 +202,6 @@ cd apps/agents/desktop && ./build.sh</code></pre>
 <span class="text-slate-500"># On PC</span>
 ./capydeploy-hub
 <span class="text-slate-500"># Enter the pairing code → Done!</span></code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- AppImage (Linux) -->
-    <div class="mt-12">
-      <h3 class="text-2xl font-bold mb-6">AppImage (Linux)</h3>
-      <p class="text-slate-400 mb-6">For easy distribution on Linux without dependencies.</p>
-
-      <div class="space-y-6">
-        <!-- Build AppImage -->
-        <div class="flex gap-6">
-          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-          </div>
-          <div class="flex-1">
-            <h4 class="text-lg font-semibold mb-2">Build AppImage</h4>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build Hub (includes AppImage)</span>
-cd apps/hub && ./build.sh
-
-<span class="text-slate-500"># Build Agent (includes AppImage)</span>
-cd apps/agents/desktop && ./build.sh</code></pre>
-            </div>
-            <p class="text-slate-500 text-sm mt-2">Output: <code class="text-capy-400">dist/appimage/CapyDeploy_Hub.AppImage</code></p>
-          </div>
-        </div>
-
-        <!-- Auto-Install -->
-        <div class="flex gap-6">
-          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-          </div>
-          <div class="flex-1">
-            <h4 class="text-lg font-semibold mb-2">Auto-Installation</h4>
-            <p class="text-slate-400 mb-3">Double-click the AppImage and it will prompt to install:</p>
-            <ul class="text-slate-400 text-sm space-y-1 mb-4">
-              <li>• Moves to <code class="text-capy-400">~/.local/bin/</code></li>
-              <li>• Creates desktop entry in <code class="text-capy-400">~/.local/share/applications/</code></li>
-              <li>• Copies icon to <code class="text-capy-400">~/.local/share/icons/</code></li>
-            </ul>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Command line options</span>
-./CapyDeploy_Agent.AppImage --install    <span class="text-slate-500"># Install manually</span>
-./CapyDeploy_Agent.AppImage --uninstall  <span class="text-slate-500"># Remove</span>
-./CapyDeploy_Agent.AppImage --help       <span class="text-slate-500"># Show options</span></code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Decky Plugin (Gaming Mode) -->
-    <div class="mt-12">
-      <h3 class="text-2xl font-bold mb-6">Decky Plugin (Gaming Mode)</h3>
-      <p class="text-slate-400 mb-6">Alternative Agent that runs inside <a href="https://github.com/SteamDeckHomebrew/decky-loader" class="text-capy-400 hover:underline">Decky Loader</a> — no Steam restart needed.</p>
-
-      <div class="space-y-6">
-        <div class="flex gap-6">
-          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"></path></svg>
-          </div>
-          <div class="flex-1">
-            <h4 class="text-lg font-semibold mb-2">Build & Install</h4>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Build (requires Node.js + Python 3)</span>
-cd apps/agents/decky && ./build.sh
-<span class="text-slate-500"># Output: dist/decky/CapyDeploy-vX.Y.Z.zip</span>
-
-<span class="text-slate-500"># Install on handheld:</span>
-<span class="text-slate-500"># Decky Settings > Install Plugin from ZIP</span></code></pre>
-            </div>
-            <div class="mt-4 bg-slate-900 border border-slate-800 rounded-xl p-4">
-              <h5 class="text-sm font-semibold text-capy-400 mb-2">Agent vs Decky Plugin</h5>
-              <div class="text-sm text-slate-400 space-y-1">
-                <div class="flex justify-between"><span>Shortcuts</span><span class="text-slate-300">Instant (SteamClient API)</span></div>
-                <div class="flex justify-between"><span>Artwork</span><span class="text-slate-300">Instant (no file copy)</span></div>
-                <div class="flex justify-between"><span>UI</span><span class="text-slate-300">Quick Access Menu panel</span></div>
-                <div class="flex justify-between"><span>Steam restart</span><span class="text-slate-300">Not needed</span></div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -31,7 +31,7 @@ type ConnectedAgent struct {
 	Agent    *discovery.DiscoveredAgent
 	Client   modules.PlatformClient  // Interface for capability checks (type assertions)
 	WSClient *modules.WSClient       // WebSocket client for WS-specific operations
-	Info     *protocol.AgentInfo     // Full agent info from WS connection (includes capabilities)
+	Info     *protocol.AgentInfo     // Full agent info from WS connection
 }
 
 // ConnectionStatus represents the current connection status
@@ -44,7 +44,6 @@ type ConnectionStatus struct {
 	Port                  int      `json:"port"`
 	IPs                   []string `json:"ips"`
 	SupportedImageFormats []string `json:"supportedImageFormats"`
-	Capabilities          []string `json:"capabilities"`
 }
 
 // DiscoveredAgentInfo represents agent info for the frontend

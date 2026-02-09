@@ -55,9 +55,23 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 | **Agent** | Runs on handheld (desktop mode). Receives games, creates Steam shortcuts, applies artwork, restarts Steam. |
 | **Decky Plugin** | Runs inside [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) (gaming mode). Same protocol as Agent but uses SteamClient APIs directly — no Steam restart needed. |
 
-## Requirements
+## Download
 
-### Building
+Pre-built binaries are available for each release:
+
+| Component | Linux | Windows |
+|-----------|-------|---------|
+| **Hub** (your PC) | [AppImage](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Hub.AppImage) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip) |
+| **Agent** (handheld) | [AppImage](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Agent.AppImage) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip) |
+| **Decky Plugin** (gaming mode) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy-Decky.zip) | — |
+
+Also available: [Linux tar.gz](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-linux-amd64.tar.gz) (Hub + Agent) · [Checksums](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/checksums-sha256.txt) · [All releases](https://github.com/lobinuxsoft/capydeploy/releases)
+
+See the [Installation Guide](https://lobinuxsoft.github.io/capydeploy/install) for platform-specific instructions.
+
+## Building from Source (for contributors)
+
+### Requirements
 - Go 1.24+
 - Bun: https://bun.sh
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
@@ -71,7 +85,7 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 | Arch | `pacman -S webkit2gtk gtk3` |
 | Windows | WebView2 (pre-installed on Win10/11) |
 
-## Building
+### Build
 
 ```bash
 # Clone
@@ -98,7 +112,7 @@ The Decky plugin is an alternative Agent for gaming mode. Requires [Decky Loader
 
 ```bash
 cd apps/agents/decky && ./build.sh
-# Output: dist/decky/CapyDeploy-vX.Y.Z.zip
+# Output: dist/decky/CapyDeploy-Decky.zip
 # Install via Decky Settings > Install from ZIP
 ```
 

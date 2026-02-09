@@ -32,8 +32,3 @@ export interface ShortcutInfo {
 	startDir: string;
 }
 
-export interface CapabilityInfo {
-	id: string;
-	name: string;
-	description: string;
-}
