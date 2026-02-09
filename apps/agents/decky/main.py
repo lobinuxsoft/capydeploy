@@ -3,6 +3,7 @@ CapyDeploy Decky Plugin - Backend
 Thin entry point: all logic lives in dedicated modules.
 """
 
+import json
 import os
 import sys
 import time
@@ -34,7 +35,17 @@ from upload import UploadSession
 from artwork import download_artwork, set_shortcut_icon, set_shortcut_icon_from_url
 from ws_server import WebSocketServer
 
-PLUGIN_VERSION = "0.1.0"
+def _read_version() -> str:
+    """Read version from package.json at plugin directory."""
+    try:
+        pkg_path = os.path.join(PLUGIN_DIR, "package.json")
+        with open(pkg_path, "r") as f:
+            return json.load(f).get("version", "0.0.0")
+    except Exception:
+        return "0.0.0"
+
+
+PLUGIN_VERSION = _read_version()
 
 
 class Plugin:
