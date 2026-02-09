@@ -55,9 +55,23 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 | **Agent** | Runs on handheld (desktop mode). Receives games, creates Steam shortcuts, applies artwork, restarts Steam. |
 | **Decky Plugin** | Runs inside [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) (gaming mode). Same protocol as Agent but uses SteamClient APIs directly — no Steam restart needed. |
 
-## Requirements
+## Download
 
-### Building
+Pre-built binaries are available for each release:
+
+| Component | Linux | Windows |
+|-----------|-------|---------|
+| **Hub** (your PC) | AppImage | ZIP |
+| **Agent** (handheld) | AppImage | ZIP |
+| **Decky Plugin** (gaming mode) | ZIP | — |
+
+**[Download Latest Release](https://github.com/lobinuxsoft/capydeploy/releases/latest)** · [All releases](https://github.com/lobinuxsoft/capydeploy/releases)
+
+See the [Installation Guide](https://lobinuxsoft.github.io/capydeploy/install) for platform-specific instructions.
+
+## Building from Source (for contributors)
+
+### Requirements
 - Go 1.24+
 - Bun: https://bun.sh
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
@@ -71,7 +85,7 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 | Arch | `pacman -S webkit2gtk gtk3` |
 | Windows | WebView2 (pre-installed on Win10/11) |
 
-## Building
+### Build
 
 ```bash
 # Clone
