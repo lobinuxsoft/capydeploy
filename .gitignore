@@ -21,13 +21,6 @@ apps/agents/desktop/frontend/node_modules/
 apps/agents/desktop/frontend/dist/
 apps/agents/desktop/frontend/.svelte-kit/
 
-# Decky Agent
-apps/agents/decky/node_modules/
-apps/agents/decky/dist/
-apps/agents/decky/out/
-apps/agents/decky/py_modules/
-apps/agents/decky/__pycache__/
-
 # Docs (Docus/Nuxt)
 docs/node_modules/
 docs/.nuxt/

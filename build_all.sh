@@ -17,6 +17,9 @@ NC='\033[0m'
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+# Initialize submodules (decky plugin)
+git submodule update --init --recursive
+
 # Parse arguments
 SKIP_DEPS=0
 PARALLEL=0

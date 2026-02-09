@@ -11,6 +11,9 @@ set "ROOT_DIR=%~dp0"
 set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 set "DIST_DIR=%ROOT_DIR%\dist"
 
+:: Initialize submodules (decky plugin)
+git submodule update --init --recursive
+
 :: Parse arguments
 set SKIP_DEPS=0
 

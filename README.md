@@ -88,8 +88,8 @@ See the [Installation Guide](https://lobinuxsoft.github.io/capydeploy/install) f
 ### Build
 
 ```bash
-# Clone
-git clone https://github.com/lobinuxsoft/capydeploy
+# Clone (includes Decky plugin submodule)
+git clone --recurse-submodules https://github.com/lobinuxsoft/capydeploy
 cd capydeploy
 
 # Build everything at once
@@ -288,7 +288,7 @@ capydeploy/
 │       │   ├── steam/          # Steam controller
 │       │   ├── auth/           # Pairing & token auth
 │       │   └── frontend/       # Svelte 5 UI
-│       └── decky/              # Decky Loader plugin (gaming mode)
+│       └── decky/              # Decky Loader plugin (git submodule)
 │           ├── main.py         # Python backend (WS server, pairing, uploads)
 │           ├── src/            # React/TypeScript frontend
 │           ├── plugin.json     # Decky plugin manifest

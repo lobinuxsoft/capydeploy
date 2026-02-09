@@ -17,13 +17,7 @@
         { "type": "test", "section": "Tests" },
         { "type": "chore", "section": "Miscellaneous", "hidden": true }
       ],
-      "extra-files": [
-        {
-          "type": "json",
-          "path": "apps/agents/decky/package.json",
-          "jsonpath": "$.version"
-        }
-      ]
+      "extra-files": []
     }
   }
 }
