@@ -1,0 +1,3 @@
+[submodule "apps/agents/decky"]
+	path = apps/agents/decky
+	url = https://github.com/lobinuxsoft/decky-capydeploy.git
