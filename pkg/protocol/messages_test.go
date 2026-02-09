@@ -185,13 +185,13 @@ func TestUploadChunkRequest_Serialization(t *testing.T) {
 
 func TestErrorResponse_Fields(t *testing.T) {
 	resp := ErrorResponse{
-		Code:    ErrCodeUploadFailed,
+		Code:    "UPLOAD_FAILED",
 		Message: "upload failed",
 		Details: "disk full",
 	}
 
-	if resp.Code != ErrCodeUploadFailed {
-		t.Errorf("Code = %q, want %q", resp.Code, ErrCodeUploadFailed)
+	if resp.Code != "UPLOAD_FAILED" {
+		t.Errorf("Code = %q, want %q", resp.Code, "UPLOAD_FAILED")
 	}
 	if resp.Message != "upload failed" {
 		t.Errorf("Message = %q, want %q", resp.Message, "upload failed")

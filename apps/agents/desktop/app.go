@@ -15,7 +15,6 @@ import (
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/firewall"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/server"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/shortcuts"
-	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/tray"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
@@ -339,7 +338,7 @@ func (a *App) DeleteShortcut(userID string, appID uint32) error {
 		"message":  "Eliminando...",
 	})
 
-	if err := mgr.Delete(userID, appID, ""); err != nil {
+	if err := mgr.Delete(userID, appID); err != nil {
 		// Notify UI about error
 		runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
 			"type":     "delete",
@@ -353,20 +352,6 @@ func (a *App) DeleteShortcut(userID string, appID uint32) error {
 
 	// Notify shortcuts changed
 	runtime.EventsEmit(a.ctx, "shortcuts:changed", nil)
-
-	// Notify UI about progress - restarting Steam
-	runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
-		"type":     "delete",
-		"status":   "progress",
-		"gameName": gameName,
-		"progress": 50,
-		"message":  "Reiniciando Steam...",
-	})
-
-	// Restart Steam to apply changes
-	controller := agentSteam.NewController()
-	result := controller.Restart()
-	log.Printf("Steam restart after delete: %v", result.Message)
 
 	// Notify UI about delete complete
 	runtime.EventsEmit(a.ctx, "operation", map[string]interface{}{
@@ -621,20 +606,9 @@ func (a *App) getAddress() string {
 // Helper functions
 // =============================================================================
 
-// VersionInfo represents version information for the frontend.
-type VersionInfo struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	BuildDate string `json:"buildDate"`
-}
-
 // GetVersion returns the current version information.
-func (a *App) GetVersion() VersionInfo {
-	return VersionInfo{
-		Version:   version.Version,
-		Commit:    version.Commit,
-		BuildDate: version.BuildDate,
-	}
+func (a *App) GetVersion() version.Info {
+	return version.GetInfo()
 }
 
 // CapabilityInfo represents a capability for the frontend.

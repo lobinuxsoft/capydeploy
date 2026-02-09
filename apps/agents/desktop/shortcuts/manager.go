@@ -1,23 +1,36 @@
 // Package shortcuts provides Steam shortcut management for the Agent.
+// Shortcuts are tracked in memory and persisted to a JSON file, mirroring the
+// approach used by the Decky plugin. This avoids both the non-existent
+// SteamClient.Apps.GetAllShortcuts API and the VDF lazy-write race condition.
 package shortcuts
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/artwork"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/pathutil"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
-	"github.com/shadowblip/steam-shortcut-manager/pkg/shortcut"
 )
 
 // Manager handles Steam shortcut operations locally on the Agent.
+// Shortcuts created/deleted via CEF are tracked in memory and persisted
+// to a JSON file for instant reads without querying Steam.
 type Manager struct {
-	paths *steam.Paths
+	paths        *steam.Paths
+	mu           sync.RWMutex
+	tracked      []protocol.ShortcutInfo // nil = not yet loaded/seeded
+	trackingPath string
 }
 
 // NewManager creates a new shortcut manager.
@@ -26,95 +39,156 @@ func NewManager() (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect Steam: %w", err)
 	}
-	return &Manager{paths: paths}, nil
+
+	trackingPath, err := defaultTrackingPath()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine tracking path: %w", err)
+	}
+
+	m := &Manager{paths: paths, trackingPath: trackingPath}
+	m.loadTracked()
+	return m, nil
 }
 
 // NewManagerWithPaths creates a manager with custom paths (for testing).
-func NewManagerWithPaths(paths *steam.Paths) *Manager {
-	return &Manager{paths: paths}
+func NewManagerWithPaths(paths *steam.Paths, trackingPath string) *Manager {
+	m := &Manager{paths: paths, trackingPath: trackingPath}
+	m.loadTracked()
+	return m
 }
 
-// List returns all shortcuts for a user.
-func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
-	shortcutsPath := m.paths.ShortcutsPath(userID)
-
-	// Return empty list if file doesn't exist
-	if _, err := os.Stat(shortcutsPath); os.IsNotExist(err) {
-		return []protocol.ShortcutInfo{}, nil
-	}
-
-	shortcuts, err := shortcut.Load(shortcutsPath)
+// defaultTrackingPath returns the path to the tracked shortcuts JSON file.
+func defaultTrackingPath() (string, error) {
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load shortcuts: %w", err)
+		return "", err
+	}
+	dir := filepath.Join(configDir, "capydeploy-agent")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "tracked_shortcuts.json"), nil
+}
+
+// loadTracked reads the tracked shortcuts from the JSON file.
+// If the file doesn't exist, tracked stays nil (will seed from VDF on first List).
+func (m *Manager) loadTracked() {
+	data, err := os.ReadFile(m.trackingPath)
+	if err != nil {
+		return // File doesn't exist yet — will seed on first List()
+	}
+	m.tracked = []protocol.ShortcutInfo{}
+	if err := json.Unmarshal(data, &m.tracked); err != nil {
+		log.Printf("[shortcuts] failed to parse tracked shortcuts: %v", err)
+	}
+}
+
+// saveTracked writes the tracked shortcuts to the JSON file.
+// Must be called with m.mu held.
+func (m *Manager) saveTracked() error {
+	data, err := json.MarshalIndent(m.tracked, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(m.trackingPath, data, 0600)
+}
+
+// seedFromVDF populates tracked data from the VDF file on first run.
+// This handles migration for users upgrading from the pre-tracking version.
+// Must be called with m.mu held.
+func (m *Manager) seedFromVDF(userID string) {
+	m.tracked = []protocol.ShortcutInfo{}
+
+	shortcutsPath := m.paths.ShortcutsPath(userID)
+	shortcuts, err := steam.LoadShortcutsVDF(shortcutsPath)
+	if err != nil {
+		log.Printf("[shortcuts] no VDF to seed from: %v", err)
+		if err := m.saveTracked(); err != nil {
+			log.Printf("[shortcuts] warning: failed to persist empty tracking: %v", err)
+		}
+		return
 	}
 
-	var result []protocol.ShortcutInfo
-	for _, sc := range shortcuts.Shortcuts {
-		result = append(result, protocol.ShortcutInfo{
-			AppID:         uint32(sc.Appid),
-			Name:          sc.AppName,
-			Exe:           sc.Exe,
-			StartDir:      sc.StartDir,
-			LaunchOptions: sc.LaunchOptions,
-			Tags:          tagsToSlice(sc.Tags),
-			LastPlayed:    int64(sc.LastPlayTime),
-		})
+	m.tracked = shortcuts
+	log.Printf("[shortcuts] seeded %d shortcuts from VDF", len(shortcuts))
+	if err := m.saveTracked(); err != nil {
+		log.Printf("[shortcuts] warning: failed to persist seeded tracking: %v", err)
+	}
+}
+
+// List returns all tracked shortcuts for a user.
+// On first call, seeds from the VDF file if no tracking data exists.
+func (m *Manager) List(userID string) ([]protocol.ShortcutInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// First call with no tracking file — seed from VDF for migration
+	if m.tracked == nil {
+		m.seedFromVDF(userID)
 	}
 
+	result := make([]protocol.ShortcutInfo, len(m.tracked))
+	copy(result, m.tracked)
 	return result, nil
 }
 
-// Create adds a new shortcut for a user.
+// Create adds a new shortcut via CEF API (instant, no Steam restart needed).
+// The userID parameter is kept for signature compatibility but is not used
+// for creation — CEF handles persistence internally.
 func (m *Manager) Create(userID string, cfg protocol.ShortcutConfig) (uint32, error) {
-	shortcutsPath := m.paths.ShortcutsPath(userID)
+	exePath := pathutil.ExpandHome(cfg.Exe)
+	startDir := pathutil.ExpandHome(cfg.StartDir)
 
-	// Load existing shortcuts or create new
-	var shortcuts *shortcut.Shortcuts
-	if _, err := os.Stat(shortcutsPath); os.IsNotExist(err) {
-		// Ensure config directory exists
-		configDir := filepath.Dir(shortcutsPath)
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			return 0, fmt.Errorf("failed to create config dir: %w", err)
+	// On Windows, Steam expects quoted paths
+	if runtime.GOOS == "windows" {
+		exePath = quotePath(exePath)
+		startDir = quotePath(startDir)
+	}
+
+	if err := agentSteam.EnsureCEFReady(); err != nil {
+		return 0, fmt.Errorf("CEF not available: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	client := agentSteam.NewCEFClient()
+	appID, err := client.AddShortcut(ctx, cfg.Name, exePath, startDir, cfg.LaunchOptions)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create shortcut via CEF: %w", err)
+	}
+
+	// AddShortcut ignores the name and uses the executable filename,
+	// so we must rename it afterwards.
+	if err := client.SetShortcutName(ctx, appID, cfg.Name); err != nil {
+		fmt.Printf("Warning: failed to set shortcut name: %v\n", err)
+	}
+
+	// On Linux, automatically set Proton for Windows executables
+	if runtime.GOOS == "linux" && strings.HasSuffix(strings.ToLower(exePath), ".exe") {
+		if err := client.SpecifyCompatTool(ctx, appID, "proton_experimental"); err != nil {
+			log.Printf("[shortcuts] warning: failed to set Proton for appID %d: %v", appID, err)
 		}
-		shortcuts = shortcut.NewShortcuts()
-	} else {
-		var err error
-		shortcuts, err = shortcut.Load(shortcutsPath)
-		if err != nil {
-			return 0, fmt.Errorf("failed to load shortcuts: %w", err)
-		}
 	}
 
-	// Expand paths (~ to home directory) and add quotes for Steam
-	exePath := quotePath(expandPath(cfg.Exe))
-	startDir := quotePath(expandPath(cfg.StartDir))
-
-	// Calculate AppID using the expanded (but unquoted) path
-	appID := shortcut.CalculateAppID(expandPath(cfg.Exe), cfg.Name)
-
-	// Check if shortcut already exists
-	if existing, _ := shortcuts.LookupByID(int64(appID)); existing != nil {
-		return 0, fmt.Errorf("shortcut already exists: %s", cfg.Name)
+	// Track the new shortcut
+	m.mu.Lock()
+	if m.tracked == nil {
+		m.tracked = []protocol.ShortcutInfo{}
 	}
-
-	// Create new shortcut
-	sc := shortcut.NewShortcut(cfg.Name, exePath, shortcut.DefaultShortcut)
-	sc.StartDir = startDir
-	sc.LaunchOptions = cfg.LaunchOptions
-	sc.Appid = int64(appID)
-	sc.Tags = sliceToTags(cfg.Tags)
-
-	// Add to shortcuts
-	if err := shortcuts.Add(sc); err != nil {
-		return 0, fmt.Errorf("failed to add shortcut: %w", err)
+	m.tracked = append(m.tracked, protocol.ShortcutInfo{
+		AppID:         appID,
+		Name:          cfg.Name,
+		Exe:           exePath,
+		StartDir:      startDir,
+		LaunchOptions: cfg.LaunchOptions,
+	})
+	if err := m.saveTracked(); err != nil {
+		log.Printf("[shortcuts] warning: failed to persist tracking: %v", err)
 	}
+	m.mu.Unlock()
 
-	// Save
-	if err := shortcut.Save(shortcuts, shortcutsPath); err != nil {
-		return 0, fmt.Errorf("failed to save shortcuts: %w", err)
-	}
-
-	return uint32(appID), nil
+	return appID, nil
 }
 
 // CreateWithArtwork creates a shortcut and applies artwork if provided.
@@ -132,58 +206,60 @@ func (m *Manager) CreateWithArtwork(userID string, cfg protocol.ShortcutConfig) 
 	return appID, artResult, nil
 }
 
-// Delete removes a shortcut by AppID or name, and optionally deletes the game folder.
-func (m *Manager) Delete(userID string, appID uint32, name string) error {
-	return m.DeleteWithCleanup(userID, appID, name, true)
+// Delete removes a shortcut by AppID via CEF API, and optionally deletes the game folder.
+func (m *Manager) Delete(userID string, appID uint32) error {
+	return m.DeleteWithCleanup(userID, appID, true)
 }
 
-// DeleteWithCleanup removes a shortcut and optionally its game folder.
-func (m *Manager) DeleteWithCleanup(userID string, appID uint32, name string, deleteGameFolder bool) error {
-	shortcutsPath := m.paths.ShortcutsPath(userID)
-
-	shortcuts, err := shortcut.Load(shortcutsPath)
-	if err != nil {
-		return fmt.Errorf("failed to load shortcuts: %w", err)
-	}
-
-	// Find the shortcut and get its StartDir before removing
+// DeleteWithCleanup removes a shortcut via CEF API and optionally its game folder.
+func (m *Manager) DeleteWithCleanup(userID string, appID uint32, deleteGameFolder bool) error {
+	// Look up StartDir from tracked data before deleting
+	m.mu.RLock()
 	var gameFolderPath string
-	found := false
-	for key, sc := range shortcuts.Shortcuts {
-		if (appID > 0 && uint32(sc.Appid) == appID) || (name != "" && sc.AppName == name) {
-			// Get the game folder path (remove quotes if present)
+	for _, sc := range m.tracked {
+		if sc.AppID == appID {
 			gameFolderPath = unquotePath(sc.StartDir)
-			delete(shortcuts.Shortcuts, key)
-			found = true
 			break
 		}
 	}
+	m.mu.RUnlock()
 
-	if !found {
-		return fmt.Errorf("shortcut not found")
+	// Remove shortcut via CEF (instant, no Steam restart needed)
+	if err := agentSteam.EnsureCEFReady(); err != nil {
+		return fmt.Errorf("CEF not available: %w", err)
 	}
 
-	// Reindex keys to be sequential
-	shortcuts = reindexShortcuts(shortcuts)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
-	// Save
-	if err := shortcut.Save(shortcuts, shortcutsPath); err != nil {
-		return fmt.Errorf("failed to save shortcuts: %w", err)
+	client := agentSteam.NewCEFClient()
+	if err := client.RemoveShortcut(ctx, appID); err != nil {
+		return fmt.Errorf("failed to remove shortcut via CEF: %w", err)
 	}
+
+	// Remove from tracked data
+	m.mu.Lock()
+	for i, sc := range m.tracked {
+		if sc.AppID == appID {
+			m.tracked = append(m.tracked[:i], m.tracked[i+1:]...)
+			break
+		}
+	}
+	if err := m.saveTracked(); err != nil {
+		log.Printf("[shortcuts] warning: failed to persist tracking: %v", err)
+	}
+	m.mu.Unlock()
 
 	// Delete game folder if requested and path is valid
 	if deleteGameFolder && gameFolderPath != "" {
 		if err := deleteGameDirectory(gameFolderPath); err != nil {
-			// Log but don't fail - shortcut was already removed
 			fmt.Printf("Warning: failed to delete game folder %s: %v\n", gameFolderPath, err)
 		}
 	}
 
-	// Delete artwork from grid folder
-	if appID > 0 {
-		if err := m.deleteArtwork(userID, appID); err != nil {
-			fmt.Printf("Warning: failed to delete artwork: %v\n", err)
-		}
+	// Delete artwork from grid folder (best-effort cleanup of local files)
+	if err := m.deleteArtwork(userID, appID); err != nil {
+		fmt.Printf("Warning: failed to delete artwork: %v\n", err)
 	}
 
 	return nil
@@ -217,54 +293,6 @@ func (m *Manager) deleteArtwork(userID string, appID uint32) error {
 	return nil
 }
 
-// reindexShortcuts ensures shortcut keys are sequential (0, 1, 2, ...).
-func reindexShortcuts(shortcuts *shortcut.Shortcuts) *shortcut.Shortcuts {
-	newShortcuts := shortcut.NewShortcuts()
-	i := 0
-	for _, sc := range shortcuts.Shortcuts {
-		newShortcuts.Shortcuts[strconv.Itoa(i)] = sc
-		i++
-	}
-	return newShortcuts
-}
-
-// tagsToSlice converts VDF tags map to string slice.
-func tagsToSlice(tags map[string]interface{}) []string {
-	if tags == nil {
-		return nil
-	}
-	var result []string
-	for _, v := range tags {
-		if s, ok := v.(string); ok {
-			result = append(result, s)
-		}
-	}
-	return result
-}
-
-// sliceToTags converts string slice to VDF tags map.
-func sliceToTags(tags []string) map[string]interface{} {
-	if len(tags) == 0 {
-		return nil
-	}
-	result := make(map[string]interface{})
-	for i, tag := range tags {
-		result[strconv.Itoa(i)] = tag
-	}
-	return result
-}
-
-// expandPath expands ~ to the user's home directory.
-func expandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			return filepath.Join(home, path[2:])
-		}
-	}
-	return path
-}
-
 // quotePath wraps a path in double quotes for Steam on Windows.
 // Linux shortcuts must NOT have quotes around paths.
 func quotePath(path string) string {
@@ -293,7 +321,7 @@ func deleteGameDirectory(path string) error {
 	}
 
 	// Expand path if it uses ~
-	path = expandPath(path)
+	path = pathutil.ExpandHome(path)
 
 	// Safety checks - don't delete system paths or root directories
 	absPath, err := filepath.Abs(path)

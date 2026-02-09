@@ -1,11 +1,10 @@
 package modules
 
 import (
-	"fmt"
 	"sync"
 )
 
-// Registry manages platform modules and provides automatic module selection.
+// Registry manages platform modules and provides platform-specific metadata.
 type Registry struct {
 	mu      sync.RWMutex
 	modules map[string]PlatformModule
@@ -37,19 +36,6 @@ func (r *Registry) Get(platform string) PlatformModule {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.modules[platform]
-}
-
-// GetClient creates a client for the specified platform.
-// Returns an error if the platform is not supported.
-func (r *Registry) GetClient(platform, host string, port int) (PlatformClient, error) {
-	// Normalize platform aliases
-	normalizedPlatform := normalizePlatform(platform)
-
-	module := r.Get(normalizedPlatform)
-	if module == nil {
-		return nil, fmt.Errorf("unsupported platform: %s", platform)
-	}
-	return module.NewClient(host, port), nil
 }
 
 // normalizePlatform maps platform aliases to supported platforms.
@@ -85,11 +71,6 @@ var DefaultRegistry = NewRegistry()
 // GetModule returns a module from the default registry.
 func GetModule(platform string) PlatformModule {
 	return DefaultRegistry.Get(platform)
-}
-
-// GetClientForPlatform creates a client from the default registry.
-func GetClientForPlatform(platform, host string, port int) (PlatformClient, error) {
-	return DefaultRegistry.GetClient(platform, host, port)
 }
 
 // IsPlatformSupported checks if a platform is supported in the default registry.

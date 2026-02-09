@@ -77,15 +77,9 @@ func (c *Client) GetGrids(gameID int, filters *ImageFilters, page int) ([]GridDa
 		return nil, err
 	}
 
-	var resp gridResponse
+	var resp imageResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
-	}
-
-	// Debug: log first result
-	if len(resp.Data) > 0 {
-		fmt.Printf("[DEBUG] First grid: URL=%s, Thumb=%s, %dx%d\n",
-			resp.Data[0].URL, resp.Data[0].Thumb, resp.Data[0].Width, resp.Data[0].Height)
 	}
 
 	return resp.Data, nil

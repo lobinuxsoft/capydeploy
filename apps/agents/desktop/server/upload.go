@@ -220,6 +220,9 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Clean up upload session from memory
+	defer s.DeleteUpload(uploadID)
+
 	resp := CompleteUploadResponse{
 		Success: true,
 		Path:    gamePath,
@@ -227,10 +230,9 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Create shortcut if requested
 	if req.CreateShortcut && req.Shortcut != nil {
-		// Ensure Steam is running before creating shortcut (needed for CEF API)
-		steamController := agentSteam.NewController()
-		if err := steamController.EnsureRunning(); err != nil {
-			log.Printf("Warning: Steam not available, artwork may not apply: %v", err)
+		// Ensure CEF debugger is available (needed for shortcut creation via CEF API)
+		if err := agentSteam.EnsureCEFReady(); err != nil {
+			log.Printf("Warning: CEF not available, shortcut creation may fail: %v", err)
 		}
 
 		mgr, err := shortcuts.NewManager()
@@ -265,10 +267,6 @@ func (s *Server) handleCompleteUpload(w http.ResponseWriter, r *http.Request) {
 						log.Printf("Applied artwork: %v", artResult.Applied)
 					}
 					s.NotifyShortcutChange()
-
-					// Restart Steam to apply changes
-					result := steamController.Restart()
-					log.Printf("Steam restart: success=%v, message=%s", result.Success, result.Message)
 				}
 			}
 		}
@@ -295,10 +293,16 @@ func (s *Server) handleCancelUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gamePath := s.GetUploadPath(session.Config.GameName, session.Config.InstallPath)
 	session.Cancel()
+	s.DeleteUpload(uploadID)
 
-	// TODO: Clean up partial files
-	log.Printf("Upload cancelled: %s", uploadID)
+	// Clean up partial files left on disk
+	if err := os.RemoveAll(gamePath); err != nil {
+		log.Printf("Warning: failed to clean up partial upload at %s: %v", gamePath, err)
+	}
+
+	log.Printf("Upload cancelled: %s (cleaned %s)", uploadID, gamePath)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "cancelled"})

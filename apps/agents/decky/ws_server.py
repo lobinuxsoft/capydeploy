@@ -14,7 +14,7 @@ from typing import Optional, TYPE_CHECKING
 import decky  # type: ignore
 
 from upload import UploadSession
-from artwork import download_artwork
+from artwork import download_artwork, apply_from_data
 from steam_utils import get_steam_users, expand_path, fix_permissions
 from pairing import PAIRING_CODE_EXPIRY
 
@@ -36,6 +36,7 @@ class WebSocketServer:
         self._send_queue: Optional[asyncio.Queue] = None
         self._write_task: Optional[asyncio.Task] = None
         self._active_websocket = None
+        self._pending_artwork: dict[str, dict] = {}  # artworkType → {data, format}
 
     async def start(self) -> bool:
         """Start the WebSocket server. Returns True on success."""
@@ -58,7 +59,7 @@ class WebSocketServer:
                 self.handle_connection,
                 "0.0.0.0",
                 0,
-                max_size=10 * 1024 * 1024,  # 10MB max message
+                max_size=50 * 1024 * 1024,  # 50MB max message (matches Go agents)
                 reuse_address=True,
             )
             # Get the actual port assigned by the OS
@@ -210,7 +211,7 @@ class WebSocketServer:
             self.connected_hub = {"id": hub_id, "name": hub_name, "version": hub_version, "platform": hub_platform}
             await self.send(websocket, msg_id, "agent_status", {
                 "name": self.plugin.agent_name,
-                "version": "0.1.0",
+                "version": self.plugin.version,
                 "platform": "linux",
                 "acceptConnections": self.plugin.accept_connections,
             })
@@ -254,7 +255,7 @@ class WebSocketServer:
                 "id": self.plugin.agent_id,
                 "name": self.plugin.agent_name,
                 "platform": "linux",
-                "version": "0.1.0",
+                "version": self.plugin.version,
                 "acceptConnections": self.plugin.accept_connections,
                 "capabilities": ["file_upload", "steam_shortcuts", "steam_artwork"],
             }
@@ -390,74 +391,9 @@ class WebSocketServer:
             "chunkSize": CHUNK_SIZE,
         })
 
-    async def handle_upload_chunk(self, websocket, msg_id: str, payload: dict):
-        """Handle a chunk upload."""
-        upload_id = payload.get("uploadId", "")
-        file_path = payload.get("filePath", "")
-        offset = payload.get("offset", 0)
-        data = payload.get("data", b"")
-
-        session = self.uploads.get(upload_id)
-        if not session:
-            await self.send_error(websocket, msg_id, 404, "Upload not found")
-            return
-
-        full_path = os.path.join(session.install_path, file_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
-        if isinstance(data, str):
-            import base64
-
-            data = base64.b64decode(data)
-
-        with open(full_path, "ab" if offset > 0 else "wb") as f:
-            f.seek(offset)
-            f.write(data)
-
-        session.transferred += len(data)
-        session.current_file = file_path
-
-        progress = session.progress()
-        await self.plugin.notify_frontend("upload_progress", {
-            "uploadId": upload_id,
-            "transferredBytes": session.transferred,
-            "totalBytes": session.total_size,
-            "currentFile": file_path,
-            "percentage": progress,
-        })
-
-        await self.send(websocket, msg_id, "upload_chunk_response", {
-            "uploadId": upload_id,
-            "bytesWritten": len(data),
-            "totalWritten": session.transferred,
-        })
-
-    async def handle_binary(self, websocket, data: bytes):
-        """Handle binary chunk data. Format: [4 bytes: header len][header JSON][chunk data]"""
-        if len(data) < 4:
-            decky.logger.error("Binary message too short")
-            return
-
-        header_len = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]
-        if len(data) < 4 + header_len:
-            decky.logger.error("Binary message header incomplete")
-            return
-
-        try:
-            header = json.loads(data[4:4 + header_len].decode('utf-8'))
-        except Exception as e:
-            decky.logger.error(f"Invalid binary header: {e}")
-            return
-
-        msg_id = header.get("id", "")
-        upload_id = header.get("uploadId", "")
-        file_path = header.get("filePath", "")
-        offset = header.get("offset", 0)
-
-        chunk_data = data[4 + header_len:]
-
-        decky.logger.info(f"Binary chunk: {upload_id}/{file_path} offset={offset} size={len(chunk_data)}")
-
+    async def _write_chunk(self, websocket, msg_id: str, upload_id: str,
+                           file_path: str, offset: int, chunk_data: bytes):
+        """Write a chunk to disk and emit progress. Shared by JSON and binary paths."""
         session = self.uploads.get(upload_id)
         if not session:
             await self.send_error(websocket, msg_id, 404, "Upload not found")
@@ -487,6 +423,105 @@ class WebSocketServer:
             "bytesWritten": len(chunk_data),
             "totalWritten": session.transferred,
         })
+
+    async def handle_upload_chunk(self, websocket, msg_id: str, payload: dict):
+        """Handle a chunk upload (JSON path)."""
+        upload_id = payload.get("uploadId", "")
+        file_path = payload.get("filePath", "")
+        offset = payload.get("offset", 0)
+        data = payload.get("data", b"")
+
+        if isinstance(data, str):
+            import base64
+            data = base64.b64decode(data)
+
+        await self._write_chunk(websocket, msg_id, upload_id, file_path, offset, data)
+
+    async def handle_binary(self, websocket, data: bytes):
+        """Handle binary messages. Format: [4 bytes: header len][header JSON][binary data]
+
+        Routes based on header 'type' field:
+        - "artwork_image" → apply artwork bytes to Steam grid directory
+        - default (no type / has uploadId) → upload chunk flow
+        """
+        if len(data) < 4:
+            decky.logger.error("Binary message too short")
+            return
+
+        header_len = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]
+        if len(data) < 4 + header_len:
+            decky.logger.error("Binary message header incomplete")
+            return
+
+        try:
+            header = json.loads(data[4:4 + header_len].decode('utf-8'))
+        except Exception as e:
+            decky.logger.error(f"Invalid binary header: {e}")
+            return
+
+        binary_data = data[4 + header_len:]
+        msg_type = header.get("type", "")
+
+        if msg_type == "artwork_image":
+            await self.handle_binary_artwork(websocket, header, binary_data)
+            return
+
+        # Default: upload chunk flow
+        msg_id = header.get("id", "")
+        upload_id = header.get("uploadId", "")
+        file_path = header.get("filePath", "")
+        offset = header.get("offset", 0)
+
+        decky.logger.info(f"Binary chunk: {upload_id}/{file_path} offset={offset} size={len(binary_data)}")
+        await self._write_chunk(websocket, msg_id, upload_id, file_path, offset, binary_data)
+
+    async def handle_binary_artwork(self, websocket, header: dict, data: bytes):
+        """Handle artwork_image binary message.
+
+        When appId=0 (pre-CompleteUpload phase): store artwork as pending
+        base64 so handle_complete_upload can include it in create_shortcut.
+        When appId>0: write directly to Steam grid directory.
+        """
+        import base64
+
+        msg_id = header.get("id", "")
+        app_id = header.get("appId", 0)
+        artwork_type = header.get("artworkType", "")
+        content_type = header.get("contentType", "")
+
+        decky.logger.info(
+            f"Artwork image: appId={app_id} type={artwork_type} "
+            f"contentType={content_type} size={len(data)}"
+        )
+
+        if app_id == 0:
+            # Pre-CompleteUpload: store as pending for the frontend flow
+            fmt = "png"
+            if "jpeg" in content_type or "jpg" in content_type:
+                fmt = "jpg"
+
+            b64 = base64.b64encode(data).decode("ascii")
+            self._pending_artwork[artwork_type] = {"data": b64, "format": fmt}
+            decky.logger.info(f"Stored pending artwork: {artwork_type} ({len(data)} bytes)")
+            await self.send(websocket, msg_id, "artwork_image_response", {
+                "success": True,
+                "artworkType": artwork_type,
+            })
+            return
+
+        try:
+            apply_from_data(app_id, artwork_type, data, content_type)
+            await self.send(websocket, msg_id, "artwork_image_response", {
+                "success": True,
+                "artworkType": artwork_type,
+            })
+        except Exception as e:
+            decky.logger.error(f"Failed to apply artwork: {e}")
+            await self.send(websocket, msg_id, "artwork_image_response", {
+                "success": False,
+                "artworkType": artwork_type,
+                "error": str(e),
+            })
 
     async def handle_cancel_upload(self, websocket, msg_id: str, payload: dict):
         """Cancel an active upload."""
@@ -544,6 +579,15 @@ class WebSocketServer:
             raw_artwork = shortcut_config.get("artwork", {})
             if raw_artwork:
                 artwork_b64 = await download_artwork(raw_artwork)
+
+            # Merge pending local artwork (received via binary WS before CompleteUpload)
+            if self._pending_artwork:
+                decky.logger.info(
+                    f"Merging {len(self._pending_artwork)} pending local artwork(s)"
+                )
+                for art_type, art_data in self._pending_artwork.items():
+                    artwork_b64[art_type] = art_data
+                self._pending_artwork.clear()
 
             # Pass icon URL directly (backend will download it after shortcut creation)
             icon_url = raw_artwork.get("icon", "")

@@ -451,6 +451,9 @@ func (c *Client) sendRequest(ctx context.Context, msgType protocol.MessageType, 
 	}
 
 	// Wait for response
+	timer := time.NewTimer(protocol.WSRequestTimeout)
+	defer timer.Stop()
+
 	select {
 	case resp, ok := <-respCh:
 		if !ok {
@@ -462,7 +465,7 @@ func (c *Client) sendRequest(ctx context.Context, msgType protocol.MessageType, 
 		return resp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-time.After(protocol.WSRequestTimeout):
+	case <-timer.C:
 		return nil, fmt.Errorf("request timeout")
 	}
 }
@@ -492,12 +495,17 @@ func (c *Client) sendBinaryChunk(ctx context.Context, msgID, uploadID, filePath 
 		Checksum: checksum,
 	}
 
+	return c.sendBinary(conn, header, data)
+}
+
+// buildBinaryMessage encodes a header+data pair into the wire format:
+// [4 bytes big-endian header length][JSON header][binary data].
+func buildBinaryMessage(header any, data []byte) ([]byte, error) {
 	headerBytes, err := json.Marshal(header)
 	if err != nil {
-		return fmt.Errorf("failed to marshal header: %w", err)
+		return nil, fmt.Errorf("failed to marshal header: %w", err)
 	}
 
-	// Build binary message: [4 bytes: header len][header][data]
 	headerLen := len(headerBytes)
 	message := make([]byte, 4+headerLen+len(data))
 	message[0] = byte(headerLen >> 24)
@@ -507,7 +515,16 @@ func (c *Client) sendBinaryChunk(ctx context.Context, msgID, uploadID, filePath 
 	copy(message[4:], headerBytes)
 	copy(message[4+headerLen:], data)
 
-	// Send binary message directly (not through sendCh)
+	return message, nil
+}
+
+// sendBinary builds a binary message from header+data and writes it to the WS connection.
+func (c *Client) sendBinary(conn *websocket.Conn, header any, data []byte) error {
+	message, err := buildBinaryMessage(header, data)
+	if err != nil {
+		return err
+	}
+
 	conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
 	return conn.WriteMessage(websocket.BinaryMessage, message)
 }
@@ -623,6 +640,81 @@ func (c *Client) ApplyArtwork(ctx context.Context, userID string, appID uint32, 
 	return &result, nil
 }
 
+// SendArtworkImage sends a binary artwork image to the agent.
+func (c *Client) SendArtworkImage(ctx context.Context, appID uint32, artworkType, contentType string, data []byte) error {
+	msgID := uuid.New().String()
+
+	// Create response channel
+	respCh := make(chan *protocol.Message, 1)
+	c.mu.Lock()
+	c.requests[msgID] = respCh
+	c.mu.Unlock()
+
+	defer func() {
+		c.mu.Lock()
+		delete(c.requests, msgID)
+		c.mu.Unlock()
+	}()
+
+	// Send binary message
+	if err := c.sendBinaryArtwork(ctx, msgID, appID, artworkType, contentType, data); err != nil {
+		return err
+	}
+
+	// Wait for response
+	artTimer := time.NewTimer(protocol.WSRequestTimeout)
+	defer artTimer.Stop()
+
+	select {
+	case resp, ok := <-respCh:
+		if !ok {
+			return fmt.Errorf("connection closed")
+		}
+		if resp.Error != nil {
+			return fmt.Errorf("agent error (%d): %s", resp.Error.Code, resp.Error.Message)
+		}
+		var result protocol.ArtworkImageResponse
+		if err := resp.ParsePayload(&result); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+		if !result.Success {
+			return fmt.Errorf("artwork apply failed: %s", result.Error)
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-artTimer.C:
+		return fmt.Errorf("artwork image upload timeout")
+	}
+}
+
+// sendBinaryArtwork sends a binary artwork image message.
+func (c *Client) sendBinaryArtwork(ctx context.Context, msgID string, appID uint32, artworkType, contentType string, data []byte) error {
+	c.mu.RLock()
+	if c.closed || c.conn == nil {
+		c.mu.RUnlock()
+		return fmt.Errorf("not connected")
+	}
+	conn := c.conn
+	c.mu.RUnlock()
+
+	header := struct {
+		ID          string `json:"id"`
+		Type        string `json:"type"`
+		AppID       uint32 `json:"appId"`
+		ArtworkType string `json:"artworkType"`
+		ContentType string `json:"contentType"`
+	}{
+		ID:          msgID,
+		Type:        "artwork_image",
+		AppID:       appID,
+		ArtworkType: artworkType,
+		ContentType: contentType,
+	}
+
+	return c.sendBinary(conn, header, data)
+}
+
 // RestartSteam restarts Steam on the agent.
 func (c *Client) RestartSteam(ctx context.Context) (*protocol.RestartSteamResponse, error) {
 	resp, err := c.sendRequest(ctx, protocol.MsgTypeRestartSteam, nil)
@@ -679,6 +771,9 @@ func (c *Client) UploadChunk(ctx context.Context, uploadID, filePath string, off
 	}
 
 	// Wait for response
+	chunkTimer := time.NewTimer(protocol.WSRequestTimeout)
+	defer chunkTimer.Stop()
+
 	select {
 	case resp, ok := <-respCh:
 		if !ok {
@@ -690,7 +785,7 @@ func (c *Client) UploadChunk(ctx context.Context, uploadID, filePath string, off
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-time.After(protocol.WSRequestTimeout):
+	case <-chunkTimer.C:
 		return fmt.Errorf("chunk upload timeout")
 	}
 }

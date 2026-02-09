@@ -1,9 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -30,8 +29,6 @@ jobs:
             agent_bin: capydeploy-agent.exe
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - uses: actions/setup-go@v5
         with:
@@ -49,11 +46,6 @@ jobs:
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Build steam-shortcut-manager
-        run: |
-          cd steam-shortcut-manager
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../internal/embedded/steam-shortcut-manager .
 
       - name: Collect version info
         id: version
@@ -367,23 +359,11 @@ jobs:
           cd release
           sha256sum * > checksums-sha256.txt
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
-          CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
-          echo "changelog<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          name: CapyDeploy v${{ steps.version.outputs.version }}
+          append_body: true
           body: |
-            ## What's Changed
-
-            ${{ steps.changelog.outputs.changelog }}
 
             ## Downloads
 

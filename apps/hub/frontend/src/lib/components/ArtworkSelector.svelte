@@ -2,11 +2,11 @@
 	import { Button, Input } from '$lib/components/ui';
 	import FiltersModal from '$lib/components/FiltersModal.svelte';
 	import type {
-		ArtworkSelection, SearchResult, GridData, ImageData, ImageFilters
+		ArtworkSelection, ArtworkFileResult, SearchResult, GridData, ImageData, ImageFilters
 	} from '$lib/types';
-	import { Search, X, Loader2, RefreshCw, Filter, Check } from 'lucide-svelte';
+	import { Search, X, Loader2, RefreshCw, Filter, Check, Upload } from 'lucide-svelte';
 	import { cn } from '$lib/utils';
-	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons } from '$lib/wailsjs';
+	import { SearchGames, GetGrids, GetHeroes, GetLogos, GetIcons, SelectArtworkFile, GetArtworkPreview } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 	import { connectionStatus } from '$lib/stores/connection';
 
@@ -292,6 +292,45 @@
 		iconImage = img.url;
 	}
 
+	async function handleUploadLocal() {
+		try {
+			const result: ArtworkFileResult | null = await SelectArtworkFile();
+			if (!result) return; // User cancelled
+
+			const fileUrl = `file://${result.path}`;
+
+			switch (activeTab) {
+				case 'capsule': gridPortrait = fileUrl; break;
+				case 'wide': gridLandscape = fileUrl; break;
+				case 'hero': heroImage = fileUrl; break;
+				case 'logo': logoImage = fileUrl; break;
+				case 'icon': iconImage = fileUrl; break;
+			}
+
+			// Store data URI for preview display
+			localPreviews[fileUrl] = result.dataURI;
+			statusMessage = `Local image selected: ${result.path}`;
+		} catch (e) {
+			statusMessage = `Error: ${e}`;
+		}
+	}
+
+	// Local file:// URLs to data URI previews (plain object for Svelte 5 reactivity)
+	let localPreviews = $state<Record<string, string>>({});
+
+	// Get preview URL — returns data URI for local files, original URL for remote
+	function previewUrl(url: string): string {
+		if (url.startsWith('file://')) {
+			return localPreviews[url] || '';
+		}
+		return url;
+	}
+
+	// Check if a URL is a local file
+	function isLocalFile(url: string): boolean {
+		return url.startsWith('file://');
+	}
+
 	function clearAll() {
 		gridPortrait = '';
 		gridLandscape = '';
@@ -322,6 +361,20 @@
 			default: return false;
 		}
 	}
+
+	// Load previews for existing local file:// selections on mount
+	$effect(() => {
+		if (!browser) return;
+		const urls = [gridPortrait, gridLandscape, heroImage, logoImage, iconImage];
+		for (const url of urls) {
+			if (url.startsWith('file://') && !localPreviews[url]) {
+				const localPath = url.slice(7);
+				GetArtworkPreview(localPath).then((dataURI) => {
+					localPreviews[url] = dataURI;
+				}).catch(() => {});
+			}
+		}
+	});
 
 	// Auto-search on mount if gameName is provided
 	$effect(() => {
@@ -412,6 +465,10 @@
 					</button>
 				{/each}
 				<div class="flex-1"></div>
+				<Button variant="outline" size="sm" onclick={handleUploadLocal}>
+					<Upload class="w-4 h-4 mr-1" />
+					Local
+				</Button>
 				<Button
 					variant={hasActiveFilters ? 'default' : 'ghost'}
 					size="sm"
@@ -735,7 +792,12 @@
 					<div class="flex items-center gap-3">
 						<span class="w-12 text-xs text-muted-foreground shrink-0">Capsule</span>
 						{#if gridPortrait}
-							<img src={gridPortrait} alt="Capsule" class="h-14 w-auto rounded border-2 border-green-500 object-contain" />
+							<div class="relative">
+								<img src={previewUrl(gridPortrait)} alt="Capsule" class="h-14 w-auto rounded border-2 border-green-500 object-contain" />
+								{#if isLocalFile(gridPortrait)}
+									<span class="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold">LOCAL</span>
+								{/if}
+							</div>
 						{:else}
 							<div class="h-14 w-10 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
 								<span class="text-[10px] text-muted-foreground">—</span>
@@ -746,7 +808,12 @@
 					<div class="flex items-center gap-3">
 						<span class="w-12 text-xs text-muted-foreground shrink-0">Wide</span>
 						{#if gridLandscape}
-							<img src={gridLandscape} alt="Wide" class="h-10 w-auto rounded border-2 border-green-500 object-contain" />
+							<div class="relative">
+								<img src={previewUrl(gridLandscape)} alt="Wide" class="h-10 w-auto rounded border-2 border-green-500 object-contain" />
+								{#if isLocalFile(gridLandscape)}
+									<span class="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold">LOCAL</span>
+								{/if}
+							</div>
 						{:else}
 							<div class="h-10 w-20 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
 								<span class="text-[10px] text-muted-foreground">—</span>
@@ -757,7 +824,12 @@
 					<div class="flex items-center gap-3">
 						<span class="w-12 text-xs text-muted-foreground shrink-0">Hero</span>
 						{#if heroImage}
-							<img src={heroImage} alt="Hero" class="h-8 w-auto rounded border-2 border-green-500 object-contain" />
+							<div class="relative">
+								<img src={previewUrl(heroImage)} alt="Hero" class="h-8 w-auto rounded border-2 border-green-500 object-contain" />
+								{#if isLocalFile(heroImage)}
+									<span class="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold">LOCAL</span>
+								{/if}
+							</div>
 						{:else}
 							<div class="h-8 w-24 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
 								<span class="text-[10px] text-muted-foreground">—</span>
@@ -768,7 +840,12 @@
 					<div class="flex items-center gap-3">
 						<span class="w-12 text-xs text-muted-foreground shrink-0">Logo</span>
 						{#if logoImage}
-							<img src={logoImage} alt="Logo" class="h-10 w-auto rounded border-2 border-green-500 object-contain bg-muted/50" />
+							<div class="relative">
+								<img src={previewUrl(logoImage)} alt="Logo" class="h-10 w-auto rounded border-2 border-green-500 object-contain bg-muted/50" />
+								{#if isLocalFile(logoImage)}
+									<span class="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold">LOCAL</span>
+								{/if}
+							</div>
 						{:else}
 							<div class="h-10 w-16 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
 								<span class="text-[10px] text-muted-foreground">—</span>
@@ -779,7 +856,12 @@
 					<div class="flex items-center gap-3">
 						<span class="w-12 text-xs text-muted-foreground shrink-0">Icon</span>
 						{#if iconImage}
-							<img src={iconImage} alt="Icon" class="h-10 w-10 rounded border-2 border-green-500 object-contain bg-muted/50" />
+							<div class="relative">
+								<img src={previewUrl(iconImage)} alt="Icon" class="h-10 w-10 rounded border-2 border-green-500 object-contain bg-muted/50" />
+								{#if isLocalFile(iconImage)}
+									<span class="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold">LOCAL</span>
+								{/if}
+							</div>
 						{:else}
 							<div class="h-10 w-10 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center">
 								<span class="text-[10px] text-muted-foreground">—</span>

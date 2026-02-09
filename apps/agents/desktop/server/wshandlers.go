@@ -270,7 +270,7 @@ func (ws *WSServer) handleDeleteShortcut(hub *HubConnection, msg *protocol.Messa
 		Message:  "Eliminando...",
 	})
 
-	if err := mgr.Delete(req.UserID, req.AppID, ""); err != nil {
+	if err := mgr.Delete(req.UserID, req.AppID); err != nil {
 		ws.server.NotifyOperation("delete", "error", gameName, 0, err.Error())
 		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
 		return
@@ -289,23 +289,9 @@ func (ws *WSServer) handleDeleteShortcut(hub *HubConnection, msg *protocol.Messa
 		Message:  "Eliminado",
 	})
 
-	// Restart Steam if requested
-	var steamRestarted bool
-	if req.RestartSteam {
-		controller := agentSteam.NewController()
-		result := controller.Restart()
-		steamRestarted = result.Success
-		log.Printf("WS: Steam restart after delete: %v", result.Message)
-	}
-
 	resp, _ := msg.Reply(protocol.MsgTypeOperationResult, protocol.OperationResult{
 		Success: true,
-		Message: func() string {
-			if steamRestarted {
-				return "deleted, steam restarted"
-			}
-			return "deleted"
-		}(),
+		Message: "deleted",
 	})
 	ws.send(hub, resp)
 }
@@ -358,7 +344,7 @@ func (ws *WSServer) handleDeleteGame(hub *HubConnection, msg *protocol.Message) 
 	})
 
 	// Delete shortcut (this also deletes game folder and artwork)
-	if err := mgr.Delete(userID, req.AppID, ""); err != nil {
+	if err := mgr.Delete(userID, req.AppID); err != nil {
 		ws.server.NotifyOperation("delete", "error", gameName, 0, err.Error())
 		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
 		return
@@ -366,21 +352,6 @@ func (ws *WSServer) handleDeleteGame(hub *HubConnection, msg *protocol.Message) 
 
 	log.Printf("WS: Deleted game '%s' (AppID: %d) for user %s", gameName, req.AppID, userID)
 	ws.server.NotifyShortcutChange()
-
-	// Notify UI about progress - restarting Steam
-	ws.server.NotifyOperation("delete", "progress", gameName, 50, "Reiniciando Steam...")
-	ws.SendEvent(protocol.MsgTypeOperationEvent, protocol.OperationEvent{
-		Type:     "delete",
-		Status:   "progress",
-		GameName: gameName,
-		Progress: 50,
-		Message:  "Reiniciando Steam...",
-	})
-
-	// Always restart Steam after delete
-	controller := agentSteam.NewController()
-	result := controller.Restart()
-	log.Printf("WS: Steam restart after delete: %v", result.Message)
 
 	// Notify UI about delete complete
 	ws.server.NotifyOperation("delete", "complete", gameName, 100, "Eliminado")
@@ -395,7 +366,7 @@ func (ws *WSServer) handleDeleteGame(hub *HubConnection, msg *protocol.Message) 
 	resp, _ := msg.Reply(protocol.MsgTypeOperationResult, protocol.DeleteGameResponse{
 		Status:         "deleted",
 		GameName:       gameName,
-		SteamRestarted: result.Success,
+		SteamRestarted: false,
 	})
 	ws.send(hub, resp)
 }
@@ -428,6 +399,51 @@ func (ws *WSServer) handleApplyArtwork(hub *HubConnection, msg *protocol.Message
 	resp, _ := msg.Reply(protocol.MsgTypeArtworkResponse, protocol.ArtworkResponse{
 		Applied: result.Applied,
 		Failed:  failed,
+	})
+	ws.send(hub, resp)
+}
+
+// handleBinaryArtwork processes a binary artwork image message.
+// When appID is 0 (pre-CompleteUpload), artwork data is stored as pending
+// and applied during handleCompleteUpload with the real AppID.
+// When appID > 0, artwork is applied immediately.
+func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID uint32, artworkType, contentType string, data []byte) {
+	log.Printf("WS: Received artwork image: appID=%d, type=%s, contentType=%s, size=%d",
+		appID, artworkType, contentType, len(data))
+
+	if appID == 0 {
+		// Store for later — applied during handleCompleteUpload with real AppID
+		ws.mu.Lock()
+		ws.pendingArtwork = append(ws.pendingArtwork, pendingArtwork{
+			ArtworkType: artworkType,
+			ContentType: contentType,
+			Data:        data,
+		})
+		ws.mu.Unlock()
+		log.Printf("WS: Stored pending artwork: type=%s (%d bytes)", artworkType, len(data))
+		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+			Success:     true,
+			ArtworkType: artworkType,
+		})
+		ws.send(hub, resp)
+		return
+	}
+
+	if err := artwork.ApplyFromData(appID, artworkType, data, contentType); err != nil {
+		log.Printf("WS: Failed to apply artwork image: %v", err)
+		resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+			Success:     false,
+			ArtworkType: artworkType,
+			Error:       err.Error(),
+		})
+		ws.send(hub, resp)
+		return
+	}
+
+	log.Printf("WS: Applied artwork image: appID=%d, type=%s", appID, artworkType)
+	resp, _ := protocol.NewMessage(msgID, protocol.MsgTypeArtworkImageResponse, protocol.ArtworkImageResponse{
+		Success:     true,
+		ArtworkType: artworkType,
 	})
 	ws.send(hub, resp)
 }
@@ -607,6 +623,9 @@ func (ws *WSServer) handleCompleteUpload(hub *HubConnection, msg *protocol.Messa
 		}
 	}
 
+	// Clean up upload session from memory
+	defer ws.server.DeleteUpload(req.UploadID)
+
 	resp := protocol.CompleteUploadResponseFull{
 		Success: true,
 		Path:    gamePath,
@@ -614,10 +633,9 @@ func (ws *WSServer) handleCompleteUpload(hub *HubConnection, msg *protocol.Messa
 
 	// Create shortcut if requested
 	if req.CreateShortcut && req.Shortcut != nil {
-		// Ensure Steam is running before creating shortcut (needed for CEF API)
-		steamController := agentSteam.NewController()
-		if err := steamController.EnsureRunning(); err != nil {
-			log.Printf("WS: Warning: Steam not available, artwork may not apply: %v", err)
+		// Ensure CEF debugger is available (needed for shortcut creation via CEF API)
+		if err := agentSteam.EnsureCEFReady(); err != nil {
+			log.Printf("WS: Warning: CEF not available, shortcut creation may fail: %v", err)
 		}
 
 		mgr, err := shortcuts.NewManager()
@@ -651,9 +669,19 @@ func (ws *WSServer) handleCompleteUpload(hub *HubConnection, msg *protocol.Messa
 					}
 					ws.server.NotifyShortcutChange()
 
-					// Restart Steam to apply changes
-					result := steamController.Restart()
-					log.Printf("WS: Steam restart: success=%v, message=%s", result.Success, result.Message)
+					// Apply pending local artwork now that we have the real AppID
+					ws.mu.Lock()
+					pending := ws.pendingArtwork
+					ws.pendingArtwork = nil
+					ws.mu.Unlock()
+
+					for _, pa := range pending {
+						if err := artwork.ApplyFromData(appID, pa.ArtworkType, pa.Data, pa.ContentType); err != nil {
+							log.Printf("WS: Failed to apply pending artwork %s: %v", pa.ArtworkType, err)
+						} else {
+							log.Printf("WS: Applied pending artwork: appID=%d, type=%s", appID, pa.ArtworkType)
+						}
+					}
 				}
 			}
 		}
@@ -677,8 +705,21 @@ func (ws *WSServer) handleCancelUpload(hub *HubConnection, msg *protocol.Message
 		return
 	}
 
+	gamePath := ws.server.GetUploadPath(session.Config.GameName, session.Config.InstallPath)
 	session.Cancel()
-	log.Printf("WS: Upload cancelled: %s", req.UploadID)
+	ws.server.DeleteUpload(req.UploadID)
+
+	// Clean up pending artwork data to free memory
+	ws.mu.Lock()
+	ws.pendingArtwork = nil
+	ws.mu.Unlock()
+
+	// Clean up partial files left on disk
+	if err := os.RemoveAll(gamePath); err != nil {
+		log.Printf("WS: Warning: failed to clean up partial upload at %s: %v", gamePath, err)
+	}
+
+	log.Printf("WS: Upload cancelled: %s (cleaned %s)", req.UploadID, gamePath)
 
 	resp, _ := msg.Reply(protocol.MsgTypeOperationResult, protocol.OperationResult{
 		Success: true,

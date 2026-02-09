@@ -8,7 +8,7 @@ import (
 // WebSocket timing constants.
 const (
 	// WSWriteWait is the time allowed to write a message.
-	WSWriteWait = 10 * time.Second
+	WSWriteWait = 30 * time.Second
 
 	// WSPongWait is the time to wait for a pong response.
 	WSPongWait = 15 * time.Second
@@ -16,8 +16,8 @@ const (
 	// WSPingPeriod is how often to send pings (must be < PongWait).
 	WSPingPeriod = 5 * time.Second
 
-	// WSMaxMessageSize is the maximum message size in bytes (10MB).
-	WSMaxMessageSize = 10 * 1024 * 1024
+	// WSMaxMessageSize is the maximum message size in bytes (50MB).
+	WSMaxMessageSize = 50 * 1024 * 1024
 
 	// WSChunkSize is the size for binary chunks (1MB).
 	WSChunkSize = 1024 * 1024
@@ -49,8 +49,9 @@ const (
 	MsgTypeCreateShortcut MessageType = "create_shortcut"
 	MsgTypeDeleteShortcut MessageType = "delete_shortcut"
 	MsgTypeDeleteGame     MessageType = "delete_game" // Agent handles everything internally
-	MsgTypeApplyArtwork   MessageType = "apply_artwork"
-	MsgTypeRestartSteam   MessageType = "restart_steam"
+	MsgTypeApplyArtwork      MessageType = "apply_artwork"
+	MsgTypeSendArtworkImage  MessageType = "send_artwork_image"  // Hub → Agent: binary image data
+	MsgTypeRestartSteam      MessageType = "restart_steam"
 	MsgTypeInitUpload     MessageType = "init_upload"
 	MsgTypeUploadChunk    MessageType = "upload_chunk"
 	MsgTypeCompleteUpload MessageType = "complete_upload"
@@ -62,8 +63,9 @@ const (
 	MsgTypeConfigResponse    MessageType = "config_response"
 	MsgTypeSteamUsersResponse MessageType = "steam_users_response"
 	MsgTypeShortcutsResponse MessageType = "shortcuts_response"
-	MsgTypeArtworkResponse   MessageType = "artwork_response"
-	MsgTypeSteamResponse     MessageType = "steam_response"
+	MsgTypeArtworkResponse        MessageType = "artwork_response"
+	MsgTypeArtworkImageResponse   MessageType = "artwork_image_response" // Agent → Hub: ack for binary artwork
+	MsgTypeSteamResponse          MessageType = "steam_response"
 	MsgTypeUploadInitResponse MessageType = "upload_init_response"
 	MsgTypeUploadChunkResponse MessageType = "upload_chunk_response"
 	MsgTypeOperationResult   MessageType = "operation_result"
@@ -418,6 +420,13 @@ type UploadProgressEvent struct {
 	TotalBytes       int64   `json:"totalBytes"`
 	CurrentFile      string  `json:"currentFile,omitempty"`
 	Percentage       float64 `json:"percentage"`
+}
+
+// ArtworkImageResponse contains the result of a binary artwork image transfer.
+type ArtworkImageResponse struct {
+	Success     bool   `json:"success"`
+	ArtworkType string `json:"artworkType"`
+	Error       string `json:"error,omitempty"`
 }
 
 // Steam control payloads

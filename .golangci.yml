@@ -19,7 +19,6 @@ linters:
 
 issues:
   exclude-dirs:
-    - steam-shortcut-manager/vendor
     - frontend/dist
     - node_modules
     - wailsjs

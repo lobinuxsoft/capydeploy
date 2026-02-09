@@ -145,26 +145,6 @@ if %errorlevel%==0 (
     echo   [WARN] Python not found, skipping icon generation
 )
 
-:: Build steam-shortcut-manager for Linux (embedded in Hub)
-echo   Building steam-shortcut-manager (Linux target)...
-pushd "%ROOT_DIR%\steam-shortcut-manager"
-set "GOOS=linux"
-set "GOARCH=amd64"
-set "CGO_ENABLED=0"
-go build -o "..\internal\embedded\steam-shortcut-manager" .
-if !errorlevel! neq 0 (
-    echo   [ERROR] Failed to build steam-shortcut-manager
-    popd
-    set "GOOS="
-    set "GOARCH="
-    set "CGO_ENABLED="
-    goto :build_desktop
-)
-popd
-set "GOOS="
-set "GOARCH="
-set "CGO_ENABLED="
-
 :: Build Hub with Wails
 echo   Building Hub (Wails)...
 pushd "%ROOT_DIR%\apps\hub"

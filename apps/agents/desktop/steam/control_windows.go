@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-const (
-	shutdownTimeout = 10 * time.Second
-)
-
 // getSteamExe finds the Steam executable path
 func getSteamExe() string {
 	steamPaths := []string{
@@ -47,25 +43,6 @@ func (c *Controller) Start() error {
 
 	cmd := exec.Command(steamExe)
 	return cmd.Start()
-}
-
-// IsCEFAvailable returns false on Windows (CEF not supported).
-func (c *Controller) IsCEFAvailable() bool {
-	return false
-}
-
-// WaitForCEF is a no-op on Windows (CEF not supported).
-func (c *Controller) WaitForCEF() error {
-	return nil
-}
-
-// EnsureRunning makes sure Steam is running.
-// On Windows, CEF is not available so we just ensure Steam is running.
-func (c *Controller) EnsureRunning() error {
-	if c.IsRunning() {
-		return nil
-	}
-	return c.Start()
 }
 
 // Shutdown gracefully closes Steam.

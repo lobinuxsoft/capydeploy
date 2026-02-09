@@ -35,16 +35,6 @@ export interface ConnectionStatus {
 	supportedImageFormats: string[];
 }
 
-// Legacy types (deprecated, kept for compatibility)
-export interface DeviceConfig {
-	name: string;
-	host: string;
-	port: number;
-	user: string;
-	key_file?: string;
-	password?: string;
-}
-
 // Game setup types
 export interface GameSetup {
 	id: string;
@@ -127,6 +117,13 @@ export interface ImageFilters {
 	dimension: string;
 	showNsfw: boolean;
 	showHumor: boolean;
+}
+
+export interface ArtworkFileResult {
+	path: string;
+	dataURI: string;
+	contentType: string;
+	size: number;
 }
 
 export interface ArtworkSelection {
