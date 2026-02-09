@@ -9,6 +9,7 @@ Thank you for your interest in contributing! This document outlines our developm
 | PRs target | `development` branch |
 | Commit language | English |
 | Commit format | [Conventional Commits](https://www.conventionalcommits.org/) |
+| PR merge method | Squash merge (PRs to `development`) |
 | Code comments | English |
 
 ## Issue-First Development
@@ -62,14 +63,17 @@ chore: update dependencies
 ## Pull Requests
 
 1. **Target branch**: `development`
-2. **Title**: Clear description of the change
+2. **Title**: Use Conventional Commits format (e.g., `feat: add artwork cache`)
 3. **Body**: Reference the issue with `Closes #XX`
-4. **Size**: Keep PRs focused and reviewable
+4. **Merge method**: **Squash merge** for PRs to `development` (keeps changelog clean)
+5. **Size**: Keep PRs focused and reviewable
 
 ```bash
 # Example PR creation
 gh pr create --base development --title "feat: add artwork cache" --body "Closes #42"
 ```
+
+> **Note**: The `development → master` merge uses regular merge commits to preserve full history for release-please.
 
 ## Code Standards
 
