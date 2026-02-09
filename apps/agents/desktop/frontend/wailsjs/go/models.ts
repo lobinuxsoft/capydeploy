@@ -78,6 +78,7 @@ export namespace main {
 	        this.lastSeen = source["lastSeen"];
 	    }
 	}
+	
 	export class ShortcutInfo {
 	    appId: number;
 	    name: string;
@@ -110,13 +111,18 @@ export namespace main {
 	        this.name = source["name"];
 	    }
 	}
-	export class VersionInfo {
+
+}
+
+export namespace version {
+	
+	export class Info {
 	    version: string;
 	    commit: string;
 	    buildDate: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new VersionInfo(source);
+	        return new Info(source);
 	    }
 	
 	    constructor(source: any = {}) {

@@ -1,15 +1,19 @@
 <script lang="ts">
 	import { Button, Card } from '$lib/components/ui';
+	import ArtworkSelector from '$lib/components/ArtworkSelector.svelte';
 	import { connectionStatus } from '$lib/stores/connection';
 	import { toast } from '$lib/stores/toast';
-	import type { InstalledGame } from '$lib/types';
-	import { Folder, RefreshCw, Trash2, Loader2 } from 'lucide-svelte';
-	import { GetInstalledGames, DeleteGame, GetAgentInstallPath } from '$lib/wailsjs';
+	import type { InstalledGame, ArtworkSelection } from '$lib/types';
+	import { Folder, RefreshCw, Trash2, Pencil, Loader2 } from 'lucide-svelte';
+	import { GetInstalledGames, DeleteGame, GetAgentInstallPath, UpdateGameArtwork } from '$lib/wailsjs';
 
 	let installPath = $state('');
 	let games = $state<InstalledGame[]>([]);
 	let loading = $state(false);
 	let deleting = $state<string | null>(null);
+	let editingGame = $state<InstalledGame | null>(null);
+	let showArtworkSelector = $state(false);
+	let savingArtwork = $state(false);
 	let statusMessage = $state('Connect to a device and click Refresh');
 
 	async function refreshGames() {
@@ -53,6 +57,46 @@
 			deleting = null;
 		}
 	}
+
+	function editArtwork(game: InstalledGame) {
+		if (!$connectionStatus.connected) {
+			toast.warning('No connection', 'Connect to a device first');
+			return;
+		}
+		editingGame = game;
+		showArtworkSelector = true;
+	}
+
+	async function handleArtworkSave(selection: ArtworkSelection) {
+		if (!editingGame) return;
+
+		savingArtwork = true;
+		statusMessage = `Updating artwork for ${editingGame.name}...`;
+		try {
+			await UpdateGameArtwork(
+				editingGame.appId || 0,
+				selection.gridPortrait,
+				selection.gridLandscape,
+				selection.heroImage,
+				selection.logoImage,
+				selection.iconImage
+			);
+			toast.success('Artwork updated', editingGame.name);
+			statusMessage = `Artwork updated for ${editingGame.name}`;
+		} catch (e) {
+			toast.error('Error updating artwork', String(e));
+			statusMessage = `Error: ${e}`;
+		} finally {
+			savingArtwork = false;
+			showArtworkSelector = false;
+			editingGame = null;
+		}
+	}
+
+	function handleArtworkClose() {
+		showArtworkSelector = false;
+		editingGame = null;
+	}
 </script>
 
 <div class="space-y-4">
@@ -95,6 +139,19 @@
 						<Button
 							variant="ghost"
 							size="icon"
+							onclick={() => editArtwork(game)}
+							disabled={!$connectionStatus.connected || savingArtwork}
+							class="hover:bg-accent"
+						>
+							{#if savingArtwork && editingGame?.name === game.name}
+								<Loader2 class="w-4 h-4 animate-spin" />
+							{:else}
+								<Pencil class="w-4 h-4" />
+							{/if}
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
 							onclick={() => deleteGame(game)}
 							disabled={isDeleting || !$connectionStatus.connected}
 							class="text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -119,3 +176,12 @@
 		{/if}
 	</div>
 </div>
+
+{#if showArtworkSelector && editingGame}
+	<ArtworkSelector
+		gameName={editingGame.name}
+		currentSelection={null}
+		onsave={handleArtworkSave}
+		onclose={handleArtworkClose}
+	/>
+{/if}
