@@ -9,13 +9,13 @@
       "bump-patch-for-minor-pre-major": false,
       "include-component-in-tag": false,
       "changelog-sections": [
-        { "type": "feat", "section": "Nuevas funcionalidades" },
-        { "type": "fix", "section": "Correcciones" },
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
         { "type": "refactor", "section": "Refactoring" },
-        { "type": "perf", "section": "Rendimiento" },
-        { "type": "docs", "section": "Documentación" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "docs", "section": "Documentation" },
         { "type": "test", "section": "Tests" },
-        { "type": "chore", "section": "Mantenimiento", "hidden": true }
+        { "type": "chore", "section": "Miscellaneous", "hidden": true }
       ],
       "extra-files": [
         {
