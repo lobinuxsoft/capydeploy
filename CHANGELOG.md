@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.4.0...v0.5.0) (2026-02-09)
+
+
+### Features
+
+* extract Decky plugin to standalone repo as submodule ([#102](https://github.com/lobinuxsoft/capydeploy/issues/102)) ([a98e765](https://github.com/lobinuxsoft/capydeploy/commit/a98e76594e7eb4c3b2a4e77158bea6e36ba6e39c))
+
+
+### Documentation
+
+* reorganize download section by platform ([feb0d38](https://github.com/lobinuxsoft/capydeploy/commit/feb0d3885110e22afad914e5c255f8639a644e6b))
+* reorganize download section by platform ([193631e](https://github.com/lobinuxsoft/capydeploy/commit/193631e231e0d0f9f28b64254519c6ee464b72a3))
+* reorganize download section by platform ([5de803e](https://github.com/lobinuxsoft/capydeploy/commit/5de803efb7005ec40a0dbb62e0f6ef5b660020e0))
+* switch commit language convention to English ([b6aa524](https://github.com/lobinuxsoft/capydeploy/commit/b6aa52424cb27d3b36a7ec128cc60fd1bcdbb87d))
+* switch commit language convention to English ([050e7e5](https://github.com/lobinuxsoft/capydeploy/commit/050e7e5e05edd5b77f58bbe9b3b778a762ec88f2))
+* switch commit language convention to English ([71acee9](https://github.com/lobinuxsoft/capydeploy/commit/71acee91e8101884303f29220b89bcfaaeb44334))
+
 ## [0.4.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.3.0...v0.4.0) (2026-02-09)
 
 
