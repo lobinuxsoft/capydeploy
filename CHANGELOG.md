@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.3.0...v0.4.0) (2026-02-09)
+
+
+### Features
+
+* **hub:** permitir editar artwork de juegos instalados ([65c2b99](https://github.com/lobinuxsoft/capydeploy/commit/65c2b99bc27ddd6d8b51ea5748fe7fbf066b72c7))
+* **hub:** permitir editar artwork de juegos instalados ([c1b0700](https://github.com/lobinuxsoft/capydeploy/commit/c1b0700cf4bb0a5b6411019b208fcc4dccb07cb7)), closes [#35](https://github.com/lobinuxsoft/capydeploy/issues/35)
+
+
+### Bug Fixes
+
+* **decky:** aplicar artwork via SteamClient API para visibilidad inmediata ([f382371](https://github.com/lobinuxsoft/capydeploy/commit/f3823716b72ff26c8a459fe93166b0a0b43c3e7b))
+* **decky:** leer versión desde package.json en vez de hardcodear ([535a5c4](https://github.com/lobinuxsoft/capydeploy/commit/535a5c4ad284171803b5b3d0920799889c4828da))
+* **decky:** leer versión desde package.json en vez de hardcodear ([eda86ce](https://github.com/lobinuxsoft/capydeploy/commit/eda86ce5d708bbbf190cf152e309f1049e30dcf9)), closes [#81](https://github.com/lobinuxsoft/capydeploy/issues/81)
+* **decky:** mostrar juegos instalados sin conexión activa ([85f8eef](https://github.com/lobinuxsoft/capydeploy/commit/85f8eefd313838ec2fcb78a7c742f40586f2e232))
+* **decky:** mostrar juegos instalados sin conexión activa ([def8f5a](https://github.com/lobinuxsoft/capydeploy/commit/def8f5a2ed4962845139c167769a2c823a2cb226)), closes [#82](https://github.com/lobinuxsoft/capydeploy/issues/82)
+
+
+### Refactoring
+
+* eliminar campo capabilities redundante del protocolo ([e9ec24d](https://github.com/lobinuxsoft/capydeploy/commit/e9ec24d2981557f5f2bf866f910b653dfb28525b))
+* eliminar campo capabilities redundante del protocolo ([7013b79](https://github.com/lobinuxsoft/capydeploy/commit/7013b796ab222e61778a9925d627f21ca03fb009))
+
+
+### Documentation
+
+* separar flujo de descarga del build from source ([aae9ece](https://github.com/lobinuxsoft/capydeploy/commit/aae9eceaac97c2775a144973cd237f9a8ca53225))
+* separar flujo de descarga del build from source ([c02bfc8](https://github.com/lobinuxsoft/capydeploy/commit/c02bfc898c8dbd6ba6672673d63b9f033a20dc3f))
+
 ## [0.3.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.2.0...v0.3.0) (2026-02-09)
 
 

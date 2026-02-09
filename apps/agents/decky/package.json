@@ -1,6 +1,6 @@
 {
   "name": "decky-capydeploy",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Decky plugin for CapyDeploy - receive games and create shortcuts in gaming mode",
   "type": "module",
   "scripts": {

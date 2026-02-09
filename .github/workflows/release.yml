@@ -1,8 +1,17 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name (e.g., v0.4.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -29,6 +38,8 @@ jobs:
             agent_bin: capydeploy-agent.exe
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
 
       - uses: actions/setup-go@v5
         with:
@@ -50,7 +61,8 @@ jobs:
       - name: Collect version info
         id: version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${{ inputs.tag_name }}"
+          VERSION="${TAG#v}"
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -86,6 +98,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
 
       - name: Download Hub Linux binary
         uses: actions/download-artifact@v4
@@ -262,6 +276,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
 
       - uses: actions/setup-python@v5
         with:
@@ -310,13 +326,14 @@ jobs:
           name: decky-plugin
           path: CapyDeploy-Decky.zip
 
-  release:
-    name: Create Release
+  upload-assets:
+    name: Upload Release Assets
     needs: [build, appimage, decky]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag_name }}
           fetch-depth: 0
 
       - name: Download all artifacts
@@ -356,6 +373,7 @@ jobs:
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag_name }}
           append_body: true
           body: |
 
