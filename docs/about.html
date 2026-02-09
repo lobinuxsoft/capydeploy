@@ -1,0 +1,152 @@
+---
+layout: default
+title: About
+---
+<section class="py-20 px-4 pt-32">
+  <div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">About CapyDeploy</h2>
+    <p class="text-slate-400 text-center mb-12 max-w-2xl mx-auto">What it is, what it isn't, and why it exists.</p>
+
+    <!-- What is CapyDeploy -->
+    <div class="mb-12">
+      <h3 class="text-2xl font-bold mb-6 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </span>
+        What is CapyDeploy
+      </h3>
+      <div class="bg-slate-900/50 border border-green-500/20 rounded-2xl p-6 space-y-4">
+        <p class="text-slate-300">
+          CapyDeploy is an <span class="text-green-400 font-medium">open-source, cross-platform tool</span> for deploying games from your PC to handheld devices (Steam Deck, ROG Ally, Lenovo Legion Go, and any Linux-based handheld).
+        </p>
+        <p class="text-slate-400">
+          It was born from a real limitation: Valve's <span class="text-slate-200">SteamOS Devkit Client</span> only works with SteamOS devices. As the handheld market expanded with devices running Windows, Bazzite, ChimeraOS, and other operating systems, the need for a <span class="text-capy-400 font-medium">universal deployment solution</span> became clear.
+        </p>
+        <p class="text-slate-400">
+          CapyDeploy uses a <span class="text-slate-200 font-medium">Hub-Agent architecture</span>: the Hub (your PC) discovers and sends games to Agents (handheld devices) over WebSocket, with automatic mDNS discovery and secure 6-digit pairing.
+        </p>
+        <ul class="space-y-2 text-slate-400">
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0"></span>
+            <span>A <span class="text-slate-200">game deployment tool</span> for developers testing builds on handheld hardware</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0"></span>
+            <span>A <span class="text-slate-200">DRM-free game manager</span> for games you legally own (GOG, itch.io, Humble Bundle)</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0"></span>
+            <span>A <span class="text-slate-200">retro gaming organizer</span> for legally obtained content</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0"></span>
+            <span>A <span class="text-slate-200">platform-agnostic alternative</span> to Valve's SteamOS Devkit Client</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- What CapyDeploy is NOT -->
+    <div class="mb-12">
+      <h3 class="text-2xl font-bold mb-6 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </span>
+        What CapyDeploy is NOT
+      </h3>
+      <div class="bg-slate-900/50 border border-red-500/20 rounded-2xl p-6">
+        <ul class="space-y-3 text-slate-400">
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0"></span>
+            <span><span class="text-red-400 font-medium">NOT a piracy tool.</span> CapyDeploy does not download, crack, or distribute games.</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0"></span>
+            <span><span class="text-red-400 font-medium">NOT a DRM bypass.</span> It does not circumvent any copy protection mechanisms.</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0"></span>
+            <span><span class="text-red-400 font-medium">NOT a game distribution platform.</span> It transfers files between your own devices on a local network.</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0"></span>
+            <span><span class="text-red-400 font-medium">NOT a game store or launcher.</span> It manages deployment, not purchasing or playing games.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Intended Use Cases -->
+    <div class="mb-12">
+      <h3 class="text-2xl font-bold mb-6 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-lg bg-water-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-water-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </span>
+        Intended Use Cases
+      </h3>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
+          <div class="w-10 h-10 rounded-lg bg-capy-500/10 flex items-center justify-center mb-3">
+            <svg class="w-5 h-5 text-capy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+          </div>
+          <h4 class="font-semibold mb-2">Game Development</h4>
+          <p class="text-slate-400 text-sm">Test your builds on handheld hardware during development. Quick iteration without USB cables.</p>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
+          <div class="w-10 h-10 rounded-lg bg-water-500/10 flex items-center justify-center mb-3">
+            <svg class="w-5 h-5 text-water-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <h4 class="font-semibold mb-2">DRM-Free Libraries</h4>
+          <p class="text-slate-400 text-sm">Manage your GOG, itch.io, and Humble Bundle collections across devices.</p>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
+          <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
+            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h4 class="font-semibold mb-2">Retro Gaming</h4>
+          <p class="text-slate-400 text-sm">Deploy legally obtained retro content to your handhelds with Steam shortcuts and artwork.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legal Disclaimer -->
+    <div class="mb-12">
+      <h3 class="text-2xl font-bold mb-6 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </span>
+        Legal Disclaimer
+      </h3>
+      <div class="bg-yellow-500/5 border-2 border-yellow-500/30 rounded-2xl p-6 space-y-4">
+        <div class="flex items-start gap-3">
+          <svg class="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <div>
+            <p class="text-slate-300 font-medium mb-3">Please read carefully:</p>
+            <ol class="space-y-3 text-slate-400 list-decimal list-inside">
+              <li>CapyDeploy was <span class="text-yellow-400/80 font-medium">created as an early development testing tool</span> to deploy game builds to handheld devices during the development cycle.</li>
+              <li>While CapyDeploy is capable of installing DRM-free games on handheld devices, it was <span class="text-yellow-400/80 font-medium">not conceived, designed, or intended for piracy</span> or any form of copyright infringement.</li>
+              <li>The author <span class="text-yellow-400/80 font-medium">assumes no responsibility</span> for any misuse of this software by end users. What users choose to deploy with this tool is entirely their own responsibility.</li>
+              <li>Users are solely responsible for <span class="text-yellow-400/80 font-medium">complying with all applicable laws</span> and licensing agreements in their jurisdiction.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
