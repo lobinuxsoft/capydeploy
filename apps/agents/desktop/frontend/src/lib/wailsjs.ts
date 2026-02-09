@@ -15,7 +15,6 @@ export const SetInstallPath = App.SetInstallPath;
 export const SelectInstallPath = App.SelectInstallPath;
 export const GetAuthorizedHubs = App.GetAuthorizedHubs;
 export const RevokeHub = App.RevokeHub;
-export const GetCapabilities = App.GetCapabilities;
 
 // Runtime
 export const EventsOn = runtime.EventsOn;

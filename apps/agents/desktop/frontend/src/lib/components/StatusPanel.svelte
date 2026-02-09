@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, GetVersion, GetCapabilities, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
-	import type { AgentStatus, VersionInfo, CapabilityInfo } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, Zap, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
+	import type { AgentStatus, VersionInfo } from '$lib/types';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let versionInfo = $state<VersionInfo | null>(null);
-	let capabilities = $state<CapabilityInfo[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let editingName = $state(false);
@@ -18,7 +17,7 @@
 	let pairingTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Collapsible sections state
-	let expandedSections = $state<Set<string>>(new Set(['version', 'install', 'network', 'capabilities', 'connections']));
+	let expandedSections = $state<Set<string>>(new Set(['version', 'install', 'network', 'connections']));
 
 	function toggleSection(section: string) {
 		if (expandedSections.has(section)) {
@@ -34,7 +33,6 @@
 			status = await GetStatus();
 			installPath = await GetInstallPath();
 			versionInfo = await GetVersion();
-			capabilities = await GetCapabilities();
 			error = null;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Error loading status';
@@ -315,38 +313,6 @@
 				</div>
 			{/if}
 		</div>
-
-		<!-- Capabilities -->
-		{#if capabilities.length > 0}
-			<div class="cd-section p-4">
-				<button
-					type="button"
-					class="w-full flex items-center gap-2 hover:text-primary transition-colors"
-					onclick={() => toggleSection('capabilities')}
-				>
-					{#if expandedSections.has('capabilities')}
-						<ChevronDown class="w-4 h-4 cd-text-primary" />
-					{:else}
-						<ChevronRight class="w-4 h-4 cd-text-disabled" />
-					{/if}
-					<Zap class="w-4 h-4 cd-text-primary" />
-					<span class="cd-section-title">Capabilities</span>
-				</button>
-				{#if expandedSections.has('capabilities')}
-					<div class="pl-6 space-y-2 mt-3">
-						{#each capabilities as cap}
-							<div class="flex items-start gap-2">
-								<span class="cd-pulse mt-1" style="width: 6px; height: 6px;"></span>
-								<div>
-									<span class="text-sm font-medium">{cap.name}</span>
-									<p class="text-xs cd-text-disabled">{cap.description}</p>
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
 
 		<!-- Pairing Code (shown when a Hub requests pairing) -->
 		{#if pairingCode}

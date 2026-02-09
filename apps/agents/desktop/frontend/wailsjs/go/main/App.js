@@ -14,10 +14,6 @@ export function GetAuthorizedHubs() {
   return window['go']['main']['App']['GetAuthorizedHubs']();
 }
 
-export function GetCapabilities() {
-  return window['go']['main']['App']['GetCapabilities']();
-}
-
 export function GetInstallPath() {
   return window['go']['main']['App']['GetInstallPath']();
 }
