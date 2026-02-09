@@ -68,11 +68,11 @@ export namespace main {
 	    port: number;
 	    ips: string[];
 	    supportedImageFormats: string[];
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.connected = source["connected"];
@@ -149,67 +149,11 @@ export namespace main {
 	        this.appId = source["appId"];
 	    }
 	}
-	export class VersionInfo {
-	    version: string;
-	    commit: string;
-	    buildDate: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new VersionInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.version = source["version"];
-	        this.commit = source["commit"];
-	        this.buildDate = source["buildDate"];
-	    }
-	}
 
 }
 
 export namespace steamgriddb {
 	
-	export class GridData {
-	    id: number;
-	    score: number;
-	    style: string;
-	    width: number;
-	    height: number;
-	    nsfw: boolean;
-	    humor: boolean;
-	    mime: string;
-	    language: string;
-	    url: string;
-	    thumb: string;
-	    lock: boolean;
-	    epilepsy: boolean;
-	    upvotes: number;
-	    downvotes: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new GridData(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.score = source["score"];
-	        this.style = source["style"];
-	        this.width = source["width"];
-	        this.height = source["height"];
-	        this.nsfw = source["nsfw"];
-	        this.humor = source["humor"];
-	        this.mime = source["mime"];
-	        this.language = source["language"];
-	        this.url = source["url"];
-	        this.thumb = source["thumb"];
-	        this.lock = source["lock"];
-	        this.epilepsy = source["epilepsy"];
-	        this.upvotes = source["upvotes"];
-	        this.downvotes = source["downvotes"];
-	    }
-	}
 	export class ImageData {
 	    id: number;
 	    score: number;
@@ -288,6 +232,27 @@ export namespace steamgriddb {
 	        this.name = source["name"];
 	        this.types = source["types"];
 	        this.verified = source["verified"];
+	    }
+	}
+
+}
+
+export namespace version {
+	
+	export class Info {
+	    version: string;
+	    commit: string;
+	    buildDate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.commit = source["commit"];
+	        this.buildDate = source["buildDate"];
 	    }
 	}
 

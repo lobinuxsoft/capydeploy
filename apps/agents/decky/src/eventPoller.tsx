@@ -149,6 +149,50 @@ function handleRemoveShortcut(appId: number) {
   }
 }
 
+interface UpdateArtworkEvent {
+  appId: number;
+  artworkType: string;
+  data: string;
+  format: string;
+}
+
+async function handleUpdateArtwork(event: UpdateArtworkEvent) {
+  const { appId, artworkType, data } = event;
+
+  const typeMap: Record<string, number> = {
+    grid: ASSET_TYPE.grid_p,
+    banner: ASSET_TYPE.grid_l,
+    hero: ASSET_TYPE.hero,
+    logo: ASSET_TYPE.logo,
+    icon: ASSET_TYPE.icon,
+  };
+
+  const assetType = typeMap[artworkType];
+  if (assetType === undefined) {
+    console.error(`Unknown artwork type: ${artworkType}`);
+    return;
+  }
+
+  try {
+    await SteamClient.Apps.ClearCustomArtworkForApp(appId, assetType);
+    await new Promise(r => setTimeout(r, 500));
+    await SteamClient.Apps.SetCustomArtworkForApp(appId, data, "png", assetType);
+
+    if (assetType === ASSET_TYPE.logo) {
+      const appOverview = window.appStore?.GetAppOverviewByAppID(appId);
+      if (appOverview) {
+        await window.appDetailsStore?.SaveCustomLogoPosition(appOverview as any, {
+          pinnedPosition: "BottomLeft",
+          nWidthPct: 50,
+          nHeightPct: 50,
+        });
+      }
+    }
+  } catch (e) {
+    console.error(`Failed to update artwork (${artworkType}) for appId ${appId}:`, e);
+  }
+}
+
 // ── Progress modal management ──────────────────────────────────────────────
 
 let progressModalHandle: { Close: () => void } | null = null;
@@ -195,6 +239,19 @@ async function pollAllEvents() {
         handleRemoveShortcut(removeEvent.data.appId);
       }
     } while (removeEvent?.data);
+
+    // ── Artwork updates (apply via SteamClient for instant visibility) ──
+
+    let artworkEvent;
+    do {
+      artworkEvent = await call<[string], { timestamp: number; data: UpdateArtworkEvent } | null>(
+        "get_event",
+        "update_artwork"
+      );
+      if (artworkEvent?.data) {
+        handleUpdateArtwork(artworkEvent.data);
+      }
+    } while (artworkEvent?.data);
 
     // ── Operation events (drain queue: toasts always, UI state when panel open) ──
 

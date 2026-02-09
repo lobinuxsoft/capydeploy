@@ -27,6 +27,7 @@ export const UploadGame = App.UploadGame;
 // Installed games functions
 export const GetInstalledGames = App.GetInstalledGames;
 export const DeleteGame = App.DeleteGame;
+export const UpdateGameArtwork = App.UpdateGameArtwork;
 
 // Version
 export const GetVersion = App.GetVersion;

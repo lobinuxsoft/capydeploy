@@ -3,6 +3,7 @@
 import {config} from '../models';
 import {main} from '../models';
 import {steamgriddb} from '../models';
+import {version} from '../models';
 
 export function AddGameSetup(arg1:config.GameSetup):Promise<void>;
 
@@ -30,7 +31,7 @@ export function GetDiscoveredAgents():Promise<Array<main.DiscoveredAgentInfo>>;
 
 export function GetGameSetups():Promise<Array<config.GameSetup>>;
 
-export function GetGrids(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.GridData>>;
+export function GetGrids(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.ImageData>>;
 
 export function GetHeroes(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.ImageData>>;
 
@@ -48,7 +49,7 @@ export function GetLogos(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):
 
 export function GetSteamGridDBAPIKey():Promise<string>;
 
-export function GetVersion():Promise<main.VersionInfo>;
+export function GetVersion():Promise<version.Info>;
 
 export function OpenCacheFolder():Promise<void>;
 
@@ -67,6 +68,8 @@ export function SetHubName(arg1:string):Promise<void>;
 export function SetImageCacheEnabled(arg1:boolean):Promise<void>;
 
 export function SetSteamGridDBAPIKey(arg1:string):Promise<void>;
+
+export function UpdateGameArtwork(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<void>;
 
 export function UpdateGameSetup(arg1:string,arg2:config.GameSetup):Promise<void>;
 
