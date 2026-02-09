@@ -112,7 +112,7 @@ build_all.bat
 
 # Individual apps (from their directory)
 cd apps/hub && ./build.sh
-cd apps/agent && ./build.sh
+cd apps/agents/desktop && ./build.sh
 ```
 
 ## Labels
