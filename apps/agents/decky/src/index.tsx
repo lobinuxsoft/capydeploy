@@ -95,7 +95,7 @@ const CapyDeployPanel: VFC = () => {
 
       <AuthorizedHubs enabled={enabled} />
 
-      <InstalledGames enabled={enabled} installPath={status?.installPath ?? ""} refreshTrigger={gamesRefresh} />
+      <InstalledGames installPath={status?.installPath ?? ""} refreshTrigger={gamesRefresh} />
 
       <ProgressPanel operation={currentOperation} uploadProgress={uploadProgress} />
     </div>
