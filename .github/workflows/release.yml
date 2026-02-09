@@ -273,65 +273,9 @@ jobs:
             CapyDeploy_Hub.AppImage
             CapyDeploy_Agent.AppImage
 
-  decky:
-    name: Decky Plugin
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag_name }}
-          submodules: recursive
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install frontend dependencies
-        run: cd apps/agents/decky && npm install
-
-      - name: Build frontend
-        run: cd apps/agents/decky && npm run build
-
-      - name: Install Python dependencies
-        run: |
-          cd apps/agents/decky
-          mkdir -p py_modules
-          pip install --target py_modules -r requirements.txt --no-cache-dir
-
-      - name: Package plugin
-        run: |
-          cd apps/agents/decky
-
-          PLUGIN_NAME="CapyDeploy"
-          BUILD_DIR="/tmp/decky-build/$PLUGIN_NAME"
-          mkdir -p "$BUILD_DIR"
-
-          cp plugin.json "$BUILD_DIR/"
-          cp package.json "$BUILD_DIR/"
-          for pyfile in main.py steam_utils.py mdns_service.py pairing.py upload.py artwork.py ws_server.py; do
-            cp "$pyfile" "$BUILD_DIR/"
-          done
-          cp requirements.txt "$BUILD_DIR/"
-          cp -r py_modules "$BUILD_DIR/"
-          cp -r dist "$BUILD_DIR/"
-          if [ -d "assets" ]; then cp -r assets "$BUILD_DIR/"; fi
-
-          cd /tmp/decky-build
-          zip -r "$GITHUB_WORKSPACE/CapyDeploy-Decky.zip" "$PLUGIN_NAME"
-
-      - name: Upload Decky plugin
-        uses: actions/upload-artifact@v4
-        with:
-          name: decky-plugin
-          path: CapyDeploy-Decky.zip
-
   upload-assets:
     name: Upload Release Assets
-    needs: [build, appimage, decky]
+    needs: [build, appimage]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -367,9 +311,6 @@ jobs:
           cp artifacts/appimages/CapyDeploy_Agent.AppImage release/
           chmod +x release/*.AppImage
 
-          # Decky plugin
-          cp artifacts/decky-plugin/CapyDeploy-Decky.zip release/
-
           # Checksums
           cd release
           sha256sum * > checksums-sha256.txt
@@ -389,7 +330,6 @@ jobs:
             | `capydeploy-windows-amd64.zip` | Windows binaries (Hub + Agent) |
             | `CapyDeploy_Hub.AppImage` | Hub AppImage (auto-install support) |
             | `CapyDeploy_Agent.AppImage` | Agent AppImage (auto-install support) |
-            | `CapyDeploy-Decky.zip` | Decky Loader plugin |
             | `checksums-sha256.txt` | SHA-256 checksums for all files |
           files: release/*
           generate_release_notes: false

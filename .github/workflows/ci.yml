@@ -163,26 +163,3 @@ jobs:
       - name: Svelte check (Agent)
         run: cd apps/agents/desktop/frontend && bun run check
 
-      - name: Install Decky deps
-        run: cd apps/agents/decky && npm install
-
-      - name: TypeScript check (Decky)
-        run: cd apps/agents/decky && npx tsc --noEmit --skipLibCheck
-
-      - name: Build Decky frontend
-        run: cd apps/agents/decky && npm run build
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Python syntax check (Decky)
-        run: |
-          cd apps/agents/decky
-          python3 -m py_compile main.py
-          python3 -m py_compile steam_utils.py
-          python3 -m py_compile mdns_service.py
-          python3 -m py_compile pairing.py
-          python3 -m py_compile upload.py
-          python3 -m py_compile artwork.py
-          python3 -m py_compile ws_server.py
