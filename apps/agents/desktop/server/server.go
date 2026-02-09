@@ -223,16 +223,6 @@ func (s *Server) GetInfo() protocol.AgentInfo {
 		supportedFormats = []string{"image/png", "image/jpeg", "image/webp", "image/gif"}
 	}
 
-	// PC Agent with Steam supports all capabilities.
-	capabilities := []protocol.Capability{
-		protocol.CapFileUpload,
-		protocol.CapFileList,
-		protocol.CapSteamShortcuts,
-		protocol.CapSteamArtwork,
-		protocol.CapSteamUsers,
-		protocol.CapSteamRestart,
-	}
-
 	return protocol.AgentInfo{
 		ID:                    s.id,
 		Name:                  s.cfg.Name,
@@ -240,7 +230,6 @@ func (s *Server) GetInfo() protocol.AgentInfo {
 		Version:               s.cfg.Version,
 		AcceptConnections:     acceptConnections,
 		SupportedImageFormats: supportedFormats,
-		Capabilities:          capabilities,
 	}
 }
 

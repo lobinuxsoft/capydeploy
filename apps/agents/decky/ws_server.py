@@ -257,7 +257,6 @@ class WebSocketServer:
                 "platform": "linux",
                 "version": self.plugin.version,
                 "acceptConnections": self.plugin.accept_connections,
-                "capabilities": ["file_upload", "steam_shortcuts", "steam_artwork"],
             }
         })
 

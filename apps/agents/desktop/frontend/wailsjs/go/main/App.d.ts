@@ -8,8 +8,6 @@ export function DisconnectHub():Promise<void>;
 
 export function GetAuthorizedHubs():Promise<Array<main.AuthorizedHubInfo>>;
 
-export function GetCapabilities():Promise<Array<main.CapabilityInfo>>;
-
 export function GetInstallPath():Promise<string>;
 
 export function GetShortcuts(arg1:string):Promise<Array<main.ShortcutInfo>>;

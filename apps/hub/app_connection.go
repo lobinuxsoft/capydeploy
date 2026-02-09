@@ -210,15 +210,6 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 		ips = append(ips, ip.String())
 	}
 
-	// Convert capabilities to strings for JSON serialization
-	var capabilities []string
-	if info != nil {
-		capabilities = make([]string, len(info.Capabilities))
-		for i, cap := range info.Capabilities {
-			capabilities[i] = string(cap)
-		}
-	}
-
 	// Use formats from agent info if available, otherwise fall back to platform-based
 	var supportedFormats []string
 	if info != nil && len(info.SupportedImageFormats) > 0 {
@@ -236,7 +227,6 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 		Port:                  agent.Port,
 		IPs:                   ips,
 		SupportedImageFormats: supportedFormats,
-		Capabilities:          capabilities,
 	}
 }
 
