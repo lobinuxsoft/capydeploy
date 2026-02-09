@@ -62,8 +62,8 @@ class Plugin:
     # Events that MUST NOT be lost — use append queue instead of overwrite
     QUEUED_EVENTS = {
         "operation_event", "create_shortcut", "remove_shortcut",
-        "pairing_code", "pairing_success", "hub_connected", "hub_disconnected",
-        "server_error",
+        "update_artwork", "pairing_code", "pairing_success",
+        "hub_connected", "hub_disconnected", "server_error",
     }
 
     async def _main(self):

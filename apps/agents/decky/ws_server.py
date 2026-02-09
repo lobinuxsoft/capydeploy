@@ -509,7 +509,22 @@ class WebSocketServer:
             return
 
         try:
+            # Write to filesystem (fallback for Steam restart)
             apply_from_data(app_id, artwork_type, data, content_type)
+
+            # Notify frontend to apply via SteamClient API (instant, no restart)
+            fmt = "png"
+            if "jpeg" in content_type or "jpg" in content_type:
+                fmt = "jpg"
+
+            b64 = base64.b64encode(data).decode("ascii")
+            await self.plugin.notify_frontend("update_artwork", {
+                "appId": app_id,
+                "artworkType": artwork_type,
+                "data": b64,
+                "format": fmt,
+            })
+
             await self.send(websocket, msg_id, "artwork_image_response", {
                 "success": True,
                 "artworkType": artwork_type,
