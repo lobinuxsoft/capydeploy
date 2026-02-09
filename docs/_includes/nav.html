@@ -7,9 +7,11 @@
       </a>
       <div class="hidden md:flex items-center gap-1">
         <a href="{{ '/' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url == '/' or page.url == '/index.html' %}nav-active{% endif %}">Home</a>
+        <a href="{{ '/about' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'about' %}nav-active{% endif %}">About</a>
         <a href="{{ '/architecture' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'architecture' %}nav-active{% endif %}">Architecture</a>
         <a href="{{ '/api' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'api' %}nav-active{% endif %}">API</a>
         <a href="{{ '/install' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'install' %}nav-active{% endif %}">Install</a>
+        <a href="{{ '/usage' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'usage' %}nav-active{% endif %}">Usage</a>
         <a href="{{ '/developers' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'developers' %}nav-active{% endif %}">Developers</a>
         <a href="{{ '/support' | relative_url }}" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition {% if page.url contains 'support' %}nav-active{% endif %}">Donate</a>
         <a href="https://github.com/lobinuxsoft/capydeploy" target="_blank"

@@ -1,0 +1,843 @@
+---
+layout: default
+title: Usage Guide
+---
+
+<style>
+  /* CapyDeploy Design System for mockups */
+  .cd-mockup {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(6, 182, 212, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+  }
+  .cd-mockup-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(30, 41, 59, 0.5);
+    border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  }
+  .cd-mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cd-mockup-dot-red { background: #ef4444; }
+  .cd-mockup-dot-yellow { background: #eab308; }
+  .cd-mockup-dot-green { background: #22c55e; }
+  .cd-mockup-body { padding: 16px; }
+
+  .cd-glass-section {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%);
+    border: 1px solid rgba(6, 182, 212, 0.15);
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .cd-gradient-text {
+    background: linear-gradient(90deg, #f97316 0%, #fb923c 40%, #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+  }
+
+  .cd-pulse-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #06b6d4;
+    box-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+    animation: cd-pulse 2s ease-in-out infinite;
+  }
+  @keyframes cd-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(6, 182, 212, 0.6); }
+    50% { opacity: 0.4; box-shadow: 0 0 4px rgba(6, 182, 212, 0.3); }
+  }
+
+  .cd-progress-track {
+    height: 8px;
+    background: rgba(30, 41, 59, 0.8);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .cd-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f97316 0%, #fb923c 40%, #06b6d4 100%);
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  .cd-tab { padding: 8px 16px; border-radius: 8px; font-size: 0.85em; cursor: default; }
+  .cd-tab-active { background: rgba(6, 182, 212, 0.15); color: #06b6d4; font-weight: 600; }
+  .cd-tab-inactive { color: #64748b; }
+
+  .cd-btn-gradient {
+    background: linear-gradient(135deg, #f97316, #06b6d4);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 0.8em;
+    font-weight: 600;
+    border: none;
+    cursor: default;
+  }
+  .cd-btn-outline {
+    background: transparent;
+    color: #94a3b8;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 0.8em;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+    cursor: default;
+  }
+  .cd-btn-destructive {
+    background: rgba(220, 38, 38, 0.15);
+    color: #f87171;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8em;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    cursor: default;
+  }
+
+  .cd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 0.7em;
+    font-weight: 600;
+  }
+  .cd-badge-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+  .cd-badge-platform { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.2); }
+
+  .cd-mascot-small {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(249, 115, 22, 0.3);
+    box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
+    object-fit: cover;
+  }
+
+  .cd-input {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(100, 116, 139, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #f1f5f9;
+    font-size: 0.85em;
+  }
+
+  .cd-pairing-code {
+    font-family: monospace;
+    font-size: 1.8em;
+    letter-spacing: 0.3em;
+    color: #06b6d4;
+    text-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+    font-weight: 700;
+  }
+
+  .cd-section-title {
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* QAM mockup (narrow panel) */
+  .cd-qam-mockup {
+    max-width: 320px;
+    margin: 0 auto;
+  }
+</style>
+
+<section class="py-20 px-4 pt-32">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Usage Guide</h2>
+    <p class="text-slate-400 text-center mb-4 max-w-2xl mx-auto">Step-by-step walkthrough with visual previews of each application.</p>
+    <p class="text-slate-500 text-center text-sm mb-16">The mockups below replicate the actual look and feel of CapyDeploy's interfaces.</p>
+
+    <!-- Quick Navigation -->
+    <div class="flex flex-wrap justify-center gap-3 mb-16">
+      <a href="#hub" class="px-5 py-2 rounded-xl bg-capy-500/10 border border-capy-500/20 text-capy-400 text-sm hover:bg-capy-500/20 transition">Hub (Your PC)</a>
+      <a href="#agent" class="px-5 py-2 rounded-xl bg-water-500/10 border border-water-500/20 text-water-400 text-sm hover:bg-water-500/20 transition">Agent (Desktop Mode)</a>
+      <a href="#decky" class="px-5 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm hover:bg-purple-500/20 transition">Decky Plugin (Gaming Mode)</a>
+    </div>
+
+    <!-- ===================== -->
+    <!-- SECTION A: HUB        -->
+    <!-- ===================== -->
+    <div id="hub" class="mb-24">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-capy-500/20 to-capy-600/20 flex items-center justify-center border border-capy-500/20">
+          <svg class="w-6 h-6 text-capy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-2xl font-bold">Hub <span class="text-slate-500 font-normal text-lg">(Your PC)</span></h3>
+          <p class="text-slate-400 text-sm">The control center. Discover agents, manage games, upload to devices.</p>
+        </div>
+      </div>
+
+      <!-- Step 1: Devices Tab -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-capy-500 flex items-center justify-center text-white text-sm font-bold">1</span>
+          <h4 class="text-lg font-semibold">Devices Tab — Discover Agents</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Launch the Hub and it will automatically discover Agents on your network via mDNS. Connected devices appear as cards.</p>
+
+        <!-- Mockup: Devices Tab -->
+        <div class="cd-mockup max-w-2xl mx-auto">
+          <div class="cd-mockup-header">
+            <div class="cd-mockup-dot cd-mockup-dot-red"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-yellow"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-green"></div>
+            <span class="text-xs text-slate-500 ml-2">CapyDeploy Hub</span>
+          </div>
+          <div class="cd-mockup-body">
+            <!-- Header -->
+            <div class="flex items-center gap-3 mb-4">
+              <img src="{{ '/mascot.gif' | relative_url }}" alt="CapyDeploy" class="cd-mascot-small">
+              <div>
+                <div class="cd-gradient-text text-lg">CapyDeploy Hub</div>
+                <div class="text-xs text-slate-500">Deploy games to your devices</div>
+              </div>
+            </div>
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 bg-slate-900/50 p-1 rounded-lg">
+              <span class="cd-tab cd-tab-active">Devices</span>
+              <span class="cd-tab cd-tab-inactive">Upload Game</span>
+              <span class="cd-tab cd-tab-inactive">Installed Games</span>
+              <span class="cd-tab cd-tab-inactive">Settings</span>
+            </div>
+            <!-- Agent Cards -->
+            <div class="space-y-3">
+              <div class="cd-glass-section flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="cd-pulse-dot"></div>
+                  <div>
+                    <div class="text-sm font-medium text-slate-200">Steam Deck</div>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="cd-badge cd-badge-platform">Linux</span>
+                      <span class="text-xs text-slate-500 font-mono">192.168.1.42:52341</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="cd-btn-gradient">Connect</span>
+              </div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="cd-pulse-dot"></div>
+                  <div>
+                    <div class="text-sm font-medium text-slate-200">ROG Ally</div>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="cd-badge cd-badge-platform">Windows</span>
+                      <span class="text-xs text-slate-500 font-mono">192.168.1.87:49022</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="cd-btn-gradient">Connect</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Pairing -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-capy-500 flex items-center justify-center text-white text-sm font-bold">2</span>
+          <h4 class="text-lg font-semibold">Pair with Device</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Click "Connect" on a device. A 6-digit pairing code will appear on the Agent. Enter it in the Hub to establish a trusted connection. The token is saved for future sessions.</p>
+
+        <!-- Mockup: Pairing Dialog -->
+        <div class="max-w-sm mx-auto">
+          <div class="cd-mockup">
+            <div class="cd-mockup-body text-center py-6">
+              <div class="text-sm font-semibold text-slate-200 mb-1">Pair with Steam Deck</div>
+              <p class="text-xs text-slate-500 mb-5">Enter the 6-digit code shown on the device</p>
+              <div class="flex justify-center mb-5">
+                <div class="cd-input text-center text-2xl font-mono tracking-[0.3em] text-cyan-400 w-48">482619</div>
+              </div>
+              <div class="flex justify-center gap-3">
+                <span class="cd-btn-outline">Cancel</span>
+                <span class="cd-btn-gradient">Pair</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Upload Game -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-capy-500 flex items-center justify-center text-white text-sm font-bold">3</span>
+          <h4 class="text-lg font-semibold">Upload Game Tab</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Create game setups with the game name, folder path, executable, and artwork. Then upload to the connected device.</p>
+
+        <!-- Mockup: Upload Tab -->
+        <div class="cd-mockup max-w-2xl mx-auto">
+          <div class="cd-mockup-header">
+            <div class="cd-mockup-dot cd-mockup-dot-red"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-yellow"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-green"></div>
+            <span class="text-xs text-slate-500 ml-2">CapyDeploy Hub</span>
+          </div>
+          <div class="cd-mockup-body">
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 bg-slate-900/50 p-1 rounded-lg">
+              <span class="cd-tab cd-tab-inactive">Devices</span>
+              <span class="cd-tab cd-tab-active">Upload Game</span>
+              <span class="cd-tab cd-tab-inactive">Installed Games</span>
+              <span class="cd-tab cd-tab-inactive">Settings</span>
+            </div>
+            <!-- New Game Setup button -->
+            <div class="mb-4">
+              <span class="cd-btn-gradient">+ New Game Setup</span>
+            </div>
+            <!-- Game Setup List -->
+            <div class="space-y-3">
+              <div class="cd-glass-section">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-slate-200">Celeste</div>
+                    <div class="text-xs text-slate-500 font-mono mt-1">/home/user/Games/Celeste/</div>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="cd-btn-gradient text-xs px-3">Upload</span>
+                    <span class="cd-btn-outline text-xs px-2">Edit</span>
+                    <span class="cd-btn-destructive text-xs px-2">Del</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Upload in progress -->
+              <div class="cd-glass-section">
+                <div class="flex items-center justify-between mb-3">
+                  <div>
+                    <div class="text-sm font-medium text-slate-200">Hollow Knight</div>
+                    <div class="text-xs text-slate-500 font-mono mt-1">/home/user/Games/HollowKnight/</div>
+                  </div>
+                  <span class="text-xs text-cyan-400 font-mono">67%</span>
+                </div>
+                <div class="cd-progress-track">
+                  <div class="cd-progress-fill" style="width: 67%"></div>
+                </div>
+                <div class="text-xs text-slate-500 mt-2 text-right font-mono">1.2 GB / 1.8 GB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Installed Games -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-capy-500 flex items-center justify-center text-white text-sm font-bold">4</span>
+          <h4 class="text-lg font-semibold">Installed Games Tab</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">View and manage games already installed on the connected device. Delete directly from here — the Agent handles shortcut removal and Steam restart.</p>
+
+        <!-- Mockup: Installed Games -->
+        <div class="cd-mockup max-w-2xl mx-auto">
+          <div class="cd-mockup-header">
+            <div class="cd-mockup-dot cd-mockup-dot-red"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-yellow"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-green"></div>
+            <span class="text-xs text-slate-500 ml-2">CapyDeploy Hub</span>
+          </div>
+          <div class="cd-mockup-body">
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 bg-slate-900/50 p-1 rounded-lg">
+              <span class="cd-tab cd-tab-inactive">Devices</span>
+              <span class="cd-tab cd-tab-inactive">Upload Game</span>
+              <span class="cd-tab cd-tab-active">Installed Games</span>
+              <span class="cd-tab cd-tab-inactive">Settings</span>
+            </div>
+            <div class="text-xs text-slate-500 mb-3">Install path: <span class="font-mono text-slate-400">/home/deck/Games/</span></div>
+            <div class="space-y-3">
+              <div class="cd-glass-section flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-medium text-slate-200">Celeste</div>
+                  <div class="text-xs text-slate-500 mt-1 font-mono">482 MB</div>
+                </div>
+                <span class="cd-btn-destructive text-xs">Delete</span>
+              </div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-medium text-slate-200">Hollow Knight</div>
+                  <div class="text-xs text-slate-500 mt-1 font-mono">1.8 GB</div>
+                </div>
+                <span class="cd-btn-destructive text-xs">Delete</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: Settings -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-capy-500 flex items-center justify-center text-white text-sm font-bold">5</span>
+          <h4 class="text-lg font-semibold">Settings Tab</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Configure your Hub name, SteamGridDB API key (for game artwork), and view version information.</p>
+
+        <!-- Mockup: Settings -->
+        <div class="cd-mockup max-w-2xl mx-auto">
+          <div class="cd-mockup-header">
+            <div class="cd-mockup-dot cd-mockup-dot-red"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-yellow"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-green"></div>
+            <span class="text-xs text-slate-500 ml-2">CapyDeploy Hub</span>
+          </div>
+          <div class="cd-mockup-body space-y-4">
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 bg-slate-900/50 p-1 rounded-lg">
+              <span class="cd-tab cd-tab-inactive">Devices</span>
+              <span class="cd-tab cd-tab-inactive">Upload Game</span>
+              <span class="cd-tab cd-tab-inactive">Installed Games</span>
+              <span class="cd-tab cd-tab-active">Settings</span>
+            </div>
+            <div class="cd-glass-section space-y-3">
+              <div>
+                <div class="cd-section-title text-slate-400 mb-1">Hub Name</div>
+                <div class="cd-input w-full text-sm">My Gaming PC</div>
+              </div>
+              <div>
+                <div class="cd-section-title text-slate-400 mb-1">Hub ID</div>
+                <div class="text-xs text-slate-500 font-mono">hub-a1b2c3d4-e5f6-7890</div>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="cd-section-title text-slate-400 mb-1">SteamGridDB API Key</div>
+              <div class="cd-input w-full text-sm font-mono">••••••••••••••••••••</div>
+              <div class="text-xs text-slate-500 mt-1">Get your key at steamgriddb.com</div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="cd-section-title text-slate-400 mb-1">Version</div>
+              <div class="text-xs text-slate-400 font-mono space-y-1">
+                <div>Version: <span class="text-slate-200">0.2.0</span></div>
+                <div>Commit: <span class="text-slate-200">3d4a0a0</span></div>
+                <div>Built: <span class="text-slate-200">2026-02-08</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!-- SECTION B: AGENT DESKTOP  -->
+    <!-- ========================= -->
+    <div id="agent" class="mb-24">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-water-500/20 to-water-600/20 flex items-center justify-center border border-water-500/20">
+          <svg class="w-6 h-6 text-water-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-2xl font-bold">Agent Desktop <span class="text-slate-500 font-normal text-lg">(Handheld — Desktop Mode)</span></h3>
+          <p class="text-slate-400 text-sm">Runs on the handheld in desktop mode. Receives games from the Hub.</p>
+        </div>
+      </div>
+
+      <!-- Step 1: Main Screen -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-water-500 flex items-center justify-center text-white text-sm font-bold">1</span>
+          <h4 class="text-lg font-semibold">Main Screen — Agent Info</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">The Agent displays its status, network info, and capabilities in collapsible sections. It automatically broadcasts via mDNS for discovery.</p>
+
+        <!-- Mockup: Agent Main -->
+        <div class="cd-mockup max-w-md mx-auto">
+          <div class="cd-mockup-header">
+            <div class="cd-mockup-dot cd-mockup-dot-red"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-yellow"></div>
+            <div class="cd-mockup-dot cd-mockup-dot-green"></div>
+            <span class="text-xs text-slate-500 ml-2">CapyDeploy Agent</span>
+          </div>
+          <div class="cd-mockup-body space-y-3">
+            <!-- Header -->
+            <div class="flex items-center gap-3 mb-2">
+              <img src="{{ '/mascot.gif' | relative_url }}" alt="CapyDeploy" class="cd-mascot-small">
+              <div>
+                <div class="cd-gradient-text">CapyDeploy Agent</div>
+                <div class="text-xs text-slate-500">Receive games from the Hub</div>
+              </div>
+            </div>
+            <!-- Sections -->
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Name</span>
+                <span class="text-sm text-slate-200">Steam Deck</span>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Platform</span>
+                <span class="text-sm text-slate-200">Linux</span>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between mb-2">
+                <span class="cd-section-title text-slate-400">Version</span>
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+              <div class="text-xs text-slate-400 font-mono space-y-1 pl-2 border-l-2 border-slate-700">
+                <div>Version: <span class="text-slate-300">0.2.0</span></div>
+                <div>Commit: <span class="text-slate-300">3d4a0a0</span></div>
+                <div>Built: <span class="text-slate-300">2026-02-08</span></div>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Install Path</span>
+                <span class="text-xs text-slate-300 font-mono">/home/deck/Games</span>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between mb-2">
+                <span class="cd-section-title text-slate-400">Network</span>
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+              <div class="text-xs text-slate-400 font-mono space-y-1 pl-2 border-l-2 border-slate-700">
+                <div>Port: <span class="text-cyan-400">52341</span></div>
+                <div>IP: <span class="text-slate-300">192.168.1.42</span></div>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between mb-2">
+                <span class="cd-section-title text-slate-400">Capabilities</span>
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-1">
+                <span class="cd-badge cd-badge-success">File Upload</span>
+                <span class="cd-badge cd-badge-success">File List</span>
+                <span class="cd-badge cd-badge-success">Steam Shortcuts</span>
+                <span class="cd-badge cd-badge-success">Steam Artwork</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Pairing Code -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-water-500 flex items-center justify-center text-white text-sm font-bold">2</span>
+          <h4 class="text-lg font-semibold">Pairing Code Display</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">When a Hub tries to connect for the first time, a pairing code appears on the Agent. Enter this code in the Hub to pair.</p>
+
+        <!-- Mockup: Pairing Code -->
+        <div class="cd-mockup max-w-md mx-auto">
+          <div class="cd-mockup-body py-6">
+            <div class="cd-glass-section text-center py-4" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%); border-color: rgba(6, 182, 212, 0.25);">
+              <div class="cd-section-title cd-gradient-text mb-3">Pairing Code</div>
+              <div class="cd-pairing-code mb-2">482619</div>
+              <div class="text-xs text-slate-500">Enter this code in the Hub to pair</div>
+              <div class="text-xs text-slate-600 mt-1">Expires in 60 seconds</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Connections & Authorized Hubs -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-water-500 flex items-center justify-center text-white text-sm font-bold">3</span>
+          <h4 class="text-lg font-semibold">Connections & Authorized Hubs</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Once paired, the Hub appears in the Authorized Hubs list. You can toggle accepting new connections and revoke access to previously paired Hubs.</p>
+
+        <!-- Mockup: Authorized Hubs -->
+        <div class="cd-mockup max-w-md mx-auto">
+          <div class="cd-mockup-body space-y-3">
+            <div class="cd-glass-section">
+              <div class="flex items-center justify-between mb-2">
+                <span class="cd-section-title text-slate-400">Connection</span>
+                <div class="flex items-center gap-2">
+                  <span class="cd-badge cd-badge-success">Accepting</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 mt-2">
+                <div class="cd-pulse-dot"></div>
+                <span class="text-xs text-cyan-400">Connected: My Gaming PC</span>
+              </div>
+            </div>
+            <div class="cd-glass-section">
+              <div class="cd-section-title text-slate-400 mb-3">Authorized Hubs</div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between bg-slate-950/50 rounded-lg p-3">
+                  <div>
+                    <div class="text-sm text-slate-200">My Gaming PC</div>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="cd-badge cd-badge-platform">Windows</span>
+                      <span class="text-xs text-slate-500">Paired: 2026-01-15</span>
+                    </div>
+                  </div>
+                  <span class="cd-btn-destructive text-xs">Revoke</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Upload Progress -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-water-500 flex items-center justify-center text-white text-sm font-bold">4</span>
+          <h4 class="text-lg font-semibold">Upload Progress</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">When the Hub sends a game, a fullscreen overlay shows real-time progress with transfer speed and percentage.</p>
+
+        <!-- Mockup: Upload Progress Overlay -->
+        <div class="max-w-sm mx-auto">
+          <div class="cd-mockup" style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(15, 23, 42, 0.9) 40%, rgba(249, 115, 22, 0.05) 100%);">
+            <div class="cd-mockup-body py-8 text-center">
+              <div class="text-3xl mb-4">
+                <svg class="w-12 h-12 mx-auto text-water-500 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              </div>
+              <div class="cd-gradient-text text-lg mb-1">Installing game</div>
+              <div class="text-slate-200 text-base mb-4">Hollow Knight</div>
+              <div class="cd-progress-track mb-2 mx-8">
+                <div class="cd-progress-fill" style="width: 67%"></div>
+              </div>
+              <div class="text-cyan-400 font-mono text-lg mb-1">67%</div>
+              <div class="text-xs text-slate-500 font-mono">1.2 GB / 1.8 GB — 45.2 MB/s</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!-- SECTION C: DECKY PLUGIN   -->
+    <!-- ========================= -->
+    <div id="decky" class="mb-16">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center border border-purple-500/20">
+          <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-2xl font-bold">Decky Plugin <span class="text-slate-500 font-normal text-lg">(Handheld — Gaming Mode)</span></h3>
+          <p class="text-slate-400 text-sm">Alternative Agent inside <a href="https://github.com/SteamDeckHomebrew/decky-loader" class="text-purple-400 hover:underline">Decky Loader</a>. No Steam restart needed.</p>
+        </div>
+      </div>
+
+      <!-- Step 1: QAM Panel -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">1</span>
+          <h4 class="text-lg font-semibold">Quick Access Menu Panel</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Open the Quick Access Menu (QAM) on your Steam Deck and find CapyDeploy in the Decky plugins. Toggle the service on/off and see your pairing code.</p>
+
+        <!-- Mockup: QAM -->
+        <div class="cd-qam-mockup">
+          <div class="cd-mockup">
+            <div class="cd-mockup-body space-y-3">
+              <!-- Header -->
+              <div class="flex items-center gap-3 mb-2">
+                <img src="{{ '/mascot.gif' | relative_url }}" alt="CapyDeploy" class="cd-mascot-small" style="width: 36px; height: 36px;">
+                <div>
+                  <div class="cd-gradient-text text-sm">CapyDeploy</div>
+                  <div class="text-xs text-slate-500">Gaming Mode Agent</div>
+                </div>
+              </div>
+              <!-- Toggle -->
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="text-sm text-slate-300">Enable CapyDeploy</span>
+                <div class="w-10 h-5 rounded-full bg-cyan-500 relative">
+                  <div class="w-4 h-4 rounded-full bg-white absolute right-0.5 top-0.5"></div>
+                </div>
+              </div>
+              <!-- Connection Status -->
+              <div class="cd-glass-section">
+                <div class="cd-section-title text-slate-400 mb-2">Connection</div>
+                <div class="flex items-center gap-2">
+                  <div class="cd-pulse-dot"></div>
+                  <span class="text-xs text-cyan-400">Waiting for Hub...</span>
+                </div>
+              </div>
+              <!-- Pairing Code -->
+              <div class="cd-glass-section text-center py-3" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.06) 0%, rgba(6, 182, 212, 0.06) 100%); border-color: rgba(6, 182, 212, 0.2);">
+                <div class="cd-section-title cd-gradient-text mb-2">Pairing Code</div>
+                <div class="cd-pairing-code" style="font-size: 1.5em;">738291</div>
+                <div class="text-xs text-slate-500 mt-1">Enter in Hub to pair</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Agent Info -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">2</span>
+          <h4 class="text-lg font-semibold">Agent Info</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">View the agent's name, platform, version, install path, and network information directly in gaming mode.</p>
+
+        <!-- Mockup: Agent Info -->
+        <div class="cd-qam-mockup">
+          <div class="cd-mockup">
+            <div class="cd-mockup-body space-y-2">
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Name</span>
+                <span class="text-xs text-slate-200">Steam Deck</span>
+              </div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Platform</span>
+                <span class="text-xs text-slate-200">Linux</span>
+              </div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Version</span>
+                <span class="text-xs text-slate-300 font-mono">0.2.0</span>
+              </div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="cd-section-title text-slate-400">Install Path</span>
+                <span class="text-xs text-slate-300 font-mono">/home/deck/Games</span>
+              </div>
+              <div class="cd-glass-section">
+                <div class="cd-section-title text-slate-400 mb-1">Network</div>
+                <div class="text-xs text-slate-400 font-mono">
+                  <span>Port: <span class="text-cyan-400">49150</span></span>
+                  <span class="ml-3">IP: <span class="text-slate-300">192.168.1.42</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Authorized Hubs -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">3</span>
+          <h4 class="text-lg font-semibold">Authorized Hubs</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Manage which Hubs are authorized to send games to this device. Revoke access by removing a Hub from the list.</p>
+
+        <!-- Mockup: Authorized Hubs -->
+        <div class="cd-qam-mockup">
+          <div class="cd-mockup">
+            <div class="cd-mockup-body">
+              <div class="cd-section-title text-slate-400 mb-3">Authorized Hubs</div>
+              <div class="space-y-2">
+                <div class="cd-glass-section flex items-center justify-between">
+                  <div>
+                    <div class="text-xs text-slate-200">My Gaming PC</div>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="cd-badge cd-badge-platform" style="font-size: 0.6em;">Windows</span>
+                      <span class="text-xs text-slate-500" style="font-size: 0.6em;">2026-01-15</span>
+                    </div>
+                  </div>
+                  <span class="cd-btn-destructive" style="font-size: 0.65em; padding: 4px 8px;">Remove</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Installed Games -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">4</span>
+          <h4 class="text-lg font-semibold">Installed Games</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Browse and remove installed games directly in gaming mode. Deletion is handled instantly via SteamClient APIs — no Steam restart needed.</p>
+
+        <!-- Mockup: Installed Games -->
+        <div class="cd-qam-mockup">
+          <div class="cd-mockup">
+            <div class="cd-mockup-body">
+              <div class="cd-section-title text-slate-400 mb-3">Installed Games</div>
+              <div class="space-y-2">
+                <div class="cd-glass-section flex items-center justify-between">
+                  <div>
+                    <div class="text-xs text-slate-200">Celeste</div>
+                    <div class="text-xs text-slate-500 font-mono" style="font-size: 0.65em;">482 MB</div>
+                  </div>
+                  <span class="cd-btn-destructive" style="font-size: 0.65em; padding: 4px 8px;">Remove</span>
+                </div>
+                <div class="cd-glass-section flex items-center justify-between">
+                  <div>
+                    <div class="text-xs text-slate-200">Hollow Knight</div>
+                    <div class="text-xs text-slate-500 font-mono" style="font-size: 0.65em;">1.8 GB</div>
+                  </div>
+                  <span class="cd-btn-destructive" style="font-size: 0.65em; padding: 4px 8px;">Remove</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: Install Progress -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">5</span>
+          <h4 class="text-lg font-semibold">Install Progress</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">When a game is being uploaded, a modal overlay shows real-time progress. On completion, a checkmark confirms the install was successful.</p>
+
+        <!-- Mockup: Progress Modal -->
+        <div class="cd-qam-mockup">
+          <div class="cd-mockup" style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(15, 23, 42, 0.95) 40%, rgba(249, 115, 22, 0.05) 100%); border-color: rgba(6, 182, 212, 0.25);">
+            <div class="cd-mockup-body py-6 text-center">
+              <img src="{{ '/mascot.gif' | relative_url }}" alt="" class="cd-mascot-small mx-auto mb-3" style="width: 48px; height: 48px;">
+              <div class="cd-gradient-text text-base mb-1">Installing game</div>
+              <div class="text-slate-200 text-sm mb-4">Hollow Knight</div>
+              <div class="cd-progress-track mb-2 mx-4">
+                <div class="cd-progress-fill" style="width: 85%"></div>
+              </div>
+              <div class="text-cyan-400 font-mono text-base mb-1">85%</div>
+              <div class="text-xs text-slate-500 font-mono">1.53 GB / 1.8 GB</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Completed state -->
+        <div class="cd-qam-mockup mt-4">
+          <div class="cd-mockup" style="border-color: rgba(34, 197, 94, 0.3);">
+            <div class="cd-mockup-body py-6 text-center">
+              <div class="text-4xl text-green-400 mb-3">
+                <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+              <div class="text-green-400 font-semibold mb-1">Installed!</div>
+              <div class="text-slate-300 text-sm">Hollow Knight</div>
+              <div class="text-xs text-slate-500 mt-1 font-mono">1.8 GB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- What's Next -->
+    <div class="bg-gradient-to-r from-capy-500/10 to-water-500/10 border border-capy-500/20 rounded-2xl p-6 text-center">
+      <h3 class="text-lg font-semibold mb-2">Ready to deploy?</h3>
+      <p class="text-slate-400 text-sm mb-4">Get CapyDeploy installed and running in minutes.</p>
+      <div class="flex justify-center gap-4">
+        <a href="{{ '/install' | relative_url }}" class="px-6 py-3 rounded-xl bg-gradient-to-r from-capy-500 to-capy-600 text-white font-semibold hover:from-capy-600 hover:to-capy-700 transition text-sm">Installation Guide</a>
+        <a href="{{ '/api' | relative_url }}" class="px-6 py-3 rounded-xl bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700 transition border border-slate-700 text-sm">API Reference</a>
+      </div>
+    </div>
+  </div>
+</section>

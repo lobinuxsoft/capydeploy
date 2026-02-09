@@ -33,7 +33,7 @@ title: Home
       Perfect for game development testing, DRM-free game collections (GOG, itch.io), and retro gaming.
     </p>
     <div class="flex flex-col sm:flex-row gap-4 justify-center">
-      <a href="{{ '/install' | relative_url }}" class="px-8 py-4 rounded-xl bg-gradient-to-r from-capy-500 to-capy-600 text-white font-semibold hover:from-capy-600 hover:to-capy-700 transition shadow-lg shadow-capy-500/25">
+      <a href="{{ '/usage' | relative_url }}" class="px-8 py-4 rounded-xl bg-gradient-to-r from-capy-500 to-capy-600 text-white font-semibold hover:from-capy-600 hover:to-capy-700 transition shadow-lg shadow-capy-500/25">
         Get Started
       </a>
       <a href="{{ '/architecture' | relative_url }}" class="px-8 py-4 rounded-xl bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700 transition border border-slate-700">
@@ -131,6 +131,68 @@ title: Home
         </div>
         <h3 class="text-lg font-semibold mb-2">DRM-Free Friendly</h3>
         <p class="text-slate-400 text-sm">Perfect for GOG, itch.io, Humble Bundle. Your games, your devices.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- What Is / What Is NOT -->
+<section class="py-20 px-4 bg-slate-900/30">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">What is CapyDeploy?</h2>
+    <p class="text-slate-400 text-center mb-12 max-w-2xl mx-auto">A tool built for legitimate game deployment. Nothing more, nothing less.</p>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- IS -->
+      <div class="bg-slate-900/50 border border-green-500/20 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          What it IS
+        </h3>
+        <ul class="space-y-3 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></span>A game deployment tool for developers testing builds on handhelds</li>
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></span>A DRM-free game manager for games you legally own</li>
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></span>A retro gaming organizer for legally obtained content</li>
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></span>A platform-agnostic alternative to Valve's SteamOS Devkit Client</li>
+        </ul>
+      </div>
+      <!-- IS NOT -->
+      <div class="bg-slate-900/50 border border-red-500/20 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          What it is NOT
+        </h3>
+        <ul class="space-y-3 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></span>NOT a piracy tool — does not download, crack, or distribute games</li>
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></span>NOT a DRM bypass — does not circumvent copy protection</li>
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></span>NOT a game distribution platform — local network transfers only</li>
+          <li class="flex items-start gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></span>NOT a game store or launcher — manages deployment, not purchasing</li>
+        </ul>
+      </div>
+    </div>
+    <div class="text-center mt-6">
+      <a href="{{ '/about' | relative_url }}" class="text-sm text-slate-500 hover:text-slate-300 transition">Learn more on the About page &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<!-- Legal Disclaimer -->
+<section class="py-12 px-4">
+  <div class="max-w-4xl mx-auto">
+    <div class="bg-yellow-500/5 border-2 border-yellow-500/30 rounded-2xl p-6">
+      <div class="flex items-start gap-4">
+        <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-yellow-400/80 mb-2">Legal Disclaimer</h3>
+          <p class="text-sm text-slate-400">
+            CapyDeploy was created as an early development testing tool. While capable of installing DRM-free games on handheld devices, it was not conceived or intended for piracy. The author assumes no responsibility for any misuse of this software by end users. Users are responsible for complying with all applicable laws in their jurisdiction.
+            <a href="{{ '/about#legal-disclaimer' | relative_url }}" class="text-yellow-500/60 hover:text-yellow-500/80 underline ml-1">Full disclaimer</a>
+          </p>
+        </div>
       </div>
     </div>
   </div>

@@ -14,6 +14,20 @@
 
 CapyDeploy is a cross-platform tool for uploading and managing games on Steam Deck, Bazzite, and other handheld Linux devices. It uses a **Hub-Agent architecture** where the Hub (your PC) sends commands to the Agent (handheld device) over WebSocket.
 
+### What is CapyDeploy
+
+- A **game deployment tool** for developers testing builds on handheld hardware
+- A **DRM-free game manager** for games you legally own (GOG, itch.io, Humble Bundle)
+- A **retro gaming organizer** for legally obtained content
+- A **platform-agnostic alternative** to Valve's SteamOS Devkit Client
+
+### What CapyDeploy is NOT
+
+- **NOT a piracy tool.** CapyDeploy does not download, crack, or distribute games.
+- **NOT a DRM bypass.** It does not circumvent any copy protection mechanisms.
+- **NOT a game distribution platform.** It transfers files between your own devices on a local network.
+- **NOT a game store or launcher.** It manages deployment, not purchasing or playing games.
+
 ### Key Features
 
 - **Auto-Discovery**: Agents broadcast via mDNS. No IP configuration needed.
@@ -60,10 +74,9 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 ## Building
 
 ```bash
-# Clone with submodules
+# Clone
 git clone https://github.com/lobinuxsoft/capydeploy
 cd capydeploy
-git submodule update --init --recursive
 
 # Build everything at once
 ./build_all.sh              # Linux
@@ -85,7 +98,7 @@ The Decky plugin is an alternative Agent for gaming mode. Requires [Decky Loader
 
 ```bash
 cd apps/agents/decky && ./build.sh
-# Output: dist/decky/CapyDeploy-v0.1.0.zip
+# Output: dist/decky/CapyDeploy-vX.Y.Z.zip
 # Install via Decky Settings > Install from ZIP
 ```
 
@@ -127,6 +140,8 @@ You can also use command line flags:
 
 ## Usage
 
+For a detailed walkthrough with visual mockups of each application, see the [Usage Guide](https://lobinuxsoft.github.io/capydeploy/usage).
+
 ### 1. Start the Agent (on handheld)
 
 ```bash
@@ -157,7 +172,7 @@ The Hub will:
 
 ### 4. Upload Games
 
-1. Go to **Game Setups** tab
+1. Go to **Upload Game** tab
 2. Create a new setup with:
    - Game name
    - Local folder path
@@ -224,13 +239,29 @@ All communication happens over WebSocket at `ws://agent:<port>/ws`
 - Settings: `~/homebrew/settings/capydeploy.json`
 - Logs: `~/homebrew/logs/CapyDeploy/`
 
+## Versioning
+
+CapyDeploy uses [SemVer](https://semver.org/) with a single `VERSION` file at the repository root as the source of truth. Version injection is automated:
+
+- **Go apps** (Hub, Agent): Version injected via `-ldflags` at build time
+- **Decky plugin**: `plugin.json` updated by `build.sh` from `VERSION`
+- **Releases**: Managed by [release-please](https://github.com/googleapis/release-please), triggered by [Conventional Commits](https://www.conventionalcommits.org/)
+
 ## Project Structure
 
 ```
 capydeploy/
+├── VERSION                     # Single source of truth for version
 ├── apps/
 │   ├── hub/                    # Hub application (PC)
-│   │   ├── app.go              # Wails bindings
+│   │   ├── app.go              # Wails bindings (main)
+│   │   ├── app_connection.go   # Connection management
+│   │   ├── app_discovery.go    # mDNS discovery
+│   │   ├── app_games.go        # Game management
+│   │   ├── app_upload.go       # Upload logic
+│   │   ├── app_settings.go     # Settings management
+│   │   ├── app_steamgriddb.go  # SteamGridDB integration
+│   │   ├── auth/               # Hub-side auth (AuthorizedHub)
 │   │   ├── wsclient/           # WebSocket client
 │   │   ├── modules/            # Platform modules
 │   │   └── frontend/           # Svelte 5 UI
@@ -254,21 +285,21 @@ capydeploy/
 │   ├── steam/                  # Steam paths/users
 │   ├── steamgriddb/            # SteamGridDB API client
 │   ├── config/                 # Configuration management
-│   ├── version/                # Version info
+│   ├── version/                # Version info (LDFLAGS target)
 │   └── transfer/               # Chunked file transfer
-├── internal/
-│   └── agent/                  # Agent HTTP client (legacy)
-└── docs/                       # Documentation website
+└── docs/                       # Documentation website (GitHub Pages)
 ```
 
 ## Documentation
 
-Full documentation available at: [docs/index.html](docs/index.html)
+Full documentation available at: [lobinuxsoft.github.io/capydeploy](https://lobinuxsoft.github.io/capydeploy)
 
-- WebSocket API reference
-- Architecture diagrams
-- Installation guides
-- Donation options (crypto)
+- [About & Legal](https://lobinuxsoft.github.io/capydeploy/about) — What is / isn't CapyDeploy, disclaimer
+- [Usage Guide](https://lobinuxsoft.github.io/capydeploy/usage) — Visual walkthrough with mockups
+- [Architecture](https://lobinuxsoft.github.io/capydeploy/architecture) — System diagrams
+- [API Reference](https://lobinuxsoft.github.io/capydeploy/api) — WebSocket protocol
+- [Installation](https://lobinuxsoft.github.io/capydeploy/install) — Build & install guides
+- [Developers](https://lobinuxsoft.github.io/capydeploy/developers) — Adding new platforms
 
 ## Contributing
 
@@ -277,16 +308,24 @@ Full documentation available at: [docs/index.html](docs/index.html)
 3. Make your changes
 4. Submit a PR to `development`
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
 ## License
 
 AGPL v3 - See [LICENSE](LICENSE) for details.
 
 This means:
-- ✅ Free to use, modify, and distribute
-- ✅ Contributions welcome
-- ⚠️ Derivatives must use the same license
-- ⚠️ Source code must be provided (even for SaaS)
-- ⚠️ Original authors must be credited
+- Free to use, modify, and distribute
+- Contributions welcome
+- Derivatives must use the same license
+- Source code must be provided (even for SaaS)
+- Original authors must be credited
+
+## Disclaimer
+
+CapyDeploy was created as an early development testing tool for deploying game builds to handheld devices. While capable of installing DRM-free games, it was **not conceived or intended for piracy** or any form of copyright infringement. The author assumes no responsibility for any misuse of this software by end users. Users are solely responsible for complying with all applicable laws and licensing agreements in their jurisdiction.
+
+See the full [Legal Disclaimer](https://lobinuxsoft.github.io/capydeploy/about) for more details.
 
 ## Support
 
