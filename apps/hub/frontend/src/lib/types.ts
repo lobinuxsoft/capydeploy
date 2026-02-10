@@ -66,6 +66,60 @@ export interface UploadProgress {
 	done: boolean;
 }
 
+// Telemetry types
+export interface TelemetryStatus {
+	enabled: boolean;
+	interval: number;
+}
+
+export interface TelemetryData {
+	timestamp: number;
+	cpu?: CPUMetrics;
+	gpu?: GPUMetrics;
+	memory?: MemoryMetrics;
+	battery?: BatteryMetrics;
+	power?: PowerMetrics;
+	fan?: FanMetrics;
+	steam?: SteamStatusData;
+}
+
+export interface CPUMetrics {
+	usagePercent: number;
+	tempCelsius: number;
+	freqMHz: number;
+}
+
+export interface GPUMetrics {
+	usagePercent: number;
+	tempCelsius: number;
+	freqMHz: number;
+}
+
+export interface MemoryMetrics {
+	totalBytes: number;
+	availableBytes: number;
+	usagePercent: number;
+}
+
+export interface BatteryMetrics {
+	capacity: number;
+	status: string;
+}
+
+export interface PowerMetrics {
+	tdpWatts: number;
+	powerWatts: number;
+}
+
+export interface FanMetrics {
+	rpm: number;
+}
+
+export interface SteamStatusData {
+	running: boolean;
+	gamingMode: boolean;
+}
+
 // SteamGridDB types
 export interface SearchResult {
 	id: number;

@@ -72,8 +72,10 @@ const (
 	MsgTypeError             MessageType = "error"
 
 	// Events from Agent to Hub (push notifications)
-	MsgTypeUploadProgress MessageType = "upload_progress"
-	MsgTypeOperationEvent MessageType = "operation_event"
+	MsgTypeUploadProgress  MessageType = "upload_progress"
+	MsgTypeOperationEvent  MessageType = "operation_event"
+	MsgTypeTelemetryStatus MessageType = "telemetry_status"
+	MsgTypeTelemetryData   MessageType = "telemetry_data"
 )
 
 // WSError represents an error in a WebSocket message.
@@ -254,6 +256,8 @@ type AgentStatusResponse struct {
 	Version           string `json:"version"`
 	Platform          string `json:"platform"`
 	AcceptConnections bool   `json:"acceptConnections"`
+	TelemetryEnabled  bool   `json:"telemetryEnabled"`
+	TelemetryInterval int    `json:"telemetryInterval"`
 }
 
 // PairingRequiredResponse is sent when a Hub needs to pair.
@@ -365,6 +369,70 @@ type OperationEvent struct {
 	GameName string  `json:"gameName"`
 	Progress float64 `json:"progress"` // 0-100
 	Message  string  `json:"message,omitempty"`
+}
+
+// Telemetry payloads
+
+// TelemetryStatusEvent is sent when telemetry is enabled/disabled on the Agent.
+type TelemetryStatusEvent struct {
+	Enabled  bool `json:"enabled"`
+	Interval int  `json:"interval"`
+}
+
+// TelemetryData contains hardware metrics from the Agent.
+type TelemetryData struct {
+	Timestamp int64           `json:"timestamp"`
+	CPU       *CPUMetrics     `json:"cpu,omitempty"`
+	GPU       *GPUMetrics     `json:"gpu,omitempty"`
+	Memory    *MemoryMetrics  `json:"memory,omitempty"`
+	Battery   *BatteryMetrics `json:"battery,omitempty"`
+	Power     *PowerMetrics   `json:"power,omitempty"`
+	Fan       *FanMetrics     `json:"fan,omitempty"`
+	Steam     *SteamStatus    `json:"steam,omitempty"`
+}
+
+// CPUMetrics contains CPU usage, temperature and frequency.
+type CPUMetrics struct {
+	UsagePercent float64 `json:"usagePercent"`
+	TempCelsius  float64 `json:"tempCelsius"`
+	FreqMHz      float64 `json:"freqMHz"`
+}
+
+// GPUMetrics contains GPU usage, temperature and frequency.
+type GPUMetrics struct {
+	UsagePercent float64 `json:"usagePercent"`
+	TempCelsius  float64 `json:"tempCelsius"`
+	FreqMHz      float64 `json:"freqMHz"`
+}
+
+// MemoryMetrics contains memory usage information.
+type MemoryMetrics struct {
+	TotalBytes     int64   `json:"totalBytes"`
+	AvailableBytes int64   `json:"availableBytes"`
+	UsagePercent   float64 `json:"usagePercent"`
+}
+
+// BatteryMetrics contains battery status.
+type BatteryMetrics struct {
+	Capacity int    `json:"capacity"`
+	Status   string `json:"status"`
+}
+
+// PowerMetrics contains TDP and power draw information.
+type PowerMetrics struct {
+	TDPWatts   float64 `json:"tdpWatts"`
+	PowerWatts float64 `json:"powerWatts"`
+}
+
+// FanMetrics contains fan speed information.
+type FanMetrics struct {
+	RPM int `json:"rpm"`
+}
+
+// SteamStatus contains Steam process status.
+type SteamStatus struct {
+	Running    bool `json:"running"`
+	GamingMode bool `json:"gamingMode"`
 }
 
 // Upload payloads (extended)

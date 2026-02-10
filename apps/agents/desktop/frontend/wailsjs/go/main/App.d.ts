@@ -17,6 +17,10 @@ export function GetStatus():Promise<main.AgentStatus>;
 
 export function GetSteamUsers():Promise<Array<main.SteamUserInfo>>;
 
+export function GetTelemetryEnabled():Promise<boolean>;
+
+export function GetTelemetryInterval():Promise<number>;
+
 export function GetVersion():Promise<version.Info>;
 
 export function RevokeHub(arg1:string):Promise<void>;
@@ -28,3 +32,7 @@ export function SetAcceptConnections(arg1:boolean):Promise<void>;
 export function SetInstallPath(arg1:string):Promise<void>;
 
 export function SetName(arg1:string):Promise<void>;
+
+export function SetTelemetryEnabled(arg1:boolean):Promise<void>;
+
+export function SetTelemetryInterval(arg1:number):Promise<void>;

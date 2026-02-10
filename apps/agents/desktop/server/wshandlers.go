@@ -73,20 +73,31 @@ func (ws *WSServer) handleHubConnected(hub *HubConnection, msg *protocol.Message
 func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
 	hub.authorized = true
 
-	// Send agent status
+	// Build agent status with telemetry info
 	info := ws.server.GetInfo()
-	resp, _ := msg.Reply(protocol.MsgTypeAgentStatus, protocol.AgentStatusResponse{
+	statusResp := protocol.AgentStatusResponse{
 		Name:              info.Name,
 		Version:           info.Version,
 		Platform:          info.Platform,
 		AcceptConnections: info.AcceptConnections,
-	})
+	}
+	if ws.server.cfg.GetTelemetryEnabled != nil {
+		statusResp.TelemetryEnabled = ws.server.cfg.GetTelemetryEnabled()
+	}
+	if ws.server.cfg.GetTelemetryInterval != nil {
+		statusResp.TelemetryInterval = ws.server.cfg.GetTelemetryInterval()
+	}
+
+	resp, _ := msg.Reply(protocol.MsgTypeAgentStatus, statusResp)
 	ws.send(hub, resp)
 
 	// Notify callback
 	if ws.onConnect != nil {
 		ws.onConnect(hub.hubID, hub.name, hub.remoteAddr)
 	}
+
+	// Start telemetry if enabled
+	ws.server.StartTelemetry()
 }
 
 // handlePairConfirm processes a pairing confirmation from the Hub.

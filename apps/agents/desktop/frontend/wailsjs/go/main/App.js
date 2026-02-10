@@ -30,6 +30,14 @@ export function GetSteamUsers() {
   return window['go']['main']['App']['GetSteamUsers']();
 }
 
+export function GetTelemetryEnabled() {
+  return window['go']['main']['App']['GetTelemetryEnabled']();
+}
+
+export function GetTelemetryInterval() {
+  return window['go']['main']['App']['GetTelemetryInterval']();
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
@@ -52,4 +60,12 @@ export function SetInstallPath(arg1) {
 
 export function SetName(arg1) {
   return window['go']['main']['App']['SetName'](arg1);
+}
+
+export function SetTelemetryEnabled(arg1) {
+  return window['go']['main']['App']['SetTelemetryEnabled'](arg1);
+}
+
+export function SetTelemetryInterval(arg1) {
+  return window['go']['main']['App']['SetTelemetryInterval'](arg1);
 }

@@ -46,6 +46,8 @@ type Client struct {
 	onDisconnect      func()
 	onUploadProgress  func(event protocol.UploadProgressEvent)
 	onOperationEvent  func(event protocol.OperationEvent)
+	onTelemetryStatus func(event protocol.TelemetryStatusEvent)
+	onTelemetryData   func(event protocol.TelemetryData)
 	onPairingRequired func(agentID string)
 }
 
@@ -84,12 +86,20 @@ func (c *Client) SetPairingCallback(cb func(agentID string)) {
 }
 
 // SetCallbacks sets the event callbacks.
-func (c *Client) SetCallbacks(onDisconnect func(), onUploadProgress func(protocol.UploadProgressEvent), onOperationEvent func(protocol.OperationEvent)) {
+func (c *Client) SetCallbacks(
+	onDisconnect func(),
+	onUploadProgress func(protocol.UploadProgressEvent),
+	onOperationEvent func(protocol.OperationEvent),
+	onTelemetryStatus func(protocol.TelemetryStatusEvent),
+	onTelemetryData func(protocol.TelemetryData),
+) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.onDisconnect = onDisconnect
 	c.onUploadProgress = onUploadProgress
 	c.onOperationEvent = onOperationEvent
+	c.onTelemetryStatus = onTelemetryStatus
+	c.onTelemetryData = onTelemetryData
 }
 
 // Connect establishes the WebSocket connection to the Agent.
@@ -378,6 +388,26 @@ func (c *Client) handleTextMessage(data []byte) {
 		if err := msg.ParsePayload(&event); err == nil {
 			c.mu.RLock()
 			callback := c.onOperationEvent
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
+	case protocol.MsgTypeTelemetryStatus:
+		var event protocol.TelemetryStatusEvent
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onTelemetryStatus
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
+	case protocol.MsgTypeTelemetryData:
+		var event protocol.TelemetryData
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onTelemetryData
 			c.mu.RUnlock()
 			if callback != nil {
 				callback(event)

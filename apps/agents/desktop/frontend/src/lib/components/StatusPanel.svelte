@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, SetTelemetryEnabled, SetTelemetryInterval, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus, VersionInfo } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight, Activity } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let versionInfo = $state<VersionInfo | null>(null);
@@ -17,7 +17,7 @@
 	let pairingTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Collapsible sections state
-	let expandedSections = $state<Set<string>>(new Set(['version', 'install', 'network', 'connections']));
+	let expandedSections = $state<Set<string>>(new Set(['version', 'install', 'network', 'telemetry', 'connections']));
 
 	function toggleSection(section: string) {
 		if (expandedSections.has(section)) {
@@ -135,6 +135,19 @@
 			}
 		};
 	});
+
+	async function toggleTelemetry() {
+		if (!status) return;
+		await SetTelemetryEnabled(!status.telemetryEnabled);
+	}
+
+	async function changeTelemetryInterval(event: Event) {
+		const target = event.target as HTMLSelectElement;
+		const seconds = parseInt(target.value, 10);
+		if (!isNaN(seconds)) {
+			await SetTelemetryInterval(seconds);
+		}
+	}
 
 	function getPlatformIcon(platform: string) {
 		switch (platform.toLowerCase()) {
@@ -310,6 +323,54 @@
 							<span class="cd-mono">{ip}</span>
 						</div>
 					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Telemetry -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between">
+				<button
+					type="button"
+					class="flex items-center gap-2 hover:text-primary transition-colors"
+					onclick={() => toggleSection('telemetry')}
+				>
+					{#if expandedSections.has('telemetry')}
+						<ChevronDown class="w-4 h-4 cd-text-primary" />
+					{:else}
+						<ChevronRight class="w-4 h-4 cd-text-disabled" />
+					{/if}
+					<Activity class="w-4 h-4 cd-text-disabled" />
+					<span class="cd-section-title">Telemetry</span>
+				</button>
+				<Badge variant={status.telemetryEnabled ? 'success' : 'warning'}>
+					{status.telemetryEnabled ? 'Sending' : 'Off'}
+				</Badge>
+			</div>
+
+			{#if expandedSections.has('telemetry')}
+				<div class="mt-3">
+					<div class="flex items-center justify-between mb-3">
+						<span class="text-sm cd-text-disabled">Interval</span>
+						<select
+							class="cd-select text-sm"
+							value={status.telemetryInterval}
+							onchange={changeTelemetryInterval}
+						>
+							<option value={1}>1s</option>
+							<option value={2}>2s</option>
+							<option value={3}>3s</option>
+							<option value={5}>5s</option>
+							<option value={10}>10s</option>
+						</select>
+					</div>
+					<Button
+						variant={status.telemetryEnabled ? 'destructive' : 'gradient'}
+						class="w-full"
+						onclick={toggleTelemetry}
+					>
+						{status.telemetryEnabled ? 'Stop Sending' : 'Enable Sending'}
+					</Button>
 				</div>
 			{/if}
 		</div>

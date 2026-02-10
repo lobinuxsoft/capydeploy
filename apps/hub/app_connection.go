@@ -82,6 +82,14 @@ func (a *App) ConnectAgent(agentID string) error {
 			// On operation event
 			runtime.EventsEmit(a.ctx, "operation:event", event)
 		},
+		func(event protocol.TelemetryStatusEvent) {
+			// On telemetry status
+			runtime.EventsEmit(a.ctx, "telemetry:status", event)
+		},
+		func(event protocol.TelemetryData) {
+			// On telemetry data
+			runtime.EventsEmit(a.ctx, "telemetry:data", event)
+		},
 	)
 
 	// Set pairing callback

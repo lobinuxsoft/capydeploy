@@ -25,6 +25,8 @@ export namespace main {
 	    ips: string[];
 	    acceptConnections: boolean;
 	    connectedHub?: ConnectedHub;
+	    telemetryEnabled: boolean;
+	    telemetryInterval: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AgentStatus(source);
@@ -40,6 +42,8 @@ export namespace main {
 	        this.ips = source["ips"];
 	        this.acceptConnections = source["acceptConnections"];
 	        this.connectedHub = this.convertValues(source["connectedHub"], ConnectedHub);
+	        this.telemetryEnabled = source["telemetryEnabled"];
+	        this.telemetryInterval = source["telemetryInterval"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -15,6 +15,7 @@ import (
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/firewall"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/server"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/shortcuts"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/tray"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
@@ -63,6 +64,8 @@ type AgentStatus struct {
 	IPs               []string      `json:"ips"`
 	AcceptConnections bool          `json:"acceptConnections"`
 	ConnectedHub      *ConnectedHub `json:"connectedHub"`
+	TelemetryEnabled  bool          `json:"telemetryEnabled"`
+	TelemetryInterval int           `json:"telemetryInterval"`
 }
 
 // SteamUserInfo represents a Steam user for the UI
@@ -219,6 +222,22 @@ func (a *App) startServer() {
 			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 			a.updateTrayStatus()
 		},
+		GetTelemetryEnabled: func() bool {
+			if a.configMgr != nil {
+				return a.configMgr.GetTelemetryEnabled()
+			}
+			return false
+		},
+		GetTelemetryInterval: func() int {
+			if a.configMgr != nil {
+				return a.configMgr.GetTelemetryInterval()
+			}
+			return 2
+		},
+		GetSteamStatus: func() (bool, bool) {
+			ctrl := agentSteam.NewController()
+			return ctrl.IsRunning(), ctrl.IsGamingMode()
+		},
 	}
 
 	srv, err := server.New(cfg)
@@ -259,6 +278,13 @@ func (a *App) GetStatus() AgentStatus {
 	acceptConnections := a.acceptConnections
 	a.connectionMu.RUnlock()
 
+	var telemetryEnabled bool
+	var telemetryInterval int
+	if a.configMgr != nil {
+		telemetryEnabled = a.configMgr.GetTelemetryEnabled()
+		telemetryInterval = a.configMgr.GetTelemetryInterval()
+	}
+
 	return AgentStatus{
 		Running:           running,
 		Name:              a.getName(),
@@ -268,6 +294,8 @@ func (a *App) GetStatus() AgentStatus {
 		IPs:               getLocalIPs(),
 		AcceptConnections: acceptConnections,
 		ConnectedHub:      connectedHub,
+		TelemetryEnabled:  telemetryEnabled,
+		TelemetryInterval: telemetryInterval,
 	}
 }
 
@@ -374,6 +402,78 @@ func (a *App) SetAcceptConnections(accept bool) {
 
 	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 	a.updateTrayStatus()
+}
+
+// GetTelemetryEnabled returns whether telemetry is enabled
+func (a *App) GetTelemetryEnabled() bool {
+	if a.configMgr != nil {
+		return a.configMgr.GetTelemetryEnabled()
+	}
+	return false
+}
+
+// SetTelemetryEnabled enables or disables telemetry streaming
+func (a *App) SetTelemetryEnabled(enabled bool) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if err := a.configMgr.SetTelemetryEnabled(enabled); err != nil {
+		return fmt.Errorf("failed to save telemetry setting: %w", err)
+	}
+
+	log.Printf("Telemetry enabled: %v", enabled)
+
+	// Start or stop telemetry on the server
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil {
+		if enabled {
+			srv.StartTelemetry()
+		} else {
+			srv.StopTelemetry()
+			srv.NotifyTelemetryStatus()
+		}
+	}
+
+	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	return nil
+}
+
+// GetTelemetryInterval returns the telemetry interval in seconds
+func (a *App) GetTelemetryInterval() int {
+	if a.configMgr != nil {
+		return a.configMgr.GetTelemetryInterval()
+	}
+	return 2
+}
+
+// SetTelemetryInterval sets the telemetry interval in seconds (1-10)
+func (a *App) SetTelemetryInterval(seconds int) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if err := a.configMgr.SetTelemetryInterval(seconds); err != nil {
+		return fmt.Errorf("failed to save telemetry interval: %w", err)
+	}
+
+	log.Printf("Telemetry interval changed to: %ds", seconds)
+
+	// Update running collector if active
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil && a.configMgr.GetTelemetryEnabled() {
+		srv.StopTelemetry()
+		srv.StartTelemetry()
+	}
+
+	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	return nil
 }
 
 // DisconnectHub disconnects the current Hub
