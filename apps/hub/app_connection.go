@@ -268,6 +268,23 @@ func (a *App) SetConsoleLogFilter(mask uint32) error {
 	return err
 }
 
+// SetConsoleLogEnabled enables or disables console log streaming on the connected agent.
+func (a *App) SetConsoleLogEnabled(enabled bool) error {
+	a.mu.RLock()
+	if a.connectedAgent == nil || a.connectedAgent.WSClient == nil {
+		a.mu.RUnlock()
+		return fmt.Errorf("no agent connected")
+	}
+	wsClient := a.connectedAgent.WSClient
+	a.mu.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := wsClient.SetConsoleLogEnabled(ctx, enabled)
+	return err
+}
+
 // GetAgentInstallPath returns the install path from the connected agent
 func (a *App) GetAgentInstallPath() (string, error) {
 	a.mu.RLock()

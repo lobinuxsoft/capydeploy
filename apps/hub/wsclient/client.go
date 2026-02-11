@@ -928,6 +928,24 @@ func (c *Client) SetConsoleLogFilter(ctx context.Context, mask uint32) (uint32, 
 	return result.LevelMask, nil
 }
 
+// SetConsoleLogEnabled enables or disables console log streaming on the agent.
+// Returns the confirmed enabled state.
+func (c *Client) SetConsoleLogEnabled(ctx context.Context, enabled bool) (bool, error) {
+	resp, err := c.sendRequest(ctx, protocol.MsgTypeSetConsoleLogEnabled, protocol.SetConsoleLogEnabledRequest{
+		Enabled: enabled,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	var result protocol.SetConsoleLogEnabledResponse
+	if err := resp.ParsePayload(&result); err != nil {
+		return false, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return result.Enabled, nil
+}
+
 // DeleteGame deletes a game completely. Agent handles everything internally.
 func (c *Client) DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error) {
 	resp, err := c.sendRequest(ctx, protocol.MsgTypeDeleteGame, protocol.DeleteGameRequest{

@@ -41,8 +41,9 @@ const (
 	MsgTypePairFailed      MessageType = "pair_failed"      // Agent → Hub: pairing failed
 
 	// Requests from Hub to Agent
-	MsgTypeSetConsoleLogFilter MessageType = "set_console_log_filter" // Hub → Agent: configure log level filter
-	MsgTypePing                MessageType = "ping"
+	MsgTypeSetConsoleLogFilter  MessageType = "set_console_log_filter"  // Hub → Agent: configure log level filter
+	MsgTypeSetConsoleLogEnabled MessageType = "set_console_log_enabled" // Hub → Agent: enable/disable console log
+	MsgTypePing                 MessageType = "ping"
 	MsgTypeGetInfo        MessageType = "get_info"
 	MsgTypeGetConfig      MessageType = "get_config"
 	MsgTypeGetSteamUsers  MessageType = "get_steam_users"
@@ -218,6 +219,16 @@ type SetConsoleLogFilterRequest struct {
 // SetConsoleLogFilterResponse confirms the applied log level mask.
 type SetConsoleLogFilterResponse struct {
 	LevelMask uint32 `json:"levelMask"`
+}
+
+// SetConsoleLogEnabledRequest enables or disables console log streaming on the agent.
+type SetConsoleLogEnabledRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetConsoleLogEnabledResponse confirms the console log enabled state.
+type SetConsoleLogEnabledResponse struct {
+	Enabled bool `json:"enabled"`
 }
 
 // CreateShortcutRequest creates a Steam shortcut.

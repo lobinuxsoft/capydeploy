@@ -245,6 +245,17 @@ func (a *App) startServer() {
 			}
 			return false
 		},
+		SetConsoleLogEnabled: func(enabled bool) error {
+			if a.configMgr == nil {
+				return fmt.Errorf("configuration not available")
+			}
+			if err := a.configMgr.SetConsoleLogEnabled(enabled); err != nil {
+				return fmt.Errorf("failed to save console log setting: %w", err)
+			}
+			log.Printf("Console log enabled (remote): %v", enabled)
+			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+			return nil
+		},
 	}
 
 	srv, err := server.New(cfg)

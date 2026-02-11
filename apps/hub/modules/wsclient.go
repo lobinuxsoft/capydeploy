@@ -209,6 +209,11 @@ func (c *WSClient) SetConsoleLogFilter(ctx context.Context, mask uint32) (uint32
 	return c.client.SetConsoleLogFilter(ctx, mask)
 }
 
+// SetConsoleLogEnabled enables or disables console log streaming on the agent.
+func (c *WSClient) SetConsoleLogEnabled(ctx context.Context, enabled bool) (bool, error) {
+	return c.client.SetConsoleLogEnabled(ctx, enabled)
+}
+
 // GameManager implementation
 
 func (c *WSClient) DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error) {

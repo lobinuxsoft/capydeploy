@@ -12,8 +12,9 @@ export const DisconnectAgent = App.DisconnectAgent;
 export const GetConnectionStatus = App.GetConnectionStatus;
 export const GetAgentInstallPath = App.GetAgentInstallPath;
 
-// Console log filter
+// Console log
 export const SetConsoleLogFilter = App.SetConsoleLogFilter;
+export const SetConsoleLogEnabled = App.SetConsoleLogEnabled;
 
 // Pairing functions
 export const ConfirmPairing = App.ConfirmPairing;

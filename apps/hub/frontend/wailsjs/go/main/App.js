@@ -118,6 +118,10 @@ export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
 }
 
+export function SetConsoleLogEnabled(arg1) {
+  return window['go']['main']['App']['SetConsoleLogEnabled'](arg1);
+}
+
 export function SetConsoleLogFilter(arg1) {
   return window['go']['main']['App']['SetConsoleLogFilter'](arg1);
 }

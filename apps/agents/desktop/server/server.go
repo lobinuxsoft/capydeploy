@@ -56,6 +56,7 @@ type Config struct {
 	GetTelemetryInterval func() int                                 // Callback to get telemetry interval in seconds
 	GetSteamStatus       func() (running bool, gamingMode bool)     // Callback to get Steam process status
 	GetConsoleLogEnabled func() bool                                // Callback to check if console log is enabled
+	SetConsoleLogEnabled func(enabled bool) error                    // Callback to enable/disable console log
 }
 
 // Server is the main agent server that handles WebSocket connections and mDNS discovery.
@@ -447,6 +448,24 @@ func (s *Server) NotifyConsoleLogStatus() {
 		Enabled:   enabled,
 		LevelMask: s.consoleLog.GetLevelMask(),
 	})
+}
+
+// SetConsoleLogEnabled enables or disables console log via the config callback, then starts/stops the collector.
+func (s *Server) SetConsoleLogEnabled(enabled bool) error {
+	if s.cfg.SetConsoleLogEnabled != nil {
+		if err := s.cfg.SetConsoleLogEnabled(enabled); err != nil {
+			return err
+		}
+	}
+
+	if enabled {
+		s.StartConsoleLog()
+	} else {
+		s.StopConsoleLog()
+		s.NotifyConsoleLogStatus()
+	}
+
+	return nil
 }
 
 // DisableConnections disconnects the current Hub and stops mDNS advertising.

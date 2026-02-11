@@ -482,6 +482,27 @@ func (ws *WSServer) handleSetConsoleLogFilter(hub *HubConnection, msg *protocol.
 	ws.send(hub, resp)
 }
 
+// handleSetConsoleLogEnabled toggles console log streaming on/off remotely.
+func (ws *WSServer) handleSetConsoleLogEnabled(hub *HubConnection, msg *protocol.Message) {
+	var req protocol.SetConsoleLogEnabledRequest
+	if err := msg.ParsePayload(&req); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeBadRequest, "invalid payload")
+		return
+	}
+
+	if err := ws.server.SetConsoleLogEnabled(req.Enabled); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
+		return
+	}
+
+	log.Printf("WS: Console log enabled (remote): %v", req.Enabled)
+
+	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogEnabled, protocol.SetConsoleLogEnabledResponse{
+		Enabled: req.Enabled,
+	})
+	ws.send(hub, resp)
+}
+
 // handleRestartSteam restarts Steam.
 func (ws *WSServer) handleRestartSteam(hub *HubConnection, msg *protocol.Message) {
 	controller := agentSteam.NewController()

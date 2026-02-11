@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { consolelog, consoleColors, type ConsoleColors, type ConsoleLogEntryWithId } from '$lib/stores/consolelog';
-	import { EventsOn, SetConsoleLogFilter } from '$lib/wailsjs';
+	import { EventsOn, SetConsoleLogFilter, SetConsoleLogEnabled } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 	import type { ConsoleLogStatus, ConsoleLogBatch } from '$lib/types';
 	import {
@@ -11,8 +11,9 @@
 		LOG_LEVEL_DEBUG,
 		LOG_LEVEL_DEFAULT
 	} from '$lib/types';
-	import { Terminal, Trash2 } from 'lucide-svelte';
+	import { Terminal, Trash2, Power } from 'lucide-svelte';
 	import { sanitizeCSS } from '$lib/console-format';
+	import DropdownSelect from '$lib/components/ui/DropdownSelect.svelte';
 
 	const levelToggles = [
 		{ key: 'log', label: 'Log', bit: LOG_LEVEL_LOG },
@@ -78,6 +79,15 @@
 			unsubData();
 		};
 	});
+
+	let enabling = $state(false);
+
+	function handleEnableToggle(enabled: boolean) {
+		enabling = true;
+		SetConsoleLogEnabled(enabled)
+			.catch((err: unknown) => console.error('Failed to toggle console log:', err))
+			.finally(() => (enabling = false));
+	}
 
 	function handleToggle(bit: number) {
 		levelMask = levelMask ^ bit;
@@ -164,9 +174,18 @@
 {#if !status.enabled}
 	<div class="flex flex-col items-center justify-center py-16 text-center">
 		<Terminal class="w-12 h-12 text-muted-foreground mb-4" />
-		<p class="text-muted-foreground text-sm max-w-md">
+		<p class="text-muted-foreground text-sm max-w-md mb-4">
 			Enable console log streaming from the agent to view Steam CEF logs.
 		</p>
+		<button
+			type="button"
+			onclick={() => handleEnableToggle(true)}
+			disabled={enabling}
+			class="text-sm bg-primary text-primary-foreground rounded px-4 py-2 hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+		>
+			<Power class="w-4 h-4" />
+			{enabling ? 'Enabling...' : 'Enable Console Log'}
+		</button>
 	</div>
 {:else if entries.length === 0}
 	<div class="flex flex-col items-center justify-center py-16 text-center">
@@ -189,14 +208,7 @@
 			{/each}
 		</div>
 
-		<select
-			bind:value={sourceFilter}
-			class="text-xs px-2 py-1 rounded border border-border bg-secondary text-foreground cursor-pointer"
-		>
-			{#each sourceOptions as opt (opt.value)}
-				<option value={opt.value}>{opt.label}</option>
-			{/each}
-		</select>
+		<DropdownSelect options={sourceOptions} bind:value={sourceFilter} />
 
 		<input
 			type="text"
@@ -212,6 +224,16 @@
 		>
 			<Trash2 class="w-3 h-3" />
 			Clear
+		</button>
+
+		<button
+			type="button"
+			onclick={() => handleEnableToggle(false)}
+			disabled={enabling}
+			class="text-xs bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5 text-destructive hover:bg-destructive/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+		>
+			<Power class="w-3 h-3" />
+			Disable
 		</button>
 
 		{#if totalDropped > 0}
