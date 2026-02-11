@@ -114,9 +114,11 @@ func readCPUFreq() float64 {
 // WDDM 4.x (Windows 11 25H2+) with modern drivers (e.g. AMD RDNA 4).
 // Vendor SDK integration may be added in a future phase.
 
-func readGPUUsage() float64 { return -1 }
-func readGPUTemp() float64  { return -1 }
-func readGPUFreq() float64  { return -1 }
+func readGPUUsage() float64                    { return -1 }
+func readGPUTemp() float64                     { return -1 }
+func readGPUFreq() float64                     { return -1 }
+func readGPUMemFreq() float64                  { return -1 }
+func readVRAMInfo() (used, total int64)        { return -1, -1 }
 
 // ── Memory ──────────────────────────────────────────────────────────────────
 
@@ -133,17 +135,17 @@ type memoryStatusEx struct {
 	AvailExtendedVirtual uint64
 }
 
-// readMemInfo uses GlobalMemoryStatusEx to get physical memory info.
-func readMemInfo() (total, available int64) {
+// readMemInfo uses GlobalMemoryStatusEx to get physical memory and page file info.
+func readMemInfo() (total, available, swapTotal, swapFree int64) {
 	var ms memoryStatusEx
 	ms.Length = uint32(unsafe.Sizeof(ms))
 
 	ret, _, _ := procGlobalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&ms)))
 	if ret == 0 {
-		return -1, -1
+		return -1, -1, -1, -1
 	}
 
-	return int64(ms.TotalPhys), int64(ms.AvailPhys)
+	return int64(ms.TotalPhys), int64(ms.AvailPhys), int64(ms.TotalPageFile), int64(ms.AvailPageFile)
 }
 
 // ── Battery ─────────────────────────────────────────────────────────────────
