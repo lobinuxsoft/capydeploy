@@ -66,14 +66,23 @@ func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string, string
 }
 
 // DisconnectHub closes the current Hub connection if any.
+// Sends a WebSocket close frame so the Hub detects disconnection immediately.
 func (ws *WSServer) DisconnectHub() {
 	ws.mu.Lock()
 	hub := ws.hubConn
 	ws.mu.Unlock()
 
-	if hub != nil && hub.conn != nil {
-		hub.conn.Close()
+	if hub == nil || hub.conn == nil {
+		return
 	}
+
+	// WriteControl is safe to call concurrently with writePump
+	hub.conn.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "connections disabled"),
+		time.Now().Add(5*time.Second),
+	)
+	hub.conn.Close()
 }
 
 // HandleWS handles the WebSocket upgrade and connection.

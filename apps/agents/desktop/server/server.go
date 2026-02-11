@@ -449,6 +449,27 @@ func (s *Server) NotifyConsoleLogStatus() {
 	})
 }
 
+// DisableConnections disconnects the current Hub and stops mDNS advertising.
+func (s *Server) DisableConnections() {
+	if s.wsSrv != nil {
+		s.wsSrv.DisconnectHub()
+	}
+	if s.mdnsSrv != nil {
+		s.mdnsSrv.Stop()
+	}
+	log.Printf("Connections disabled: Hub disconnected, mDNS stopped")
+}
+
+// EnableConnections restarts mDNS advertising.
+func (s *Server) EnableConnections() {
+	if s.mdnsSrv != nil {
+		if err := s.mdnsSrv.Start(); err != nil {
+			log.Printf("Failed to restart mDNS: %v", err)
+		}
+	}
+	log.Printf("Connections enabled: mDNS started")
+}
+
 // GetPort returns the actual port the server is listening on.
 // This may differ from the configured port if 0 was specified (dynamic port).
 func (s *Server) GetPort() int {

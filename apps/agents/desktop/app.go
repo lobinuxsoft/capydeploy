@@ -404,11 +404,26 @@ func (a *App) DeleteShortcut(userID string, appID uint32) error {
 	return nil
 }
 
-// SetAcceptConnections enables or disables new connections
+// SetAcceptConnections enables or disables new connections.
+// When disabled, disconnects the current Hub and stops mDNS advertising.
+// When enabled, restarts mDNS advertising so the agent is discoverable again.
 func (a *App) SetAcceptConnections(accept bool) {
 	a.connectionMu.Lock()
 	a.acceptConnections = accept
 	a.connectionMu.Unlock()
+
+	// Start/stop network services
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil {
+		if accept {
+			srv.EnableConnections()
+		} else {
+			srv.DisableConnections()
+		}
+	}
 
 	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 	a.updateTrayStatus()
