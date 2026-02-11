@@ -8,7 +8,111 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+// sysfsCache holds resolved sysfs paths so we don't re-glob every tick.
+// Linux hwmon numbering is stable per boot.
+type sysfsCache struct {
+	once sync.Once
+
+	cpuTempPath  string
+	gpuBusyPath  string
+	gpuTempPath  string
+	gpuFreqPath  string
+	gpuMemFreq   string
+	vramUsedPath string
+	vramTotal    string
+	powerCapPath string
+	powerAvgPath string
+	fanPath      string
+	batteryPath  string
+	cpuFreqPaths []string
+}
+
+var paths sysfsCache
+
+func (c *sysfsCache) resolve() {
+	c.once.Do(func() {
+		// CPU temperature: k10temp (AMD) or coretemp (Intel)
+		hwmonDir := "/sys/class/hwmon"
+		entries, err := os.ReadDir(hwmonDir)
+		if err == nil {
+			for _, entry := range entries {
+				base := filepath.Join(hwmonDir, entry.Name())
+				nameBytes, err := os.ReadFile(filepath.Join(base, "name"))
+				if err != nil {
+					continue
+				}
+				name := strings.TrimSpace(string(nameBytes))
+
+				if (name == "k10temp" || name == "coretemp") && c.cpuTempPath == "" {
+					c.cpuTempPath = filepath.Join(base, "temp1_input")
+				}
+				if fanPath := filepath.Join(base, "fan1_input"); fileExists(fanPath) && c.fanPath == "" {
+					c.fanPath = fanPath
+				}
+				if capPath := filepath.Join(base, "power1_cap"); fileExists(capPath) && c.powerCapPath == "" {
+					c.powerCapPath = capPath
+				}
+				for _, pName := range []string{"power1_average", "power1_input"} {
+					pPath := filepath.Join(base, pName)
+					if fileExists(pPath) && c.powerAvgPath == "" {
+						c.powerAvgPath = pPath
+						break
+					}
+				}
+			}
+		}
+
+		// GPU paths (AMDGPU — card0/card1)
+		cards, _ := filepath.Glob("/sys/class/drm/card[0-9]")
+		for _, card := range cards {
+			busy := filepath.Join(card, "device", "gpu_busy_percent")
+			if !fileExists(busy) {
+				continue
+			}
+			c.gpuBusyPath = busy
+
+			hwmons, _ := filepath.Glob(filepath.Join(card, "device", "hwmon", "hwmon*"))
+			for _, hwmon := range hwmons {
+				temp := filepath.Join(hwmon, "temp1_input")
+				if fileExists(temp) {
+					c.gpuTempPath = temp
+					break
+				}
+			}
+
+			if freq := filepath.Join(card, "device", "pp_dpm_sclk"); fileExists(freq) {
+				c.gpuFreqPath = freq
+			}
+			if mclk := filepath.Join(card, "device", "pp_dpm_mclk"); fileExists(mclk) {
+				c.gpuMemFreq = mclk
+			}
+			if vt := filepath.Join(card, "device", "mem_info_vram_total"); fileExists(vt) {
+				c.vramTotal = vt
+			}
+			if vu := filepath.Join(card, "device", "mem_info_vram_used"); fileExists(vu) {
+				c.vramUsedPath = vu
+			}
+			break
+		}
+
+		// Battery
+		bats, _ := filepath.Glob("/sys/class/power_supply/BAT*")
+		if len(bats) > 0 {
+			c.batteryPath = bats[0]
+		}
+
+		// CPU frequency paths
+		c.cpuFreqPaths, _ = filepath.Glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq")
+	})
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
 
 // readCPUTimes parses /proc/stat to get aggregate CPU idle and total jiffies.
 func readCPUTimes() (idle, total uint64) {
@@ -56,82 +160,64 @@ func calculateCPUUsage(prevIdle, prevTotal, currIdle, currTotal uint64) float64 
 	return math.Round(usage*10) / 10
 }
 
-// readCPUTemp scans /sys/class/hwmon/ for k10temp or coretemp and returns degrees C.
+// readCPUTemp reads CPU temperature in degrees C from cached hwmon path.
 func readCPUTemp() float64 {
-	hwmonDir := "/sys/class/hwmon"
-	entries, err := os.ReadDir(hwmonDir)
+	paths.resolve()
+	if paths.cpuTempPath == "" {
+		return -1
+	}
+
+	tempBytes, err := os.ReadFile(paths.cpuTempPath)
 	if err != nil {
 		return -1
 	}
 
-	for _, entry := range entries {
-		namePath := filepath.Join(hwmonDir, entry.Name(), "name")
-		nameBytes, err := os.ReadFile(namePath)
-		if err != nil {
-			continue
-		}
-
-		name := strings.TrimSpace(string(nameBytes))
-		if name != "k10temp" && name != "coretemp" {
-			continue
-		}
-
-		// Read temp1_input (millidegrees C)
-		tempPath := filepath.Join(hwmonDir, entry.Name(), "temp1_input")
-		tempBytes, err := os.ReadFile(tempPath)
-		if err != nil {
-			continue
-		}
-
-		millideg, err := strconv.ParseInt(strings.TrimSpace(string(tempBytes)), 10, 64)
-		if err != nil {
-			continue
-		}
-
-		return float64(millideg) / 1000.0
+	millideg, err := strconv.ParseInt(strings.TrimSpace(string(tempBytes)), 10, 64)
+	if err != nil {
+		return -1
 	}
 
-	return -1
+	return float64(millideg) / 1000.0
 }
 
-// readGPUUsage reads GPU busy percentage from /sys/class/drm/card*/device/gpu_busy_percent.
+// readGPUUsage reads GPU busy percentage from cached sysfs path.
 func readGPUUsage() float64 {
-	matches, _ := filepath.Glob("/sys/class/drm/card*/device/gpu_busy_percent")
-	for _, path := range matches {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-
-		val, err := strconv.ParseFloat(strings.TrimSpace(string(data)), 64)
-		if err != nil {
-			continue
-		}
-
-		return val
+	paths.resolve()
+	if paths.gpuBusyPath == "" {
+		return -1
 	}
 
-	return -1
+	data, err := os.ReadFile(paths.gpuBusyPath)
+	if err != nil {
+		return -1
+	}
+
+	val, err := strconv.ParseFloat(strings.TrimSpace(string(data)), 64)
+	if err != nil {
+		return -1
+	}
+
+	return val
 }
 
-// readGPUTemp reads GPU temperature from /sys/class/drm/card*/device/hwmon/hwmon*/temp1_input.
+// readGPUTemp reads GPU temperature from cached hwmon path.
 func readGPUTemp() float64 {
-	matches, _ := filepath.Glob("/sys/class/drm/card*/device/hwmon/hwmon*/temp1_input")
-	for _, path := range matches {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-
-		millideg, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
-		if err != nil {
-			continue
-		}
-
-		return float64(millideg) / 1000.0
+	paths.resolve()
+	if paths.gpuTempPath == "" {
+		return -1
 	}
 
-	return -1
+	data, err := os.ReadFile(paths.gpuTempPath)
+	if err != nil {
+		return -1
+	}
+
+	millideg, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+	if err != nil {
+		return -1
+	}
+
+	return float64(millideg) / 1000.0
 }
 
 // readMemInfo parses /proc/meminfo to get total, available, swap total and swap free in bytes.
@@ -188,16 +274,14 @@ func readMemInfo() (total, available, swapTotal, swapFree int64) {
 	return total, available, swapTotal, swapFree
 }
 
-// readBattery reads battery capacity and status from /sys/class/power_supply/BAT*.
+// readBattery reads battery capacity and status from cached path.
 func readBattery() (capacity int, status string) {
-	matches, _ := filepath.Glob("/sys/class/power_supply/BAT*")
-	if len(matches) == 0 {
+	paths.resolve()
+	if paths.batteryPath == "" {
 		return -1, ""
 	}
 
-	batPath := matches[0]
-
-	capBytes, err := os.ReadFile(filepath.Join(batPath, "capacity"))
+	capBytes, err := os.ReadFile(filepath.Join(paths.batteryPath, "capacity"))
 	if err != nil {
 		return -1, ""
 	}
@@ -207,7 +291,7 @@ func readBattery() (capacity int, status string) {
 		return -1, ""
 	}
 
-	statusBytes, err := os.ReadFile(filepath.Join(batPath, "status"))
+	statusBytes, err := os.ReadFile(filepath.Join(paths.batteryPath, "status"))
 	if err != nil {
 		return cap, "Unknown"
 	}
@@ -217,14 +301,14 @@ func readBattery() (capacity int, status string) {
 
 // readCPUFreq returns the average CPU frequency across all cores in MHz.
 func readCPUFreq() float64 {
-	matches, _ := filepath.Glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq")
-	if len(matches) == 0 {
+	paths.resolve()
+	if len(paths.cpuFreqPaths) == 0 {
 		return -1
 	}
 
 	var total float64
 	var count int
-	for _, path := range matches {
+	for _, path := range paths.cpuFreqPaths {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			continue
@@ -246,110 +330,90 @@ func readCPUFreq() float64 {
 }
 
 // readGPUFreq reads the current GPU frequency from pp_dpm_sclk (AMD) in MHz.
-// The active frequency line is marked with *. If no line is marked,
-// falls back to the highest level (last entry).
 func readGPUFreq() float64 {
-	matches, _ := filepath.Glob("/sys/class/drm/card*/device/pp_dpm_sclk")
-	for _, path := range matches {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-
-		return parseDPMFreq(string(data))
+	paths.resolve()
+	if paths.gpuFreqPath == "" {
+		return -1
 	}
 
-	return -1
+	data, err := os.ReadFile(paths.gpuFreqPath)
+	if err != nil {
+		return -1
+	}
+
+	return parseDPMFreq(string(data))
 }
 
-// readPowerInfo reads TDP cap and current power draw from hwmon in watts.
-// Scans for any hwmon with power1_cap or power1_average/power1_input.
+// readPowerInfo reads TDP cap and current power draw from cached hwmon paths in watts.
 func readPowerInfo() (tdpWatts, powerWatts float64) {
+	paths.resolve()
 	tdpWatts = -1
 	powerWatts = -1
 
-	hwmonDir := "/sys/class/hwmon"
-	entries, err := os.ReadDir(hwmonDir)
-	if err != nil {
-		return tdpWatts, powerWatts
-	}
-
-	for _, entry := range entries {
-		base := filepath.Join(hwmonDir, entry.Name())
-
-		// TDP cap (power1_cap) — in microwatts
-		capPath := filepath.Join(base, "power1_cap")
-		if capData, err := os.ReadFile(capPath); err == nil {
+	if paths.powerCapPath != "" {
+		if capData, err := os.ReadFile(paths.powerCapPath); err == nil {
 			if val, err := strconv.ParseInt(strings.TrimSpace(string(capData)), 10, 64); err == nil {
 				tdpWatts = float64(val) / 1000000.0
 			}
 		}
+	}
 
-		// Power draw: prefer power1_average, then power1_input — in microwatts
-		for _, name := range []string{"power1_average", "power1_input"} {
-			powerPath := filepath.Join(base, name)
-			powerData, err := os.ReadFile(powerPath)
-			if err != nil {
-				continue
-			}
+	if paths.powerAvgPath != "" {
+		if powerData, err := os.ReadFile(paths.powerAvgPath); err == nil {
 			if val, err := strconv.ParseInt(strings.TrimSpace(string(powerData)), 10, 64); err == nil {
 				powerWatts = float64(val) / 1000000.0
-				break
 			}
-		}
-
-		if tdpWatts > 0 || powerWatts > 0 {
-			return tdpWatts, powerWatts
 		}
 	}
 
 	return tdpWatts, powerWatts
 }
 
-// readVRAMInfo reads VRAM used and total bytes from AMDGPU sysfs.
+// readVRAMInfo reads VRAM used and total bytes from cached sysfs paths.
 func readVRAMInfo() (used, total int64) {
-	matches, _ := filepath.Glob("/sys/class/drm/card*/device/mem_info_vram_total")
-	for _, totalPath := range matches {
-		totalData, err := os.ReadFile(totalPath)
-		if err != nil {
-			continue
-		}
-		totalVal, err := strconv.ParseInt(strings.TrimSpace(string(totalData)), 10, 64)
-		if err != nil {
-			continue
-		}
-
-		usedPath := strings.Replace(totalPath, "mem_info_vram_total", "mem_info_vram_used", 1)
-		usedData, err := os.ReadFile(usedPath)
-		if err != nil {
-			return -1, totalVal
-		}
-		usedVal, err := strconv.ParseInt(strings.TrimSpace(string(usedData)), 10, 64)
-		if err != nil {
-			return -1, totalVal
-		}
-
-		return usedVal, totalVal
+	paths.resolve()
+	if paths.vramTotal == "" {
+		return -1, -1
 	}
 
-	return -1, -1
+	totalData, err := os.ReadFile(paths.vramTotal)
+	if err != nil {
+		return -1, -1
+	}
+	totalVal, err := strconv.ParseInt(strings.TrimSpace(string(totalData)), 10, 64)
+	if err != nil {
+		return -1, -1
+	}
+
+	if paths.vramUsedPath == "" {
+		return -1, totalVal
+	}
+
+	usedData, err := os.ReadFile(paths.vramUsedPath)
+	if err != nil {
+		return -1, totalVal
+	}
+	usedVal, err := strconv.ParseInt(strings.TrimSpace(string(usedData)), 10, 64)
+	if err != nil {
+		return -1, totalVal
+	}
+
+	return usedVal, totalVal
 }
 
 // readGPUMemFreq reads GPU memory clock from pp_dpm_mclk (AMD) in MHz.
-// The active frequency line is marked with *. If no line is marked,
-// falls back to the highest level (last entry).
 func readGPUMemFreq() float64 {
-	matches, _ := filepath.Glob("/sys/class/drm/card*/device/pp_dpm_mclk")
-	for _, path := range matches {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-
-		return parseDPMFreq(string(data))
+	paths.resolve()
+	if paths.gpuMemFreq == "" {
+		return -1
 	}
 
-	return -1
+	data, err := os.ReadFile(paths.gpuMemFreq)
+	if err != nil {
+		return -1
+	}
+
+	return parseDPMFreq(string(data))
 }
 
 // parseDPMFreq extracts the active frequency from a pp_dpm_* file.
@@ -383,23 +447,20 @@ func parseDPMFreq(content string) float64 {
 	return lastFreq
 }
 
-// readFanSpeed reads the first available fan speed in RPM from hwmon.
+// readFanSpeed reads the first available fan speed in RPM from cached hwmon path.
 func readFanSpeed() int {
-	hwmonDir := "/sys/class/hwmon"
-	entries, err := os.ReadDir(hwmonDir)
+	paths.resolve()
+	if paths.fanPath == "" {
+		return -1
+	}
+
+	data, err := os.ReadFile(paths.fanPath)
 	if err != nil {
 		return -1
 	}
 
-	for _, entry := range entries {
-		fanPath := filepath.Join(hwmonDir, entry.Name(), "fan1_input")
-		data, err := os.ReadFile(fanPath)
-		if err != nil {
-			continue
-		}
-		if val, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil {
-			return val
-		}
+	if val, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil {
+		return val
 	}
 
 	return -1

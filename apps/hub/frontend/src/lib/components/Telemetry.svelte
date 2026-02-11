@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Card } from '$lib/components/ui';
 	import { telemetry } from '$lib/stores/telemetry';
-	import { EventsOn, EventsOff } from '$lib/wailsjs';
+	import { EventsOn } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 	import type { TelemetryStatus, TelemetryData } from '$lib/types';
 	import { Cpu, MonitorDot, MemoryStick, BatteryCharging, Zap, Fan, Gamepad2 } from 'lucide-svelte';
@@ -23,17 +23,17 @@
 	$effect(() => {
 		if (!browser) return;
 
-		EventsOn('telemetry:status', (event: TelemetryStatus) => {
+		const unsubStatus = EventsOn('telemetry:status', (event: TelemetryStatus) => {
 			telemetry.status.set(event);
 		});
 
-		EventsOn('telemetry:data', (event: TelemetryData) => {
+		const unsubData = EventsOn('telemetry:data', (event: TelemetryData) => {
 			telemetry.data.set(event);
 		});
 
 		return () => {
-			EventsOff('telemetry:status');
-			EventsOff('telemetry:data');
+			unsubStatus();
+			unsubData();
 		};
 	});
 
@@ -109,7 +109,7 @@
 					</div>
 					<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 						<div
-							class="h-full rounded-full transition-all duration-300 {usageColor(data.cpu.usagePercent)}"
+							class="h-full rounded-full transition-[width] duration-300 {usageColor(data.cpu.usagePercent)}"
 							style="width: {Math.max(0, Math.min(100, data.cpu.usagePercent))}%"
 						></div>
 					</div>
@@ -144,7 +144,7 @@
 						</div>
 						<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 							<div
-								class="h-full rounded-full transition-all duration-300 {usageColor(data.gpu.usagePercent)}"
+								class="h-full rounded-full transition-[width] duration-300 {usageColor(data.gpu.usagePercent)}"
 								style="width: {Math.max(0, Math.min(100, data.gpu.usagePercent))}%"
 							></div>
 						</div>
@@ -176,7 +176,7 @@
 						</div>
 						<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 							<div
-								class="h-full rounded-full transition-all duration-300 {usageColor((data.gpu.vramUsedBytes ?? 0) / data.gpu.vramTotalBytes * 100)}"
+								class="h-full rounded-full transition-[width] duration-300 {usageColor((data.gpu.vramUsedBytes ?? 0) / data.gpu.vramTotalBytes * 100)}"
 								style="width: {Math.max(0, Math.min(100, (data.gpu.vramUsedBytes ?? 0) / data.gpu.vramTotalBytes * 100))}%"
 							></div>
 						</div>
@@ -199,7 +199,7 @@
 					</div>
 					<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 						<div
-							class="h-full rounded-full transition-all duration-300 {usageColor(data.memory.usagePercent)}"
+							class="h-full rounded-full transition-[width] duration-300 {usageColor(data.memory.usagePercent)}"
 							style="width: {Math.max(0, Math.min(100, data.memory.usagePercent))}%"
 						></div>
 					</div>
@@ -219,7 +219,7 @@
 							</div>
 							<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 								<div
-									class="h-full rounded-full transition-all duration-300 {usageColor((data.memory.swapTotalBytes - (data.memory.swapFreeBytes ?? 0)) / data.memory.swapTotalBytes * 100)}"
+									class="h-full rounded-full transition-[width] duration-300 {usageColor((data.memory.swapTotalBytes - (data.memory.swapFreeBytes ?? 0)) / data.memory.swapTotalBytes * 100)}"
 									style="width: {Math.max(0, Math.min(100, (data.memory.swapTotalBytes - (data.memory.swapFreeBytes ?? 0)) / data.memory.swapTotalBytes * 100))}%"
 								></div>
 							</div>
@@ -246,7 +246,7 @@
 							{#if data.power.tdpWatts > 0}
 								<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 									<div
-										class="h-full rounded-full transition-all duration-300 {usageColor(data.power.powerWatts / data.power.tdpWatts * 100)}"
+										class="h-full rounded-full transition-[width] duration-300 {usageColor(data.power.powerWatts / data.power.tdpWatts * 100)}"
 										style="width: {Math.max(0, Math.min(100, data.power.powerWatts / data.power.tdpWatts * 100))}%"
 									></div>
 								</div>
@@ -269,7 +269,7 @@
 						</div>
 						<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
 							<div
-								class="h-full rounded-full transition-all duration-300 {usageColor(100 - data.battery.capacity)}"
+								class="h-full rounded-full transition-[width] duration-300 {usageColor(100 - data.battery.capacity)}"
 								style="width: {Math.max(0, Math.min(100, data.battery.capacity))}%"
 							></div>
 						</div>

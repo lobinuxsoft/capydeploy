@@ -3,7 +3,6 @@ package telemetry
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 
@@ -201,31 +200,5 @@ func (c *Collector) collect() protocol.TelemetryData {
 		}
 	}
 
-	if data.CPU != nil || data.GPU != nil || data.Memory != nil {
-		log.Printf("Telemetry: CPU=%.1f%% GPU=%.1f%% MEM=%.1f%%",
-			safePercent(data.CPU), safeGPU(data.GPU), safeMem(data.Memory))
-	}
-
 	return data
-}
-
-func safePercent(cpu *protocol.CPUMetrics) float64 {
-	if cpu == nil {
-		return -1
-	}
-	return cpu.UsagePercent
-}
-
-func safeGPU(gpu *protocol.GPUMetrics) float64 {
-	if gpu == nil {
-		return -1
-	}
-	return gpu.UsagePercent
-}
-
-func safeMem(mem *protocol.MemoryMetrics) float64 {
-	if mem == nil {
-		return -1
-	}
-	return mem.UsagePercent
 }

@@ -8,7 +8,7 @@
 	import { cn } from '$lib/utils';
 	import {
 		GetDiscoveredAgents, RefreshDiscovery, ConnectAgent, DisconnectAgent,
-		GetConnectionStatus, EventsOn, EventsOff
+		GetConnectionStatus, EventsOn
 	} from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 
@@ -99,38 +99,35 @@
 		loadAgents();
 		loadConnectionStatus();
 
-		// Listen for discovery events
-		EventsOn('discovery:agent-found', (agent: DiscoveredAgent) => {
+		const unsubFound = EventsOn('discovery:agent-found', (agent: DiscoveredAgent) => {
 			agents = [...agents.filter(a => a.id !== agent.id), agent];
 		});
 
-		EventsOn('discovery:agent-updated', (agent: DiscoveredAgent) => {
+		const unsubUpdated = EventsOn('discovery:agent-updated', (agent: DiscoveredAgent) => {
 			agents = agents.map(a => a.id === agent.id ? agent : a);
 		});
 
-		EventsOn('discovery:agent-lost', (agentID: string) => {
+		const unsubLost = EventsOn('discovery:agent-lost', (agentID: string) => {
 			agents = agents.filter(a => a.id !== agentID);
 		});
 
-		EventsOn('connection:changed', (status: any) => {
+		const unsubConnection = EventsOn('connection:changed', (status: any) => {
 			connectionStatus.set(status);
 		});
 
-		EventsOn('pairing:required', (agentID: string) => {
-			// Find agent name
+		const unsubPairing = EventsOn('pairing:required', (agentID: string) => {
 			const agent = agents.find(a => a.id === agentID);
 			pairingAgentName = agent?.name || 'Agent';
 			showPairingDialog = true;
 			connecting = null;
 		});
 
-		// Cleanup on destroy
 		return () => {
-			EventsOff('discovery:agent-found');
-			EventsOff('discovery:agent-updated');
-			EventsOff('discovery:agent-lost');
-			EventsOff('connection:changed');
-			EventsOff('pairing:required');
+			unsubFound();
+			unsubUpdated();
+			unsubLost();
+			unsubConnection();
+			unsubPairing();
 		};
 	});
 
