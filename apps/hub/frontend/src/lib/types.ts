@@ -93,12 +93,17 @@ export interface GPUMetrics {
 	usagePercent: number;
 	tempCelsius: number;
 	freqMHz: number;
+	memFreqMHz?: number;
+	vramUsedBytes?: number;
+	vramTotalBytes?: number;
 }
 
 export interface MemoryMetrics {
 	totalBytes: number;
 	availableBytes: number;
 	usagePercent: number;
+	swapTotalBytes?: number;
+	swapFreeBytes?: number;
 }
 
 export interface BatteryMetrics {

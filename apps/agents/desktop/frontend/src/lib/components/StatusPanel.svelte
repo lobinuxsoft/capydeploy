@@ -3,7 +3,7 @@
 	import { Card, Badge, Button, Input } from '$lib/components/ui';
 	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, SetTelemetryEnabled, SetTelemetryInterval, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus, VersionInfo } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight, Activity } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight, Activity, ChevronsUpDown } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let versionInfo = $state<VersionInfo | null>(null);
@@ -141,12 +141,38 @@
 		await SetTelemetryEnabled(!status.telemetryEnabled);
 	}
 
-	async function changeTelemetryInterval(event: Event) {
-		const target = event.target as HTMLSelectElement;
-		const seconds = parseInt(target.value, 10);
-		if (!isNaN(seconds)) {
-			await SetTelemetryInterval(seconds);
+	let intervalDropdownOpen = $state(false);
+	let triggerEl = $state<HTMLButtonElement | null>(null);
+	let menuPos = $state({ top: 0, left: 0 });
+	const intervalOptions = [
+		{ value: 1, label: '1s' },
+		{ value: 2, label: '2s' },
+		{ value: 3, label: '3s' },
+		{ value: 5, label: '5s' },
+		{ value: 10, label: '10s' },
+	];
+
+	function toggleDropdown() {
+		if (!intervalDropdownOpen && triggerEl) {
+			const rect = triggerEl.getBoundingClientRect();
+			menuPos = { top: rect.bottom + 4, left: rect.right };
 		}
+		intervalDropdownOpen = !intervalDropdownOpen;
+	}
+
+	async function selectTelemetryInterval(seconds: number) {
+		intervalDropdownOpen = false;
+		await SetTelemetryInterval(seconds);
+	}
+
+	function handleDropdownKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			intervalDropdownOpen = false;
+		}
+	}
+
+	function closeDropdown() {
+		intervalDropdownOpen = false;
 	}
 
 	function getPlatformIcon(platform: string) {
@@ -352,17 +378,19 @@
 				<div class="mt-3">
 					<div class="flex items-center justify-between mb-3">
 						<span class="text-sm cd-text-disabled">Interval</span>
-						<select
-							class="cd-select text-sm"
-							value={status.telemetryInterval}
-							onchange={changeTelemetryInterval}
-						>
-							<option value={1}>1s</option>
-							<option value={2}>2s</option>
-							<option value={3}>3s</option>
-							<option value={5}>5s</option>
-							<option value={10}>10s</option>
-						</select>
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div onkeydown={handleDropdownKeydown}>
+							<button
+								type="button"
+								class="cd-select-trigger"
+								data-open={intervalDropdownOpen}
+								bind:this={triggerEl}
+								onclick={toggleDropdown}
+							>
+								<span>{intervalOptions.find(o => o.value === status!.telemetryInterval)?.label ?? `${status!.telemetryInterval}s`}</span>
+								<ChevronsUpDown class="w-3 h-3 cd-text-disabled" />
+							</button>
+						</div>
 					</div>
 					<Button
 						variant={status.telemetryEnabled ? 'destructive' : 'gradient'}
@@ -374,6 +402,24 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Interval dropdown (rendered outside cd-section to avoid overflow clip) -->
+		{#if intervalDropdownOpen}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="fixed inset-0 z-40" onclick={closeDropdown} onkeydown={handleDropdownKeydown}></div>
+			<div class="cd-select-menu" style="top:{menuPos.top}px; left:{menuPos.left}px;">
+				{#each intervalOptions as opt}
+					<button
+						type="button"
+						class="cd-select-option"
+						data-selected={opt.value === status.telemetryInterval}
+						onclick={() => selectTelemetryInterval(opt.value)}
+					>
+						{opt.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
 
 		<!-- Pairing Code (shown when a Hub requests pairing) -->
 		{#if pairingCode}

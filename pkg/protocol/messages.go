@@ -398,18 +398,23 @@ type CPUMetrics struct {
 	FreqMHz      float64 `json:"freqMHz"`
 }
 
-// GPUMetrics contains GPU usage, temperature and frequency.
+// GPUMetrics contains GPU usage, temperature, frequency and VRAM.
 type GPUMetrics struct {
-	UsagePercent float64 `json:"usagePercent"`
-	TempCelsius  float64 `json:"tempCelsius"`
-	FreqMHz      float64 `json:"freqMHz"`
+	UsagePercent  float64 `json:"usagePercent"`
+	TempCelsius   float64 `json:"tempCelsius"`
+	FreqMHz       float64 `json:"freqMHz"`
+	MemFreqMHz    float64 `json:"memFreqMHz,omitempty"`
+	VRAMUsedBytes int64   `json:"vramUsedBytes,omitempty"`
+	VRAMTotalBytes int64  `json:"vramTotalBytes,omitempty"`
 }
 
-// MemoryMetrics contains memory usage information.
+// MemoryMetrics contains memory and swap usage information.
 type MemoryMetrics struct {
 	TotalBytes     int64   `json:"totalBytes"`
 	AvailableBytes int64   `json:"availableBytes"`
 	UsagePercent   float64 `json:"usagePercent"`
+	SwapTotalBytes int64   `json:"swapTotalBytes,omitempty"`
+	SwapFreeBytes  int64   `json:"swapFreeBytes,omitempty"`
 }
 
 // BatteryMetrics contains battery status.

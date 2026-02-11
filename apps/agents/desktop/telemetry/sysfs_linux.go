@@ -134,14 +134,14 @@ func readGPUTemp() float64 {
 	return -1
 }
 
-// readMemInfo parses /proc/meminfo to get total and available memory in bytes.
-func readMemInfo() (total, available int64) {
+// readMemInfo parses /proc/meminfo to get total, available, swap total and swap free in bytes.
+func readMemInfo() (total, available, swapTotal, swapFree int64) {
 	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
-		return -1, -1
+		return -1, -1, -1, -1
 	}
 
-	var gotTotal, gotAvailable bool
+	var gotTotal, gotAvailable, gotSwapTotal, gotSwapFree bool
 
 	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(line)
@@ -162,18 +162,30 @@ func readMemInfo() (total, available int64) {
 		case "MemAvailable:":
 			available = val * 1024
 			gotAvailable = true
+		case "SwapTotal:":
+			swapTotal = val * 1024
+			gotSwapTotal = true
+		case "SwapFree:":
+			swapFree = val * 1024
+			gotSwapFree = true
 		}
 
-		if gotTotal && gotAvailable {
+		if gotTotal && gotAvailable && gotSwapTotal && gotSwapFree {
 			break
 		}
 	}
 
 	if !gotTotal {
-		return -1, -1
+		return -1, -1, -1, -1
+	}
+	if !gotSwapTotal {
+		swapTotal = 0
+	}
+	if !gotSwapFree {
+		swapFree = 0
 	}
 
-	return total, available
+	return total, available, swapTotal, swapFree
 }
 
 // readBattery reads battery capacity and status from /sys/class/power_supply/BAT*.
@@ -234,7 +246,8 @@ func readCPUFreq() float64 {
 }
 
 // readGPUFreq reads the current GPU frequency from pp_dpm_sclk (AMD) in MHz.
-// The active frequency line is marked with *.
+// The active frequency line is marked with *. If no line is marked,
+// falls back to the highest level (last entry).
 func readGPUFreq() float64 {
 	matches, _ := filepath.Glob("/sys/class/drm/card*/device/pp_dpm_sclk")
 	for _, path := range matches {
@@ -243,48 +256,36 @@ func readGPUFreq() float64 {
 			continue
 		}
 
-		for _, line := range strings.Split(string(data), "\n") {
-			if !strings.Contains(line, "*") {
-				continue
-			}
-			// Format: "1: 400Mhz *"
-			fields := strings.Fields(line)
-			if len(fields) >= 2 {
-				freqStr := strings.TrimSuffix(fields[1], "Mhz")
-				if val, err := strconv.ParseFloat(freqStr, 64); err == nil {
-					return val
-				}
-			}
-		}
+		return parseDPMFreq(string(data))
 	}
 
 	return -1
 }
 
 // readPowerInfo reads TDP cap and current power draw from hwmon in watts.
+// Scans for any hwmon with power1_cap or power1_average/power1_input.
 func readPowerInfo() (tdpWatts, powerWatts float64) {
+	tdpWatts = -1
+	powerWatts = -1
+
 	hwmonDir := "/sys/class/hwmon"
 	entries, err := os.ReadDir(hwmonDir)
 	if err != nil {
-		return -1, -1
+		return tdpWatts, powerWatts
 	}
 
 	for _, entry := range entries {
 		base := filepath.Join(hwmonDir, entry.Name())
 
-		// Look for a hwmon that has power1_cap (typically amdgpu)
+		// TDP cap (power1_cap) — in microwatts
 		capPath := filepath.Join(base, "power1_cap")
-		capData, err := os.ReadFile(capPath)
-		if err != nil {
-			continue
+		if capData, err := os.ReadFile(capPath); err == nil {
+			if val, err := strconv.ParseInt(strings.TrimSpace(string(capData)), 10, 64); err == nil {
+				tdpWatts = float64(val) / 1000000.0
+			}
 		}
 
-		// power1_cap is in microwatts
-		if val, err := strconv.ParseInt(strings.TrimSpace(string(capData)), 10, 64); err == nil {
-			tdpWatts = float64(val) / 1000000.0
-		}
-
-		// Try power1_average first, then power1_input
+		// Power draw: prefer power1_average, then power1_input — in microwatts
 		for _, name := range []string{"power1_average", "power1_input"} {
 			powerPath := filepath.Join(base, name)
 			powerData, err := os.ReadFile(powerPath)
@@ -302,7 +303,84 @@ func readPowerInfo() (tdpWatts, powerWatts float64) {
 		}
 	}
 
+	return tdpWatts, powerWatts
+}
+
+// readVRAMInfo reads VRAM used and total bytes from AMDGPU sysfs.
+func readVRAMInfo() (used, total int64) {
+	matches, _ := filepath.Glob("/sys/class/drm/card*/device/mem_info_vram_total")
+	for _, totalPath := range matches {
+		totalData, err := os.ReadFile(totalPath)
+		if err != nil {
+			continue
+		}
+		totalVal, err := strconv.ParseInt(strings.TrimSpace(string(totalData)), 10, 64)
+		if err != nil {
+			continue
+		}
+
+		usedPath := strings.Replace(totalPath, "mem_info_vram_total", "mem_info_vram_used", 1)
+		usedData, err := os.ReadFile(usedPath)
+		if err != nil {
+			return -1, totalVal
+		}
+		usedVal, err := strconv.ParseInt(strings.TrimSpace(string(usedData)), 10, 64)
+		if err != nil {
+			return -1, totalVal
+		}
+
+		return usedVal, totalVal
+	}
+
 	return -1, -1
+}
+
+// readGPUMemFreq reads GPU memory clock from pp_dpm_mclk (AMD) in MHz.
+// The active frequency line is marked with *. If no line is marked,
+// falls back to the highest level (last entry).
+func readGPUMemFreq() float64 {
+	matches, _ := filepath.Glob("/sys/class/drm/card*/device/pp_dpm_mclk")
+	for _, path := range matches {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+
+		return parseDPMFreq(string(data))
+	}
+
+	return -1
+}
+
+// parseDPMFreq extracts the active frequency from a pp_dpm_* file.
+// Looks for the line marked with *, falls back to the last entry.
+func parseDPMFreq(content string) float64 {
+	var lastFreq float64 = -1
+
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		freqStr := strings.TrimSuffix(fields[1], "Mhz")
+		val, err := strconv.ParseFloat(freqStr, 64)
+		if err != nil {
+			continue
+		}
+
+		if strings.Contains(line, "*") {
+			return val
+		}
+		lastFreq = val
+	}
+
+	return lastFreq
 }
 
 // readFanSpeed reads the first available fan speed in RPM from hwmon.

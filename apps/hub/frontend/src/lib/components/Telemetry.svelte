@@ -157,8 +157,28 @@
 					{/if}
 					{#if data.gpu.freqMHz >= 0}
 						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Frequency</span>
+							<span class="text-muted-foreground">Core Freq</span>
 							<span class="font-mono">{formatFreq(data.gpu.freqMHz)}</span>
+						</div>
+					{/if}
+					{#if data.gpu.memFreqMHz && data.gpu.memFreqMHz > 0}
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">Mem Freq</span>
+							<span class="font-mono">{formatFreq(data.gpu.memFreqMHz)}</span>
+						</div>
+					{/if}
+					{#if data.gpu.vramTotalBytes && data.gpu.vramTotalBytes > 0}
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">VRAM</span>
+							<span class="font-mono">
+								{formatBytes(data.gpu.vramUsedBytes ?? 0)} / {formatBytes(data.gpu.vramTotalBytes)}
+							</span>
+						</div>
+						<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
+							<div
+								class="h-full rounded-full transition-all duration-300 {usageColor((data.gpu.vramUsedBytes ?? 0) / data.gpu.vramTotalBytes * 100)}"
+								style="width: {Math.max(0, Math.min(100, (data.gpu.vramUsedBytes ?? 0) / data.gpu.vramTotalBytes * 100))}%"
+							></div>
 						</div>
 					{/if}
 				</div>
@@ -189,80 +209,84 @@
 							{formatBytes(data.memory.totalBytes - data.memory.availableBytes)} / {formatBytes(data.memory.totalBytes)}
 						</span>
 					</div>
+					{#if data.memory.swapTotalBytes && data.memory.swapTotalBytes > 0}
+						<div class="border-t border-border my-2 pt-2">
+							<div class="flex justify-between text-sm mb-1">
+								<span class="text-muted-foreground">Swap</span>
+								<span class="font-mono">
+									{formatBytes(data.memory.swapTotalBytes - (data.memory.swapFreeBytes ?? 0))} / {formatBytes(data.memory.swapTotalBytes)}
+								</span>
+							</div>
+							<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
+								<div
+									class="h-full rounded-full transition-all duration-300 {usageColor((data.memory.swapTotalBytes - (data.memory.swapFreeBytes ?? 0)) / data.memory.swapTotalBytes * 100)}"
+									style="width: {Math.max(0, Math.min(100, (data.memory.swapTotalBytes - (data.memory.swapFreeBytes ?? 0)) / data.memory.swapTotalBytes * 100))}%"
+								></div>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</Card>
 		{/if}
 
-		<!-- Power (TDP) -->
-		{#if data.power}
+		<!-- System (Power + Battery + Fan) -->
+		{#if data.power || data.battery || data.fan}
 			<Card class="p-4">
 				<div class="flex items-center gap-2 mb-3">
 					<Zap class="w-5 h-5 text-primary" />
-					<span class="font-medium text-sm">Power</span>
+					<span class="font-medium text-sm">System</span>
 				</div>
 				<div class="space-y-2">
-					{#if data.power.powerWatts > 0}
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Draw</span>
-							<span class="font-mono">{formatWatts(data.power.powerWatts)}</span>
-						</div>
+					{#if data.power}
+						{#if data.power.powerWatts > 0}
+							<div class="flex justify-between text-sm">
+								<span class="text-muted-foreground">Power Draw</span>
+								<span class="font-mono">{formatWatts(data.power.powerWatts)}</span>
+							</div>
+							{#if data.power.tdpWatts > 0}
+								<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
+									<div
+										class="h-full rounded-full transition-all duration-300 {usageColor(data.power.powerWatts / data.power.tdpWatts * 100)}"
+										style="width: {Math.max(0, Math.min(100, data.power.powerWatts / data.power.tdpWatts * 100))}%"
+									></div>
+								</div>
+							{/if}
+						{/if}
 						{#if data.power.tdpWatts > 0}
-							<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
-								<div
-									class="h-full rounded-full transition-all duration-300 {usageColor(data.power.powerWatts / data.power.tdpWatts * 100)}"
-									style="width: {Math.max(0, Math.min(100, data.power.powerWatts / data.power.tdpWatts * 100))}%"
-								></div>
+							<div class="flex justify-between text-sm">
+								<span class="text-muted-foreground">TDP Limit</span>
+								<span class="font-mono">{formatWatts(data.power.tdpWatts)}</span>
 							</div>
 						{/if}
 					{/if}
-					{#if data.power.tdpWatts > 0}
+					{#if data.battery}
+						{#if data.power}
+							<div class="border-t border-border my-2 pt-2"></div>
+						{/if}
 						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">TDP Limit</span>
-							<span class="font-mono">{formatWatts(data.power.tdpWatts)}</span>
+							<span class="text-muted-foreground">Battery</span>
+							<span class="font-mono">{data.battery.capacity}%</span>
+						</div>
+						<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
+							<div
+								class="h-full rounded-full transition-all duration-300 {usageColor(100 - data.battery.capacity)}"
+								style="width: {Math.max(0, Math.min(100, data.battery.capacity))}%"
+							></div>
+						</div>
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">Status</span>
+							<span class="font-mono">{data.battery.status}</span>
 						</div>
 					{/if}
-				</div>
-			</Card>
-		{/if}
-
-		<!-- Battery -->
-		{#if data.battery}
-			<Card class="p-4">
-				<div class="flex items-center gap-2 mb-3">
-					<BatteryCharging class="w-5 h-5 text-primary" />
-					<span class="font-medium text-sm">Battery</span>
-				</div>
-				<div class="space-y-2">
-					<div class="flex justify-between text-sm">
-						<span class="text-muted-foreground">Capacity</span>
-						<span class="font-mono">{data.battery.capacity}%</span>
-					</div>
-					<div class="h-2 w-full rounded-full bg-secondary overflow-hidden">
-						<div
-							class="h-full rounded-full transition-all duration-300 {usageColor(100 - data.battery.capacity)}"
-							style="width: {Math.max(0, Math.min(100, data.battery.capacity))}%"
-						></div>
-					</div>
-					<div class="flex justify-between text-sm">
-						<span class="text-muted-foreground">Status</span>
-						<span class="font-mono">{data.battery.status}</span>
-					</div>
-				</div>
-			</Card>
-		{/if}
-
-		<!-- Fan -->
-		{#if data.fan}
-			<Card class="p-4">
-				<div class="flex items-center gap-2 mb-3">
-					<Fan class="w-5 h-5 text-primary" />
-					<span class="font-medium text-sm">Fan</span>
-				</div>
-				<div class="space-y-2">
-					<div class="flex justify-between text-sm">
-						<span class="text-muted-foreground">Speed</span>
-						<span class="font-mono">{data.fan.rpm} RPM</span>
-					</div>
+					{#if data.fan}
+						{#if data.power || data.battery}
+							<div class="border-t border-border my-2 pt-2"></div>
+						{/if}
+						<div class="flex justify-between text-sm">
+							<span class="text-muted-foreground">Fan</span>
+							<span class="font-mono">{data.fan.rpm} RPM</span>
+						</div>
+					{/if}
 				</div>
 			</Card>
 		{/if}

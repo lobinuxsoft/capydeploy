@@ -136,26 +136,33 @@ func (c *Collector) collect() protocol.TelemetryData {
 	steamFn := c.steamStatusFn
 	c.mu.Unlock()
 
-	// GPU + frequency
+	// GPU + frequency + VRAM
 	gpuUsage := readGPUUsage()
 	gpuTemp := readGPUTemp()
 	gpuFreq := readGPUFreq()
+	gpuMemFreq := readGPUMemFreq()
+	vramUsed, vramTotal := readVRAMInfo()
 	if gpuUsage >= 0 || gpuTemp >= 0 || gpuFreq >= 0 {
 		data.GPU = &protocol.GPUMetrics{
-			UsagePercent: gpuUsage,
-			TempCelsius:  gpuTemp,
-			FreqMHz:      gpuFreq,
+			UsagePercent:   gpuUsage,
+			TempCelsius:    gpuTemp,
+			FreqMHz:        gpuFreq,
+			MemFreqMHz:     gpuMemFreq,
+			VRAMUsedBytes:  vramUsed,
+			VRAMTotalBytes: vramTotal,
 		}
 	}
 
-	// Memory
-	memTotal, memAvailable := readMemInfo()
+	// Memory + Swap
+	memTotal, memAvailable, swapTotal, swapFree := readMemInfo()
 	if memTotal > 0 {
 		usagePercent := float64(memTotal-memAvailable) / float64(memTotal) * 100
 		data.Memory = &protocol.MemoryMetrics{
 			TotalBytes:     memTotal,
 			AvailableBytes: memAvailable,
 			UsagePercent:   usagePercent,
+			SwapTotalBytes: swapTotal,
+			SwapFreeBytes:  swapFree,
 		}
 	}
 
