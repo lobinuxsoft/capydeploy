@@ -64,11 +64,14 @@ func (a *App) ConnectAgent(agentID string) error {
 	// Set callbacks for push events
 	wsClient.SetCallbacks(
 		func() {
-			// On disconnect
+			// On disconnect — guard against shutdown (WebView already gone)
 			a.mu.Lock()
 			a.connectedAgent = nil
+			shutting := a.shuttingDown
 			a.mu.Unlock()
-			runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+			if !shutting {
+				runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+			}
 		},
 		func(event protocol.UploadProgressEvent) {
 			// On upload progress
@@ -89,6 +92,14 @@ func (a *App) ConnectAgent(agentID string) error {
 		func(event protocol.TelemetryData) {
 			// On telemetry data
 			runtime.EventsEmit(a.ctx, "telemetry:data", event)
+		},
+		func(event protocol.ConsoleLogStatusEvent) {
+			// On console log status
+			runtime.EventsEmit(a.ctx, "consolelog:status", event)
+		},
+		func(event protocol.ConsoleLogBatch) {
+			// On console log data
+			runtime.EventsEmit(a.ctx, "consolelog:data", event)
 		},
 	)
 
@@ -150,10 +161,12 @@ func (a *App) DisconnectAgent() {
 		a.connectedAgent.WSClient.Close()
 	}
 	a.connectedAgent = nil
+	shutting := a.shuttingDown
 	a.mu.Unlock()
 
-	// Emit connection status change
-	runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+	if !shutting {
+		runtime.EventsEmit(a.ctx, "connection:changed", a.GetConnectionStatus())
+	}
 }
 
 // ConfirmPairing confirms a pairing with the connected agent using the provided code.

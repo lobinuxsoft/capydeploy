@@ -87,6 +87,9 @@ func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
 	if ws.server.cfg.GetTelemetryInterval != nil {
 		statusResp.TelemetryInterval = ws.server.cfg.GetTelemetryInterval()
 	}
+	if ws.server.cfg.GetConsoleLogEnabled != nil {
+		statusResp.ConsoleLogEnabled = ws.server.cfg.GetConsoleLogEnabled()
+	}
 
 	resp, _ := msg.Reply(protocol.MsgTypeAgentStatus, statusResp)
 	ws.send(hub, resp)
@@ -98,6 +101,9 @@ func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
 
 	// Start telemetry if enabled
 	ws.server.StartTelemetry()
+
+	// Start console log if enabled
+	ws.server.StartConsoleLog()
 }
 
 // handlePairConfirm processes a pairing confirmation from the Hub.

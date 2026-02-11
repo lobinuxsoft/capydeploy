@@ -17,6 +17,7 @@ export const GetAuthorizedHubs = App.GetAuthorizedHubs;
 export const RevokeHub = App.RevokeHub;
 export const SetTelemetryEnabled = App.SetTelemetryEnabled;
 export const SetTelemetryInterval = App.SetTelemetryInterval;
+export const SetConsoleLogEnabled = App.SetConsoleLogEnabled;
 
 // Runtime
 export const EventsOn = runtime.EventsOn;

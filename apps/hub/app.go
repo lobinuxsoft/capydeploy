@@ -22,6 +22,7 @@ type App struct {
 	discoveredMu    sync.RWMutex
 	discoveredCache map[string]*discovery.DiscoveredAgent
 	mu              sync.RWMutex
+	shuttingDown    bool
 	tokenStore      *auth.TokenStore
 	configMgr       *hubconfig.Manager
 }
@@ -125,10 +126,16 @@ func (a *App) startup(ctx context.Context) {
 	go a.runDiscovery()
 }
 
-// shutdown is called when the app is closing
+// shutdown is called when the app is closing.
+// The WebView is already destroyed at this point, so no EventsEmit calls.
 func (a *App) shutdown(ctx context.Context) {
-	// Disconnect from agent
-	a.DisconnectAgent()
+	a.mu.Lock()
+	a.shuttingDown = true
+	if a.connectedAgent != nil && a.connectedAgent.WSClient != nil {
+		a.connectedAgent.WSClient.Close()
+	}
+	a.connectedAgent = nil
+	a.mu.Unlock()
 
 	// Cancel discovery goroutine context
 	if a.discoveryCancel != nil {

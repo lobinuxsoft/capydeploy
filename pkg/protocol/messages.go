@@ -72,10 +72,12 @@ const (
 	MsgTypeError             MessageType = "error"
 
 	// Events from Agent to Hub (push notifications)
-	MsgTypeUploadProgress  MessageType = "upload_progress"
-	MsgTypeOperationEvent  MessageType = "operation_event"
-	MsgTypeTelemetryStatus MessageType = "telemetry_status"
-	MsgTypeTelemetryData   MessageType = "telemetry_data"
+	MsgTypeUploadProgress    MessageType = "upload_progress"
+	MsgTypeOperationEvent    MessageType = "operation_event"
+	MsgTypeTelemetryStatus   MessageType = "telemetry_status"
+	MsgTypeTelemetryData     MessageType = "telemetry_data"
+	MsgTypeConsoleLogStatus  MessageType = "console_log_status"
+	MsgTypeConsoleLogData    MessageType = "console_log_data"
 )
 
 // WSError represents an error in a WebSocket message.
@@ -258,6 +260,7 @@ type AgentStatusResponse struct {
 	AcceptConnections bool   `json:"acceptConnections"`
 	TelemetryEnabled  bool   `json:"telemetryEnabled"`
 	TelemetryInterval int    `json:"telemetryInterval"`
+	ConsoleLogEnabled bool   `json:"consoleLogEnabled"`
 }
 
 // PairingRequiredResponse is sent when a Hub needs to pair.
@@ -500,6 +503,36 @@ type ArtworkImageResponse struct {
 	Success     bool   `json:"success"`
 	ArtworkType string `json:"artworkType"`
 	Error       string `json:"error,omitempty"`
+}
+
+// Console log payloads
+
+// ConsoleLogStatusEvent is sent when console log streaming is enabled/disabled.
+type ConsoleLogStatusEvent struct {
+	Enabled bool `json:"enabled"`
+}
+
+// StyledSegment represents a text segment with optional CSS styling from console %c directives.
+type StyledSegment struct {
+	Text string `json:"text"`
+	CSS  string `json:"css,omitempty"`
+}
+
+// ConsoleLogEntry represents a single console log entry from CEF/CDP.
+type ConsoleLogEntry struct {
+	Timestamp int64            `json:"timestamp"`
+	Level     string           `json:"level"`
+	Source    string           `json:"source"`
+	Text      string           `json:"text"`
+	URL       string           `json:"url,omitempty"`
+	Line      int              `json:"line,omitempty"`
+	Segments  []StyledSegment  `json:"segments,omitempty"`
+}
+
+// ConsoleLogBatch contains a batch of console log entries.
+type ConsoleLogBatch struct {
+	Entries []ConsoleLogEntry `json:"entries"`
+	Dropped int               `json:"dropped"`
 }
 
 // Steam control payloads

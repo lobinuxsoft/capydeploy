@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Save, Loader2, Info, Server } from 'lucide-svelte';
+	import { ExternalLink, Save, Loader2, Info, Server, RotateCcw } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
 		GetVersion,
@@ -10,6 +10,7 @@
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import type { VersionInfo } from '$lib/types';
+	import { consoleColors, DEFAULT_COLORS, type ConsoleColors } from '$lib/stores/consolelog';
 
 	let hubName = $state('');
 	let hubId = $state('');
@@ -18,6 +19,16 @@
 	let apiKey = $state('');
 	let saving = $state(false);
 	let versionInfo = $state<VersionInfo | null>(null);
+
+	let logColors = $state<ConsoleColors>({ ...DEFAULT_COLORS });
+
+	const colorLabels: { key: keyof ConsoleColors; label: string }[] = [
+		{ key: 'error', label: 'Error' },
+		{ key: 'warn', label: 'Warning' },
+		{ key: 'info', label: 'Info' },
+		{ key: 'debug', label: 'Debug' },
+		{ key: 'log', label: 'Log' }
+	];
 
 	async function loadSettings() {
 		if (!browser) return;
@@ -76,7 +87,17 @@
 	$effect(() => {
 		if (!browser) return;
 		loadSettings();
+		const unsub = consoleColors.subscribe((c) => (logColors = c));
+		return unsub;
 	});
+
+	function handleColorChange(key: keyof ConsoleColors, value: string) {
+		consoleColors.updateColors({ [key]: value });
+	}
+
+	function resetLogColors() {
+		consoleColors.resetColors();
+	}
 </script>
 
 <div class="space-y-4">
@@ -156,6 +177,43 @@
 		{/if}
 		Save Settings
 	</Button>
+
+	<!-- Console Log Colors -->
+	<div class="cd-section p-4">
+		<div class="flex items-center justify-between mb-4">
+			<div>
+				<h3 class="cd-section-title">Console Log Colors</h3>
+				<p class="text-sm cd-text-disabled">Customize log level colors in the console viewer.</p>
+			</div>
+			<Button variant="outline" onclick={resetLogColors} class="text-xs">
+				<RotateCcw class="w-3 h-3 mr-1" />
+				Reset
+			</Button>
+		</div>
+
+		<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+			{#each colorLabels as { key, label }}
+				<div class="flex items-center gap-2">
+					<input
+						type="color"
+						value={logColors[key]}
+						oninput={(e) => handleColorChange(key, (e.target as HTMLInputElement).value)}
+						class="w-8 h-8 rounded border border-border cursor-pointer bg-transparent"
+					/>
+					<div class="flex flex-col">
+						<span class="text-sm font-medium">{label}</span>
+						<span class="text-[10px] font-mono cd-text-disabled">{logColors[key]}</span>
+					</div>
+					<span
+						class="ml-auto text-xs font-mono px-2 py-0.5 rounded"
+						style="color: {logColors[key]}; background: {logColors[key]}20"
+					>
+						sample
+					</span>
+				</div>
+			{/each}
+		</div>
+	</div>
 
 	<!-- About Section -->
 	<div class="cd-section p-4">

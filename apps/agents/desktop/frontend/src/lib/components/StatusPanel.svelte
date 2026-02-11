@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, SetTelemetryEnabled, SetTelemetryInterval, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { Card, Badge, Button, Input, Toggle } from '$lib/components/ui';
+	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, SetTelemetryEnabled, SetTelemetryInterval, SetConsoleLogEnabled, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus, VersionInfo } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight, Activity, ChevronsUpDown } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight, Activity, ChevronsUpDown, Terminal } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let versionInfo = $state<VersionInfo | null>(null);
@@ -50,11 +50,6 @@
 		} catch (e) {
 			console.error('Error selecting folder:', e);
 		}
-	}
-
-	async function toggleConnections() {
-		if (!status) return;
-		await SetAcceptConnections(!status.acceptConnections);
 	}
 
 	async function disconnect() {
@@ -136,9 +131,14 @@
 		};
 	});
 
-	async function toggleTelemetry() {
+	async function toggleTelemetry(checked: boolean) {
 		if (!status) return;
-		await SetTelemetryEnabled(!status.telemetryEnabled);
+		await SetTelemetryEnabled(checked);
+	}
+
+	async function toggleConsoleLog(checked: boolean) {
+		if (!status) return;
+		await SetConsoleLogEnabled(checked);
 	}
 
 	let intervalDropdownOpen = $state(false);
@@ -369,9 +369,7 @@
 					<Activity class="w-4 h-4 cd-text-disabled" />
 					<span class="cd-section-title">Telemetry</span>
 				</button>
-				<Badge variant={status.telemetryEnabled ? 'success' : 'warning'}>
-					{status.telemetryEnabled ? 'Sending' : 'Off'}
-				</Badge>
+				<Toggle checked={status.telemetryEnabled} onchange={toggleTelemetry} />
 			</div>
 
 			{#if expandedSections.has('telemetry')}
@@ -392,13 +390,12 @@
 							</button>
 						</div>
 					</div>
-					<Button
-						variant={status.telemetryEnabled ? 'destructive' : 'gradient'}
-						class="w-full"
-						onclick={toggleTelemetry}
-					>
-						{status.telemetryEnabled ? 'Stop Sending' : 'Enable Sending'}
-					</Button>
+					{#if status.telemetryEnabled}
+						<div class="flex items-center gap-2 text-sm">
+							<span class="cd-pulse"></span>
+							<span class="cd-status-connected">Sending hardware metrics</span>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -420,6 +417,40 @@
 				{/each}
 			</div>
 		{/if}
+
+		<!-- Console Log -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between">
+				<button
+					type="button"
+					class="flex items-center gap-2 hover:text-primary transition-colors"
+					onclick={() => toggleSection('consolelog')}
+				>
+					{#if expandedSections.has('consolelog')}
+						<ChevronDown class="w-4 h-4 cd-text-primary" />
+					{:else}
+						<ChevronRight class="w-4 h-4 cd-text-disabled" />
+					{/if}
+					<Terminal class="w-4 h-4 cd-text-disabled" />
+					<span class="cd-section-title">Console Log</span>
+				</button>
+				<Toggle checked={status.consoleLogEnabled} onchange={toggleConsoleLog} />
+			</div>
+
+			{#if expandedSections.has('consolelog')}
+				<div class="mt-3">
+					<p class="text-xs cd-text-disabled">
+						Stream Steam CEF console output to the Hub for remote debugging.
+					</p>
+					{#if status.consoleLogEnabled}
+						<div class="flex items-center gap-2 text-sm mt-2">
+							<span class="cd-pulse"></span>
+							<span class="cd-status-connected">Streaming console logs</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
 
 		<!-- Pairing Code (shown when a Hub requests pairing) -->
 		{#if pairingCode}
@@ -460,9 +491,10 @@
 					{/if}
 					<span class="cd-section-title">Connections</span>
 				</button>
-				<Badge variant={status.acceptConnections ? 'success' : 'warning'}>
-					{status.acceptConnections ? 'Accepting' : 'Blocked'}
-				</Badge>
+				<Toggle
+					checked={status.acceptConnections}
+					onchange={(checked) => SetAcceptConnections(checked)}
+				/>
 			</div>
 
 			{#if expandedSections.has('connections')}
@@ -474,19 +506,24 @@
 							<span class="cd-status-connected">{status.connectedHub.name}</span>
 							<span class="text-xs cd-text-disabled">({status.connectedHub.ip})</span>
 						</div>
+						<Button
+							variant="destructive"
+							size="sm"
+							class="w-full"
+							onclick={disconnect}
+						>
+							<Unplug class="w-3 h-3 mr-1" />
+							Disconnect Hub
+						</Button>
 					{:else if !status.acceptConnections}
-						<p class="text-xs cd-text-disabled mb-3">
+						<p class="text-xs cd-text-disabled">
 							The Hub can see this agent but cannot perform operations
 						</p>
+					{:else}
+						<p class="text-xs cd-text-disabled">
+							Waiting for a Hub connection...
+						</p>
 					{/if}
-
-					<Button
-						variant={status.acceptConnections ? 'destructive' : 'gradient'}
-						class="w-full"
-						onclick={toggleConnections}
-					>
-						{status.acceptConnections ? 'Block Operations' : 'Allow Operations'}
-					</Button>
 				</div>
 			{/if}
 		</div>

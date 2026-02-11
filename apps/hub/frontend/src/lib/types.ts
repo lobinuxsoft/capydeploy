@@ -125,6 +125,31 @@ export interface SteamStatusData {
 	gamingMode: boolean;
 }
 
+// Console log types
+export interface ConsoleLogStatus {
+	enabled: boolean;
+}
+
+export interface StyledSegment {
+	text: string;
+	css?: string;
+}
+
+export interface ConsoleLogEntry {
+	timestamp: number;
+	level: string;
+	source: string;
+	text: string;
+	url?: string;
+	line?: number;
+	segments?: StyledSegment[];
+}
+
+export interface ConsoleLogBatch {
+	entries: ConsoleLogEntry[];
+	dropped: number;
+}
+
 // SteamGridDB types
 export interface SearchResult {
 	id: number;

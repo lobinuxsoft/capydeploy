@@ -27,6 +27,7 @@ type Config struct {
 	InstallPath       string          `json:"installPath"`
 	TelemetryEnabled  bool            `json:"telemetryEnabled"`
 	TelemetryInterval int             `json:"telemetryInterval"`
+	ConsoleLogEnabled bool            `json:"consoleLogEnabled"`
 	AuthorizedHubs    []AuthorizedHub `json:"authorizedHubs,omitempty"`
 }
 
@@ -87,6 +88,7 @@ func (m *Manager) load() {
 	if cfg.TelemetryInterval >= 1 && cfg.TelemetryInterval <= 10 {
 		m.config.TelemetryInterval = cfg.TelemetryInterval
 	}
+	m.config.ConsoleLogEnabled = cfg.ConsoleLogEnabled
 	if len(cfg.AuthorizedHubs) > 0 {
 		m.config.AuthorizedHubs = cfg.AuthorizedHubs
 	}
@@ -185,6 +187,22 @@ func (m *Manager) SetTelemetryInterval(seconds int) error {
 
 	m.mu.Lock()
 	m.config.TelemetryInterval = seconds
+	m.mu.Unlock()
+
+	return m.Save()
+}
+
+// GetConsoleLogEnabled returns whether console log streaming is enabled.
+func (m *Manager) GetConsoleLogEnabled() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.config.ConsoleLogEnabled
+}
+
+// SetConsoleLogEnabled sets the console log enabled state and saves config.
+func (m *Manager) SetConsoleLogEnabled(enabled bool) error {
+	m.mu.Lock()
+	m.config.ConsoleLogEnabled = enabled
 	m.mu.Unlock()
 
 	return m.Save()

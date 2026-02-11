@@ -50,12 +50,14 @@ type Client struct {
 	saveToken func(agentID, token string) error
 
 	// Callbacks
-	onDisconnect      func()
-	onUploadProgress  func(event protocol.UploadProgressEvent)
-	onOperationEvent  func(event protocol.OperationEvent)
-	onTelemetryStatus func(event protocol.TelemetryStatusEvent)
-	onTelemetryData   func(event protocol.TelemetryData)
-	onPairingRequired func(agentID string)
+	onDisconnect        func()
+	onUploadProgress    func(event protocol.UploadProgressEvent)
+	onOperationEvent    func(event protocol.OperationEvent)
+	onTelemetryStatus   func(event protocol.TelemetryStatusEvent)
+	onTelemetryData     func(event protocol.TelemetryData)
+	onConsoleLogStatus  func(event protocol.ConsoleLogStatusEvent)
+	onConsoleLogData    func(event protocol.ConsoleLogBatch)
+	onPairingRequired   func(agentID string)
 }
 
 // NewClient creates a new WebSocket client for an Agent.
@@ -99,6 +101,8 @@ func (c *Client) SetCallbacks(
 	onOperationEvent func(protocol.OperationEvent),
 	onTelemetryStatus func(protocol.TelemetryStatusEvent),
 	onTelemetryData func(protocol.TelemetryData),
+	onConsoleLogStatus func(protocol.ConsoleLogStatusEvent),
+	onConsoleLogData func(protocol.ConsoleLogBatch),
 ) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -107,6 +111,8 @@ func (c *Client) SetCallbacks(
 	c.onOperationEvent = onOperationEvent
 	c.onTelemetryStatus = onTelemetryStatus
 	c.onTelemetryData = onTelemetryData
+	c.onConsoleLogStatus = onConsoleLogStatus
+	c.onConsoleLogData = onConsoleLogData
 }
 
 // Connect establishes the WebSocket connection to the Agent.
@@ -427,6 +433,26 @@ func (c *Client) handleTextMessage(data []byte) {
 				callback(event)
 			}
 		}
+	case protocol.MsgTypeConsoleLogStatus:
+		var event protocol.ConsoleLogStatusEvent
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onConsoleLogStatus
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
+	case protocol.MsgTypeConsoleLogData:
+		var event protocol.ConsoleLogBatch
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onConsoleLogData
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
 	default:
 		log.Printf("WS Client: Unhandled message type: %s", msg.Type)
 	}
@@ -435,6 +461,11 @@ func (c *Client) handleTextMessage(data []byte) {
 // handleDisconnect handles connection loss.
 func (c *Client) handleDisconnect() {
 	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return
+	}
+	c.closed = true
 	c.conn = nil
 
 	// Cancel all pending requests
@@ -443,7 +474,20 @@ func (c *Client) handleDisconnect() {
 		delete(c.requests, id)
 	}
 
+	// Close closeCh to terminate writePump
+	if c.closeCh != nil {
+		close(c.closeCh)
+	}
+
+	// Clear callbacks to release closure references
 	callback := c.onDisconnect
+	c.onDisconnect = nil
+	c.onUploadProgress = nil
+	c.onOperationEvent = nil
+	c.onTelemetryStatus = nil
+	c.onTelemetryData = nil
+	c.onConsoleLogStatus = nil
+	c.onConsoleLogData = nil
 	c.mu.Unlock()
 
 	log.Printf("WS Client: Disconnected")

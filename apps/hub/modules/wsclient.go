@@ -88,8 +88,10 @@ func (c *WSClient) SetCallbacks(
 	onOperationEvent func(protocol.OperationEvent),
 	onTelemetryStatus func(protocol.TelemetryStatusEvent),
 	onTelemetryData func(protocol.TelemetryData),
+	onConsoleLogStatus func(protocol.ConsoleLogStatusEvent),
+	onConsoleLogData func(protocol.ConsoleLogBatch),
 ) {
-	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent, onTelemetryStatus, onTelemetryData)
+	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent, onTelemetryStatus, onTelemetryData, onConsoleLogStatus, onConsoleLogData)
 }
 
 // PlatformClient implementation

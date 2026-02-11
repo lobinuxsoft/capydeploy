@@ -313,8 +313,9 @@ func (ws *WSServer) closeHub(hub *HubConnection) {
 	hub.closed = true
 	hub.closeMu.Unlock()
 
-	// Stop telemetry when Hub disconnects
+	// Stop telemetry and console log when Hub disconnects
 	ws.server.StopTelemetry()
+	ws.server.StopConsoleLog()
 
 	close(hub.closeCh)
 	hub.conn.Close()
