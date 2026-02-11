@@ -1,18 +1,25 @@
 <script lang="ts">
-	import { consolelog, consoleColors, type ConsoleColors } from '$lib/stores/consolelog';
-	import { EventsOn } from '$lib/wailsjs';
+	import { consolelog, consoleColors, type ConsoleColors, type ConsoleLogEntryWithId } from '$lib/stores/consolelog';
+	import { EventsOn, SetConsoleLogFilter } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
-	import type { ConsoleLogStatus, ConsoleLogEntry, ConsoleLogBatch } from '$lib/types';
+	import type { ConsoleLogStatus, ConsoleLogBatch } from '$lib/types';
+	import {
+		LOG_LEVEL_LOG,
+		LOG_LEVEL_WARN,
+		LOG_LEVEL_ERROR,
+		LOG_LEVEL_INFO,
+		LOG_LEVEL_DEBUG,
+		LOG_LEVEL_DEFAULT
+	} from '$lib/types';
 	import { Terminal, Trash2 } from 'lucide-svelte';
 	import { sanitizeCSS } from '$lib/console-format';
-	import { DropdownSelect } from '$lib/components/ui';
 
-	const levelOptions = [
-		{ value: 'all', label: 'All Levels' },
-		{ value: 'log', label: 'Log' },
-		{ value: 'warn', label: 'Warn' },
-		{ value: 'error', label: 'Error' },
-		{ value: 'info', label: 'Info' }
+	const levelToggles = [
+		{ key: 'log', label: 'Log', bit: LOG_LEVEL_LOG },
+		{ key: 'warn', label: 'Warn', bit: LOG_LEVEL_WARN },
+		{ key: 'error', label: 'Error', bit: LOG_LEVEL_ERROR },
+		{ key: 'info', label: 'Info', bit: LOG_LEVEL_INFO },
+		{ key: 'debug', label: 'Debug', bit: LOG_LEVEL_DEBUG }
 	];
 
 	const sourceOptions = [
@@ -23,13 +30,13 @@
 		{ value: 'other', label: 'Other' }
 	];
 
-	let status = $state<ConsoleLogStatus>({ enabled: false });
-	let entries = $state<ConsoleLogEntry[]>([]);
+	let status = $state<ConsoleLogStatus>({ enabled: false, levelMask: LOG_LEVEL_DEFAULT });
+	let entries = $state<ConsoleLogEntryWithId[]>([]);
 	let totalDropped = $state<number>(0);
 	let colors = $state<ConsoleColors>({ error: '#f87171', warn: '#facc15', info: '#60a5fa', debug: '#71717a', log: '#f1f5f9' });
+	let levelMask = $state<number>(LOG_LEVEL_DEFAULT);
 
 	// Filters
-	let levelFilter = $state('all');
 	let sourceFilter = $state('all');
 	let searchText = $state('');
 
@@ -57,6 +64,9 @@
 
 		const unsubStatus = EventsOn('consolelog:status', (event: ConsoleLogStatus) => {
 			consolelog.status.set(event);
+			if (event.levelMask !== undefined) {
+				levelMask = event.levelMask;
+			}
 		});
 
 		const unsubData = EventsOn('consolelog:data', (event: ConsoleLogBatch) => {
@@ -69,9 +79,15 @@
 		};
 	});
 
+	function handleToggle(bit: number) {
+		levelMask = levelMask ^ bit;
+		SetConsoleLogFilter(levelMask).catch((err: unknown) => {
+			console.error('Failed to set console log filter:', err);
+		});
+	}
+
 	// Auto-scroll to bottom when new entries arrive
 	$effect(() => {
-		// Track entries length to trigger effect
 		const _ = entries.length;
 		if (autoScroll && logContainer) {
 			requestAnimationFrame(() => {
@@ -85,13 +101,24 @@
 	function handleScroll() {
 		if (!logContainer) return;
 		const { scrollTop, scrollHeight, clientHeight } = logContainer;
-		// Auto-scroll if within 50px of bottom
 		autoScroll = scrollHeight - scrollTop - clientHeight < 50;
+	}
+
+	function levelBit(level: string): number {
+		switch (level) {
+			case 'log': return LOG_LEVEL_LOG;
+			case 'warn': case 'warning': return LOG_LEVEL_WARN;
+			case 'error': return LOG_LEVEL_ERROR;
+			case 'info': return LOG_LEVEL_INFO;
+			case 'debug': case 'verbose': return LOG_LEVEL_DEBUG;
+			default: return 0;
+		}
 	}
 
 	let filteredEntries = $derived(
 		entries.filter((entry) => {
-			if (levelFilter !== 'all' && entry.level !== levelFilter) return false;
+			const bit = levelBit(entry.level);
+			if (bit !== 0 && (levelMask & bit) === 0) return false;
 			if (sourceFilter !== 'all' && entry.source !== sourceFilter) return false;
 			if (searchText && !entry.text.toLowerCase().includes(searchText.toLowerCase())) return false;
 			return true;
@@ -149,8 +176,27 @@
 {:else}
 	<!-- Toolbar -->
 	<div class="flex items-center gap-2 mb-3 flex-wrap">
-		<DropdownSelect options={levelOptions} bind:value={levelFilter} />
-		<DropdownSelect options={sourceOptions} bind:value={sourceFilter} />
+		<!-- Level toggle buttons -->
+		<div class="flex items-center gap-0.5">
+			{#each levelToggles as toggle (toggle.key)}
+				<button
+					type="button"
+					onmousedown={(e) => { e.preventDefault(); handleToggle(toggle.bit); }}
+					class="text-[10px] font-medium uppercase px-2 py-0.5 rounded border cursor-pointer select-none transition-all {levelMask & toggle.bit ? 'opacity-100 bg-primary/25 border-primary text-primary' : 'opacity-50 bg-secondary border-border text-muted-foreground hover:opacity-75'}"
+				>
+					{toggle.label}
+				</button>
+			{/each}
+		</div>
+
+		<select
+			bind:value={sourceFilter}
+			class="text-xs px-2 py-1 rounded border border-border bg-secondary text-foreground cursor-pointer"
+		>
+			{#each sourceOptions as opt (opt.value)}
+				<option value={opt.value}>{opt.label}</option>
+			{/each}
+		</select>
 
 		<input
 			type="text"
@@ -160,6 +206,7 @@
 		/>
 
 		<button
+			type="button"
 			onclick={() => consolelog.clear()}
 			class="text-xs bg-secondary border border-border rounded px-2 py-1.5 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
 		>
@@ -183,7 +230,7 @@
 		class="bg-zinc-950 rounded border border-border overflow-auto font-mono text-xs leading-relaxed"
 		style="max-height: 500px;"
 	>
-		{#each filteredEntries as entry (entry.timestamp + entry.text)}
+		{#each filteredEntries as entry (entry.id)}
 			<div class="flex gap-2 px-3 py-0.5 hover:bg-zinc-900/50 border-b border-zinc-900">
 				<span class="text-zinc-600 shrink-0">{formatTime(entry.timestamp)}</span>
 				<span class="shrink-0 px-1 rounded text-[10px] font-medium uppercase" style={levelBadgeStyle(entry.level)}>
@@ -199,6 +246,7 @@
 
 		{#if !autoScroll}
 			<button
+				type="button"
 				onclick={() => {
 					autoScroll = true;
 					if (logContainer) logContainer.scrollTop = logContainer.scrollHeight;

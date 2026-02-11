@@ -63,6 +63,8 @@ export function SelectArtworkFile():Promise<main.ArtworkFileResult>;
 
 export function SelectFolder():Promise<string>;
 
+export function SetConsoleLogFilter(arg1:number):Promise<void>;
+
 export function SetHubName(arg1:string):Promise<void>;
 
 export function SetImageCacheEnabled(arg1:boolean):Promise<void>;

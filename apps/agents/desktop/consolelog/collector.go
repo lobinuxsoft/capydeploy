@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
@@ -23,6 +24,9 @@ type Collector struct {
 	sendFn func(protocol.ConsoleLogBatch)
 	cancel context.CancelFunc
 
+	// Level filter bitmask (atomic for lock-free reads in hot path)
+	levelMask atomic.Uint32
+
 	// Ring buffer state
 	buffer  []protocol.ConsoleLogEntry
 	dropped int
@@ -31,7 +35,19 @@ type Collector struct {
 // NewCollector creates a new console log collector.
 // sendFn is called each flush with a batch of entries.
 func NewCollector(sendFn func(protocol.ConsoleLogBatch)) *Collector {
-	return &Collector{sendFn: sendFn}
+	c := &Collector{sendFn: sendFn}
+	c.levelMask.Store(protocol.LogLevelDefault)
+	return c
+}
+
+// SetLevelMask sets the log level bitmask filter.
+func (c *Collector) SetLevelMask(mask uint32) {
+	c.levelMask.Store(mask)
+}
+
+// GetLevelMask returns the current log level bitmask filter.
+func (c *Collector) GetLevelMask() uint32 {
+	return c.levelMask.Load()
 }
 
 // Start begins streaming console logs from CDP.
@@ -183,22 +199,18 @@ func (c *Collector) readLoop(ctx context.Context, conn *cdpConn) error {
 	}
 }
 
-// skippedLevels are log levels filtered out at collection time to avoid
-// buffer pollution from framework noise (e.g. Decky WSRouter debug spam).
-var skippedLevels = map[string]bool{
-	"debug":   true,
-	"verbose": true,
-}
-
 // handleCDPEvent processes a CDP event and adds entries to the buffer.
 func (c *Collector) handleCDPEvent(event *cdpEvent) {
+	mask := c.levelMask.Load()
+
 	switch event.Method {
 	case "Runtime.consoleAPICalled":
 		var params consoleAPICalledParams
 		if err := json.Unmarshal(event.Params, &params); err != nil {
 			return
 		}
-		if skippedLevels[params.Type] {
+		bit := protocol.LogLevelBit(params.Type)
+		if bit == 0 || mask&bit == 0 {
 			return
 		}
 		parsed := formatConsoleArgsRich(params.Args)
@@ -218,7 +230,8 @@ func (c *Collector) handleCDPEvent(event *cdpEvent) {
 		if err := json.Unmarshal(event.Params, &params); err != nil {
 			return
 		}
-		if skippedLevels[params.Entry.Level] {
+		bit := protocol.LogLevelBit(params.Entry.Level)
+		if bit == 0 || mask&bit == 0 {
 			return
 		}
 		c.addEntry(protocol.ConsoleLogEntry{

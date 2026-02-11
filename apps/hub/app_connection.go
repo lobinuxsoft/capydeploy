@@ -251,6 +251,23 @@ func (a *App) GetConnectionStatus() ConnectionStatus {
 	}
 }
 
+// SetConsoleLogFilter sends a log level bitmask to the connected agent.
+func (a *App) SetConsoleLogFilter(mask uint32) error {
+	a.mu.RLock()
+	if a.connectedAgent == nil || a.connectedAgent.WSClient == nil {
+		a.mu.RUnlock()
+		return fmt.Errorf("no agent connected")
+	}
+	wsClient := a.connectedAgent.WSClient
+	a.mu.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := wsClient.SetConsoleLogFilter(ctx, mask)
+	return err
+}
+
 // GetAgentInstallPath returns the install path from the connected agent
 func (a *App) GetAgentInstallPath() (string, error) {
 	a.mu.RLock()

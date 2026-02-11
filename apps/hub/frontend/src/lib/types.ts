@@ -126,8 +126,16 @@ export interface SteamStatusData {
 }
 
 // Console log types
+export const LOG_LEVEL_LOG = 1;
+export const LOG_LEVEL_WARN = 2;
+export const LOG_LEVEL_ERROR = 4;
+export const LOG_LEVEL_INFO = 8;
+export const LOG_LEVEL_DEBUG = 16;
+export const LOG_LEVEL_DEFAULT = LOG_LEVEL_LOG | LOG_LEVEL_WARN | LOG_LEVEL_ERROR | LOG_LEVEL_INFO; // 15
+
 export interface ConsoleLogStatus {
 	enabled: boolean;
+	levelMask: number;
 }
 
 export interface StyledSegment {

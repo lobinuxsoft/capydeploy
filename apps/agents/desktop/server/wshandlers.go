@@ -465,6 +465,23 @@ func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID 
 	ws.send(hub, resp)
 }
 
+// handleSetConsoleLogFilter updates the console log level bitmask filter.
+func (ws *WSServer) handleSetConsoleLogFilter(hub *HubConnection, msg *protocol.Message) {
+	var req protocol.SetConsoleLogFilterRequest
+	if err := msg.ParsePayload(&req); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeBadRequest, "invalid payload")
+		return
+	}
+
+	ws.server.consoleLog.SetLevelMask(req.LevelMask)
+	log.Printf("WS: Console log filter updated: mask=0x%02x", req.LevelMask)
+
+	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogFilter, protocol.SetConsoleLogFilterResponse{
+		LevelMask: req.LevelMask,
+	})
+	ws.send(hub, resp)
+}
+
 // handleRestartSteam restarts Steam.
 func (ws *WSServer) handleRestartSteam(hub *HubConnection, msg *protocol.Message) {
 	controller := agentSteam.NewController()

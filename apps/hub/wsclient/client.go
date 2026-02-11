@@ -910,6 +910,24 @@ func (c *Client) CancelUpload(ctx context.Context, uploadID string) error {
 	return err
 }
 
+// SetConsoleLogFilter sets the log level bitmask on the agent.
+// Returns the mask confirmed by the agent.
+func (c *Client) SetConsoleLogFilter(ctx context.Context, mask uint32) (uint32, error) {
+	resp, err := c.sendRequest(ctx, protocol.MsgTypeSetConsoleLogFilter, protocol.SetConsoleLogFilterRequest{
+		LevelMask: mask,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	var result protocol.SetConsoleLogFilterResponse
+	if err := resp.ParsePayload(&result); err != nil {
+		return 0, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return result.LevelMask, nil
+}
+
 // DeleteGame deletes a game completely. Agent handles everything internally.
 func (c *Client) DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error) {
 	resp, err := c.sendRequest(ctx, protocol.MsgTypeDeleteGame, protocol.DeleteGameRequest{

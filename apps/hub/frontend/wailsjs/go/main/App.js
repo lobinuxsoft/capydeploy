@@ -118,6 +118,10 @@ export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
 }
 
+export function SetConsoleLogFilter(arg1) {
+  return window['go']['main']['App']['SetConsoleLogFilter'](arg1);
+}
+
 export function SetHubName(arg1) {
   return window['go']['main']['App']['SetHubName'](arg1);
 }

@@ -1,11 +1,19 @@
 import { writable } from 'svelte/store';
 import type { ConsoleLogStatus, ConsoleLogEntry } from '$lib/types';
+import { LOG_LEVEL_DEFAULT } from '$lib/types';
 
 const MAX_ENTRIES = 1000;
 
+/** Internal entry with stable unique ID for keyed rendering. */
+export interface ConsoleLogEntryWithId extends ConsoleLogEntry {
+	id: number;
+}
+
+let nextEntryId = 0;
+
 function createConsoleLogStore() {
-	const status = writable<ConsoleLogStatus>({ enabled: false });
-	const entries = writable<ConsoleLogEntry[]>([]);
+	const status = writable<ConsoleLogStatus>({ enabled: false, levelMask: LOG_LEVEL_DEFAULT });
+	const entries = writable<ConsoleLogEntryWithId[]>([]);
 	const totalDropped = writable<number>(0);
 
 	return {
@@ -14,7 +22,8 @@ function createConsoleLogStore() {
 		totalDropped,
 		addBatch: (newEntries: ConsoleLogEntry[], dropped: number) => {
 			entries.update((current) => {
-				const merged = [...current, ...newEntries];
+				const tagged = newEntries.map((e) => ({ ...e, id: nextEntryId++ }));
+				const merged = [...current, ...tagged];
 				if (merged.length > MAX_ENTRIES) {
 					return merged.slice(merged.length - MAX_ENTRIES);
 				}
@@ -29,7 +38,7 @@ function createConsoleLogStore() {
 			totalDropped.set(0);
 		},
 		reset: () => {
-			status.set({ enabled: false });
+			status.set({ enabled: false, levelMask: LOG_LEVEL_DEFAULT });
 			entries.set([]);
 			totalDropped.set(0);
 		}

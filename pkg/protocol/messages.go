@@ -41,7 +41,8 @@ const (
 	MsgTypePairFailed      MessageType = "pair_failed"      // Agent → Hub: pairing failed
 
 	// Requests from Hub to Agent
-	MsgTypePing           MessageType = "ping"
+	MsgTypeSetConsoleLogFilter MessageType = "set_console_log_filter" // Hub → Agent: configure log level filter
+	MsgTypePing                MessageType = "ping"
 	MsgTypeGetInfo        MessageType = "get_info"
 	MsgTypeGetConfig      MessageType = "get_config"
 	MsgTypeGetSteamUsers  MessageType = "get_steam_users"
@@ -148,6 +149,37 @@ const (
 	WSErrCodeNotImplemented = 501
 )
 
+// Console log level bitmask constants.
+const (
+	LogLevelLog   uint32 = 1  // 0x01
+	LogLevelWarn  uint32 = 2  // 0x02
+	LogLevelError uint32 = 4  // 0x04
+	LogLevelInfo  uint32 = 8  // 0x08
+	LogLevelDebug uint32 = 16 // 0x10
+
+	// LogLevelDefault enables Log, Warn, Error, Info (Debug off).
+	LogLevelDefault uint32 = LogLevelLog | LogLevelWarn | LogLevelError | LogLevelInfo // 15
+)
+
+// LogLevelBit maps a CDP log level string to its bitmask bit.
+// Returns 0 for unknown levels.
+func LogLevelBit(level string) uint32 {
+	switch level {
+	case "log":
+		return LogLevelLog
+	case "warn", "warning":
+		return LogLevelWarn
+	case "error":
+		return LogLevelError
+	case "info":
+		return LogLevelInfo
+	case "debug", "verbose":
+		return LogLevelDebug
+	default:
+		return 0
+	}
+}
+
 // Request payloads
 
 // InitUploadRequest starts a new upload session.
@@ -176,6 +208,16 @@ type CompleteUploadRequest struct {
 // CancelUploadRequest cancels an active upload.
 type CancelUploadRequest struct {
 	UploadID string `json:"uploadId"`
+}
+
+// SetConsoleLogFilterRequest sets which log levels the agent should collect.
+type SetConsoleLogFilterRequest struct {
+	LevelMask uint32 `json:"levelMask"`
+}
+
+// SetConsoleLogFilterResponse confirms the applied log level mask.
+type SetConsoleLogFilterResponse struct {
+	LevelMask uint32 `json:"levelMask"`
 }
 
 // CreateShortcutRequest creates a Steam shortcut.
@@ -509,7 +551,8 @@ type ArtworkImageResponse struct {
 
 // ConsoleLogStatusEvent is sent when console log streaming is enabled/disabled.
 type ConsoleLogStatusEvent struct {
-	Enabled bool `json:"enabled"`
+	Enabled   bool   `json:"enabled"`
+	LevelMask uint32 `json:"levelMask"`
 }
 
 // StyledSegment represents a text segment with optional CSS styling from console %c directives.

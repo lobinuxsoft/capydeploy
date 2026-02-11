@@ -202,6 +202,13 @@ func (c *WSClient) GetUploadStatus(ctx context.Context, uploadID string) (*proto
 	return nil, fmt.Errorf("use progress events for WS uploads")
 }
 
+// ConsoleLogFilter implementation
+
+// SetConsoleLogFilter sets the log level bitmask on the agent.
+func (c *WSClient) SetConsoleLogFilter(ctx context.Context, mask uint32) (uint32, error) {
+	return c.client.SetConsoleLogFilter(ctx, mask)
+}
+
 // GameManager implementation
 
 func (c *WSClient) DeleteGame(ctx context.Context, appID uint32) (*protocol.DeleteGameResponse, error) {

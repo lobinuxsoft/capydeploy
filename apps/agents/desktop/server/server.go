@@ -444,7 +444,8 @@ func (s *Server) NotifyConsoleLogStatus() {
 	}
 
 	s.SendEvent(protocol.MsgTypeConsoleLogStatus, protocol.ConsoleLogStatusEvent{
-		Enabled: enabled,
+		Enabled:   enabled,
+		LevelMask: s.consoleLog.GetLevelMask(),
 	})
 }
 

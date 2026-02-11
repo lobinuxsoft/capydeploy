@@ -240,6 +240,8 @@ func (ws *WSServer) handleTextMessage(hub *HubConnection, data []byte) {
 		ws.handleCompleteUpload(hub, &msg)
 	case protocol.MsgTypeCancelUpload:
 		ws.handleCancelUpload(hub, &msg)
+	case protocol.MsgTypeSetConsoleLogFilter:
+		ws.handleSetConsoleLogFilter(hub, &msg)
 	default:
 		log.Printf("WS: Unknown message type: %s", msg.Type)
 		ws.sendError(hub, msg.ID, protocol.WSErrCodeNotImplemented, "unknown message type")
