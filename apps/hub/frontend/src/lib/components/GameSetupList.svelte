@@ -9,7 +9,7 @@
 	import ArtworkSelector from './ArtworkSelector.svelte';
 	import {
 		GetGameSetups, AddGameSetup, UpdateGameSetup, RemoveGameSetup,
-		SelectFolder, UploadGame, EventsOn, EventsOff
+		SelectFolder, UploadGame, EventsOn
 	} from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 
@@ -41,8 +41,7 @@
 
 		loadSetups();
 
-		// Listen for upload progress events
-		EventsOn('upload:progress', (data: UploadProgress) => {
+		const unsubProgress = EventsOn('upload:progress', (data: UploadProgress) => {
 			uploadProgress.set(data);
 			if (data.done) {
 				uploading = null;
@@ -54,9 +53,7 @@
 			}
 		});
 
-		return () => {
-			EventsOff('upload:progress');
-		};
+		return unsubProgress;
 	});
 
 	function resetForm() {

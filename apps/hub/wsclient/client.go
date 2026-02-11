@@ -21,6 +21,13 @@ var (
 	ErrPairingFailed   = errors.New("pairing failed")
 )
 
+// wsMessage wraps a WebSocket message with its type so all writes
+// (text, binary, close) go through the single writePump goroutine.
+type wsMessage struct {
+	messageType int
+	data        []byte
+}
+
 // Client is a WebSocket client for communicating with a CapyDeploy Agent.
 type Client struct {
 	url         string
@@ -32,7 +39,7 @@ type Client struct {
 
 	mu        sync.RWMutex
 	conn      *websocket.Conn
-	sendCh    chan []byte
+	sendCh    chan wsMessage
 	closeCh   chan struct{}
 	closed    bool
 	requests  map[string]chan *protocol.Message
@@ -46,6 +53,8 @@ type Client struct {
 	onDisconnect      func()
 	onUploadProgress  func(event protocol.UploadProgressEvent)
 	onOperationEvent  func(event protocol.OperationEvent)
+	onTelemetryStatus func(event protocol.TelemetryStatusEvent)
+	onTelemetryData   func(event protocol.TelemetryData)
 	onPairingRequired func(agentID string)
 }
 
@@ -84,12 +93,20 @@ func (c *Client) SetPairingCallback(cb func(agentID string)) {
 }
 
 // SetCallbacks sets the event callbacks.
-func (c *Client) SetCallbacks(onDisconnect func(), onUploadProgress func(protocol.UploadProgressEvent), onOperationEvent func(protocol.OperationEvent)) {
+func (c *Client) SetCallbacks(
+	onDisconnect func(),
+	onUploadProgress func(protocol.UploadProgressEvent),
+	onOperationEvent func(protocol.OperationEvent),
+	onTelemetryStatus func(protocol.TelemetryStatusEvent),
+	onTelemetryData func(protocol.TelemetryData),
+) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.onDisconnect = onDisconnect
 	c.onUploadProgress = onUploadProgress
 	c.onOperationEvent = onOperationEvent
+	c.onTelemetryStatus = onTelemetryStatus
+	c.onTelemetryData = onTelemetryData
 }
 
 // Connect establishes the WebSocket connection to the Agent.
@@ -112,7 +129,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	c.mu.Lock()
 	c.conn = conn
-	c.sendCh = make(chan []byte, 256)
+	c.sendCh = make(chan wsMessage, 256)
 	c.closeCh = make(chan struct{})
 	c.closed = false
 	c.requests = make(map[string]chan *protocol.Message)
@@ -237,13 +254,20 @@ func (c *Client) Close() error {
 	}
 	c.closed = true
 
+	// Signal writePump to send close frame and exit
+	if c.sendCh != nil {
+		select {
+		case c.sendCh <- wsMessage{websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")}:
+		default:
+		}
+	}
+
 	if c.closeCh != nil {
 		close(c.closeCh)
 	}
 
 	var err error
 	if c.conn != nil {
-		c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		err = c.conn.Close()
 		c.conn = nil
 	}
@@ -303,7 +327,7 @@ func (c *Client) writePump() {
 
 	for {
 		select {
-		case message, ok := <-c.sendCh:
+		case msg, ok := <-c.sendCh:
 			c.mu.RLock()
 			conn := c.conn
 			c.mu.RUnlock()
@@ -316,7 +340,7 @@ func (c *Client) writePump() {
 				return
 			}
 
-			if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			if err := conn.WriteMessage(msg.messageType, msg.data); err != nil {
 				log.Printf("WS Client: Write error: %v", err)
 				return
 			}
@@ -383,6 +407,26 @@ func (c *Client) handleTextMessage(data []byte) {
 				callback(event)
 			}
 		}
+	case protocol.MsgTypeTelemetryStatus:
+		var event protocol.TelemetryStatusEvent
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onTelemetryStatus
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
+	case protocol.MsgTypeTelemetryData:
+		var event protocol.TelemetryData
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onTelemetryData
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
 	default:
 		log.Printf("WS Client: Unhandled message type: %s", msg.Type)
 	}
@@ -443,7 +487,7 @@ func (c *Client) sendRequest(ctx context.Context, msgType protocol.MessageType, 
 	}
 
 	select {
-	case c.sendCh <- data:
+	case c.sendCh <- wsMessage{websocket.TextMessage, data}:
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
@@ -518,15 +562,20 @@ func buildBinaryMessage(header any, data []byte) ([]byte, error) {
 	return message, nil
 }
 
-// sendBinary builds a binary message from header+data and writes it to the WS connection.
+// sendBinary builds a binary message from header+data and sends it through
+// the writePump channel to avoid concurrent writes to the WebSocket connection.
 func (c *Client) sendBinary(conn *websocket.Conn, header any, data []byte) error {
 	message, err := buildBinaryMessage(header, data)
 	if err != nil {
 		return err
 	}
 
-	conn.SetWriteDeadline(time.Now().Add(protocol.WSWriteWait))
-	return conn.WriteMessage(websocket.BinaryMessage, message)
+	select {
+	case c.sendCh <- wsMessage{websocket.BinaryMessage, message}:
+		return nil
+	default:
+		return fmt.Errorf("send buffer full")
+	}
 }
 
 // API methods

@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/auth"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/pathutil"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/telemetry"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
@@ -46,10 +47,13 @@ type Config struct {
 	OnOperation       func(event OperationEvent)                 // Callback for operation progress
 	OnHubConnect      func(hubID, hubName, hubIP string)         // Callback when a Hub connects
 	OnHubDisconnect   func()                                     // Callback when the Hub disconnects
-	AuthManager       *auth.Manager                              // Authentication manager for pairing
-	OnPairingCode     func(code string, expiresIn time.Duration) // Callback when pairing code is generated
-	OnPairingSuccess  func()                                     // Callback when pairing is successful
-	OnPortAssigned    func(port int)                             // Callback when port is assigned (useful for dynamic ports)
+	AuthManager          *auth.Manager                              // Authentication manager for pairing
+	OnPairingCode        func(code string, expiresIn time.Duration) // Callback when pairing code is generated
+	OnPairingSuccess     func()                                     // Callback when pairing is successful
+	OnPortAssigned       func(port int)                             // Callback when port is assigned (useful for dynamic ports)
+	GetTelemetryEnabled  func() bool                                // Callback to check if telemetry is enabled
+	GetTelemetryInterval func() int                                 // Callback to get telemetry interval in seconds
+	GetSteamStatus       func() (running bool, gamingMode bool)     // Callback to get Steam process status
 }
 
 // Server is the main agent server that handles WebSocket connections and mDNS discovery.
@@ -67,6 +71,9 @@ type Server struct {
 	// Upload management
 	uploadMu sync.RWMutex
 	uploads  map[string]*transfer.UploadSession
+
+	// Telemetry
+	telemetry *telemetry.Collector
 }
 
 // New creates a new agent server.
@@ -94,6 +101,14 @@ func New(cfg Config) (*Server, error) {
 		id:      id,
 		authMgr: cfg.AuthManager,
 		uploads: make(map[string]*transfer.UploadSession),
+	}
+
+	// Initialize telemetry collector
+	srv.telemetry = telemetry.NewCollector(func(data protocol.TelemetryData) {
+		srv.SendEvent(protocol.MsgTypeTelemetryData, data)
+	})
+	if cfg.GetSteamStatus != nil {
+		srv.telemetry.SetSteamStatusFunc(cfg.GetSteamStatus)
 	}
 
 	// Set pairing code callback if provided
@@ -341,6 +356,51 @@ func (s *Server) SendEvent(msgType protocol.MessageType, payload any) {
 	if s.wsSrv != nil {
 		s.wsSrv.SendEvent(msgType, payload)
 	}
+}
+
+// StartTelemetry starts the telemetry collector if enabled and a Hub is connected.
+func (s *Server) StartTelemetry() {
+	enabled := false
+	if s.cfg.GetTelemetryEnabled != nil {
+		enabled = s.cfg.GetTelemetryEnabled()
+	}
+	if !enabled || !s.IsHubConnected() {
+		return
+	}
+
+	interval := 2
+	if s.cfg.GetTelemetryInterval != nil {
+		interval = s.cfg.GetTelemetryInterval()
+	}
+
+	s.telemetry.Start(interval)
+	s.NotifyTelemetryStatus()
+	log.Printf("Telemetry started (interval: %ds)", interval)
+}
+
+// StopTelemetry stops the telemetry collector.
+func (s *Server) StopTelemetry() {
+	if s.telemetry.IsRunning() {
+		s.telemetry.Stop()
+		log.Printf("Telemetry stopped")
+	}
+}
+
+// NotifyTelemetryStatus sends the current telemetry status to the Hub.
+func (s *Server) NotifyTelemetryStatus() {
+	enabled := false
+	if s.cfg.GetTelemetryEnabled != nil {
+		enabled = s.cfg.GetTelemetryEnabled()
+	}
+	interval := 2
+	if s.cfg.GetTelemetryInterval != nil {
+		interval = s.cfg.GetTelemetryInterval()
+	}
+
+	s.SendEvent(protocol.MsgTypeTelemetryStatus, protocol.TelemetryStatusEvent{
+		Enabled:  enabled,
+		Interval: interval,
+	})
 }
 
 // GetPort returns the actual port the server is listening on.

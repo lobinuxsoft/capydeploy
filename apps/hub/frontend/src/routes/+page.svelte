@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Tabs } from '$lib/components/ui';
-	import { ConnectionStatus, DeviceList, GameSetupList, InstalledGames, Settings } from '$lib/components';
+	import { ConnectionStatus, DeviceList, GameSetupList, InstalledGames, Settings, Telemetry } from '$lib/components';
 	import { connectionStatus } from '$lib/stores/connection';
-	import { EventsOn, EventsOff } from '$lib/wailsjs';
+	import { telemetry } from '$lib/stores/telemetry';
+	import { EventsOn } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 
 	// Tabs are dynamic based on connection status.
@@ -11,7 +12,8 @@
 		{ id: 'devices', label: 'Devices' },
 		...($connectionStatus.connected ? [
 			{ id: 'upload', label: 'Upload Game' },
-			{ id: 'games', label: 'Installed Games' }
+			{ id: 'games', label: 'Installed Games' },
+			{ id: 'telemetry', label: 'Telemetry' }
 		] : []),
 		{ id: 'settings', label: 'Settings' }
 	]);
@@ -20,13 +22,14 @@
 	$effect(() => {
 		if (!browser) return;
 
-		EventsOn('connection:changed', (status) => {
+		const unsub = EventsOn('connection:changed', (status) => {
 			connectionStatus.set(status);
+			if (!status.connected) {
+				telemetry.reset();
+			}
 		});
 
-		return () => {
-			EventsOff('connection:changed');
-		};
+		return unsub;
 	});
 </script>
 
@@ -55,6 +58,8 @@
 					<GameSetupList />
 				{:else if activeTab === 'games'}
 					<InstalledGames />
+				{:else if activeTab === 'telemetry'}
+					<Telemetry />
 				{:else if activeTab === 'settings'}
 					<Settings />
 				{/if}

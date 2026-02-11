@@ -82,8 +82,14 @@ func (c *WSClient) IsConnected() bool {
 }
 
 // SetCallbacks sets the event callbacks.
-func (c *WSClient) SetCallbacks(onDisconnect func(), onUploadProgress func(protocol.UploadProgressEvent), onOperationEvent func(protocol.OperationEvent)) {
-	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent)
+func (c *WSClient) SetCallbacks(
+	onDisconnect func(),
+	onUploadProgress func(protocol.UploadProgressEvent),
+	onOperationEvent func(protocol.OperationEvent),
+	onTelemetryStatus func(protocol.TelemetryStatusEvent),
+	onTelemetryData func(protocol.TelemetryData),
+) {
+	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent, onTelemetryStatus, onTelemetryData)
 }
 
 // PlatformClient implementation

@@ -13,6 +13,8 @@ export interface AgentStatus {
 	ips: string[];
 	acceptConnections: boolean;
 	connectedHub?: ConnectedHub | null;
+	telemetryEnabled: boolean;
+	telemetryInterval: number;
 }
 
 export interface ConnectedHub {

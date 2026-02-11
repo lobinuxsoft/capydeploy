@@ -23,9 +23,11 @@ type AuthorizedHub struct {
 
 // Config holds the agent configuration.
 type Config struct {
-	Name           string          `json:"name"`
-	InstallPath    string          `json:"installPath"`
-	AuthorizedHubs []AuthorizedHub `json:"authorizedHubs,omitempty"`
+	Name              string          `json:"name"`
+	InstallPath       string          `json:"installPath"`
+	TelemetryEnabled  bool            `json:"telemetryEnabled"`
+	TelemetryInterval int             `json:"telemetryInterval"`
+	AuthorizedHubs    []AuthorizedHub `json:"authorizedHubs,omitempty"`
 }
 
 // Manager handles loading and saving configuration.
@@ -50,8 +52,9 @@ func NewManager() (*Manager, error) {
 	m := &Manager{
 		filePath: filepath.Join(dir, "config.json"),
 		config: Config{
-			Name:        discovery.GetHostname(), // Default to hostname
-			InstallPath: "~/Games",               // Default install path
+			Name:              discovery.GetHostname(), // Default to hostname
+			InstallPath:       "~/Games",               // Default install path
+			TelemetryInterval: 2,                       // Default 2 seconds
 		},
 	}
 
@@ -79,6 +82,10 @@ func (m *Manager) load() {
 	}
 	if cfg.InstallPath != "" {
 		m.config.InstallPath = cfg.InstallPath
+	}
+	m.config.TelemetryEnabled = cfg.TelemetryEnabled
+	if cfg.TelemetryInterval >= 1 && cfg.TelemetryInterval <= 10 {
+		m.config.TelemetryInterval = cfg.TelemetryInterval
 	}
 	if len(cfg.AuthorizedHubs) > 0 {
 		m.config.AuthorizedHubs = cfg.AuthorizedHubs
@@ -132,6 +139,52 @@ func (m *Manager) GetInstallPath() string {
 func (m *Manager) SetInstallPath(path string) error {
 	m.mu.Lock()
 	m.config.InstallPath = path
+	m.mu.Unlock()
+
+	return m.Save()
+}
+
+// GetTelemetryEnabled returns whether telemetry is enabled.
+func (m *Manager) GetTelemetryEnabled() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.config.TelemetryEnabled
+}
+
+// SetTelemetryEnabled sets the telemetry enabled state and saves config.
+func (m *Manager) SetTelemetryEnabled(enabled bool) error {
+	m.mu.Lock()
+	m.config.TelemetryEnabled = enabled
+	m.mu.Unlock()
+
+	return m.Save()
+}
+
+// GetTelemetryInterval returns the telemetry interval in seconds (1-10, default 2).
+func (m *Manager) GetTelemetryInterval() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	interval := m.config.TelemetryInterval
+	if interval < 1 {
+		return 2
+	}
+	if interval > 10 {
+		return 10
+	}
+	return interval
+}
+
+// SetTelemetryInterval sets the telemetry interval in seconds and saves config.
+func (m *Manager) SetTelemetryInterval(seconds int) error {
+	if seconds < 1 {
+		seconds = 1
+	}
+	if seconds > 10 {
+		seconds = 10
+	}
+
+	m.mu.Lock()
+	m.config.TelemetryInterval = seconds
 	m.mu.Unlock()
 
 	return m.Save()
