@@ -87,6 +87,9 @@ func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
 	if ws.server.cfg.GetTelemetryInterval != nil {
 		statusResp.TelemetryInterval = ws.server.cfg.GetTelemetryInterval()
 	}
+	if ws.server.cfg.GetConsoleLogEnabled != nil {
+		statusResp.ConsoleLogEnabled = ws.server.cfg.GetConsoleLogEnabled()
+	}
 
 	resp, _ := msg.Reply(protocol.MsgTypeAgentStatus, statusResp)
 	ws.send(hub, resp)
@@ -98,6 +101,9 @@ func (ws *WSServer) acceptHub(hub *HubConnection, msg *protocol.Message) {
 
 	// Start telemetry if enabled
 	ws.server.StartTelemetry()
+
+	// Start console log if enabled
+	ws.server.StartConsoleLog()
 }
 
 // handlePairConfirm processes a pairing confirmation from the Hub.
@@ -456,6 +462,40 @@ func (ws *WSServer) handleBinaryArtwork(hub *HubConnection, msgID string, appID 
 		Success:     true,
 		ArtworkType: artworkType,
 	})
+	ws.send(hub, resp)
+}
+
+// handleSetConsoleLogFilter updates the console log level bitmask filter.
+func (ws *WSServer) handleSetConsoleLogFilter(hub *HubConnection, msg *protocol.Message) {
+	var req protocol.SetConsoleLogFilterRequest
+	if err := msg.ParsePayload(&req); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeBadRequest, "invalid payload")
+		return
+	}
+
+	ws.server.consoleLog.SetLevelMask(req.LevelMask)
+	log.Printf("WS: Console log filter updated: mask=0x%02x", req.LevelMask)
+
+	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogFilter, protocol.SetConsoleLogFilterResponse(req))
+	ws.send(hub, resp)
+}
+
+// handleSetConsoleLogEnabled toggles console log streaming on/off remotely.
+func (ws *WSServer) handleSetConsoleLogEnabled(hub *HubConnection, msg *protocol.Message) {
+	var req protocol.SetConsoleLogEnabledRequest
+	if err := msg.ParsePayload(&req); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeBadRequest, "invalid payload")
+		return
+	}
+
+	if err := ws.server.SetConsoleLogEnabled(req.Enabled); err != nil {
+		ws.sendError(hub, msg.ID, protocol.WSErrCodeInternal, err.Error())
+		return
+	}
+
+	log.Printf("WS: Console log enabled (remote): %v", req.Enabled)
+
+	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogEnabled, protocol.SetConsoleLogEnabledResponse(req))
 	ws.send(hub, resp)
 }
 

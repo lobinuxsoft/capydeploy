@@ -15,6 +15,7 @@ export interface AgentStatus {
 	connectedHub?: ConnectedHub | null;
 	telemetryEnabled: boolean;
 	telemetryInterval: number;
+	consoleLogEnabled: boolean;
 }
 
 export interface ConnectedHub {

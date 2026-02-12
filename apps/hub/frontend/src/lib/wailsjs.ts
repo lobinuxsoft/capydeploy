@@ -12,6 +12,17 @@ export const DisconnectAgent = App.DisconnectAgent;
 export const GetConnectionStatus = App.GetConnectionStatus;
 export const GetAgentInstallPath = App.GetAgentInstallPath;
 
+// Console log
+export const SetConsoleLogFilter = App.SetConsoleLogFilter;
+export const SetConsoleLogEnabled = App.SetConsoleLogEnabled;
+
+// Game log wrapper
+export const SetGameLogWrapper = App.SetGameLogWrapper;
+
+// Game log directory
+export const GetGameLogDirectory = App.GetGameLogDirectory;
+export const SetGameLogDirectory = App.SetGameLogDirectory;
+
 // Pairing functions
 export const ConfirmPairing = App.ConfirmPairing;
 export const CancelPairing = App.CancelPairing;

@@ -6,6 +6,7 @@
 		placeholder?: string;
 		value?: string;
 		disabled?: boolean;
+		readonly?: boolean;
 		class?: string;
 		oninput?: (e: Event) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
@@ -16,6 +17,7 @@
 		placeholder = '',
 		value = $bindable(''),
 		disabled = false,
+		readonly: isReadonly = false,
 		class: className = '',
 		oninput,
 		onkeydown
@@ -27,6 +29,7 @@
 	{placeholder}
 	bind:value
 	{disabled}
+	readonly={isReadonly}
 	{oninput}
 	{onkeydown}
 	class={cn(

@@ -36,6 +36,9 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 - **Binary Uploads**: Games sent as 1MB chunks. Resume on disconnect.
 - **Steam Integration**: Automatic shortcuts with artwork from SteamGridDB.
 - **Agent Autonomy**: Hub sends simple orders, Agent handles everything internally.
+- **Hardware Telemetry**: Real-time CPU, GPU, RAM, battery, fan metrics streamed to Hub.
+- **Console Log Streaming**: Live Steam console logs with level filtering (debug/info/warn/error).
+- **Game Log Wrapper**: Inject a wrapper into Steam launch options to capture game stdout/stderr (Linux only).
 
 ## Architecture
 
@@ -53,7 +56,7 @@ CapyDeploy is a cross-platform tool for uploading and managing games on Steam De
 |-----------|------|
 | **Hub** | Desktop app on your PC. Discovers agents, initiates connections, sends games. |
 | **Agent** | Runs on handheld (desktop mode). Receives games, creates Steam shortcuts, applies artwork, restarts Steam. |
-| **Decky Plugin** | Runs inside [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) (gaming mode). Same protocol as Agent but uses SteamClient APIs directly — no Steam restart needed. |
+| **Decky Plugin** | Runs inside [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) (gaming mode). Same protocol as Agent but uses SteamClient APIs directly — no Steam restart needed. Includes telemetry, console log streaming, and game log wrapper. |
 
 ## Download
 
@@ -120,6 +123,9 @@ cd apps/agents/decky && ./build.sh
 |---------|---------------|--------------|
 | Shortcuts | `shortcuts.vdf` (restart Steam) | `SteamClient.Apps.AddShortcut()` (instant) |
 | Artwork | File copy to `grid/` | `SteamClient.Apps.SetCustomArtworkForApp()` |
+| Telemetry | sysfs/procfs collector | sysfs/procfs collector |
+| Console Log | CEF CDP console capture | SteamClient console capture |
+| Game Log | Wrapper via CEF launch options | Wrapper via context menu |
 | UI | Standalone window | Quick Access Menu panel |
 | Mode | Desktop | Gaming |
 
@@ -231,6 +237,9 @@ All communication happens over WebSocket at `ws://agent:<port>/ws`
 | `upload_chunk` | `upload_chunk_response` | Send binary chunk |
 | `complete_upload` | `upload_response` | Finalize upload |
 | `cancel_upload` | `operation_result` | Cancel active upload |
+| `set_console_log_filter` | `set_console_log_filter_response` | Set log level bitmask filter |
+| `set_console_log_enabled` | `set_console_log_enabled_response` | Enable/disable console log streaming |
+| `set_game_log_wrapper` | `set_game_log_wrapper_response` | Enable/disable game log wrapper (Linux only) |
 
 ### Push Events
 
@@ -238,6 +247,11 @@ All communication happens over WebSocket at `ws://agent:<port>/ws`
 |-------|-------------|
 | `upload_progress` | Real-time upload progress |
 | `operation_event` | Operation status (delete, install) |
+| `telemetry_status` | Telemetry collector state (enabled, interval) |
+| `telemetry_data` | Hardware metrics (CPU, GPU, RAM, battery, fan, power) |
+| `console_log_status` | Console log collector state (enabled, level mask) |
+| `console_log_data` | Batch of console log entries with level/source |
+| `game_log_wrapper_status` | Active game log wrappers (appID → enabled map) |
 
 ## Configuration
 
@@ -285,11 +299,17 @@ capydeploy/
 │       │   ├── server/         # HTTP + WebSocket server
 │       │   ├── shortcuts/      # Steam shortcut manager
 │       │   ├── artwork/        # Artwork handler
-│       │   ├── steam/          # Steam controller
+│       │   ├── steam/          # Steam controller + CEF/CDP client
+│       │   ├── telemetry/      # Hardware telemetry collector (sysfs/procfs)
+│       │   ├── consolelog/     # Console log collector + streaming
 │       │   ├── auth/           # Pairing & token auth
 │       │   └── frontend/       # Svelte 5 UI
 │       └── decky/              # Decky Loader plugin (git submodule)
 │           ├── main.py         # Python backend (WS server, pairing, uploads)
+│           ├── telemetry.py    # Hardware telemetry (sysfs/procfs)
+│           ├── console_log.py  # Console log collector
+│           ├── game_log.py     # Game log file tailer
+│           ├── bin/            # Game wrapper script
 │           ├── src/            # React/TypeScript frontend
 │           ├── plugin.json     # Decky plugin manifest
 │           └── build.sh        # Build + bundle script

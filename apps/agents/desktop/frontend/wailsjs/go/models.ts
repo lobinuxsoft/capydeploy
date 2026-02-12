@@ -27,6 +27,7 @@ export namespace main {
 	    connectedHub?: ConnectedHub;
 	    telemetryEnabled: boolean;
 	    telemetryInterval: number;
+	    consoleLogEnabled: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AgentStatus(source);
@@ -44,6 +45,7 @@ export namespace main {
 	        this.connectedHub = this.convertValues(source["connectedHub"], ConnectedHub);
 	        this.telemetryEnabled = source["telemetryEnabled"];
 	        this.telemetryInterval = source["telemetryInterval"];
+	        this.consoleLogEnabled = source["consoleLogEnabled"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

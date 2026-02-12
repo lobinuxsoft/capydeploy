@@ -14,6 +14,10 @@ export function GetAuthorizedHubs() {
   return window['go']['main']['App']['GetAuthorizedHubs']();
 }
 
+export function GetConsoleLogEnabled() {
+  return window['go']['main']['App']['GetConsoleLogEnabled']();
+}
+
 export function GetInstallPath() {
   return window['go']['main']['App']['GetInstallPath']();
 }
@@ -52,6 +56,10 @@ export function SelectInstallPath() {
 
 export function SetAcceptConnections(arg1) {
   return window['go']['main']['App']['SetAcceptConnections'](arg1);
+}
+
+export function SetConsoleLogEnabled(arg1) {
+  return window['go']['main']['App']['SetConsoleLogEnabled'](arg1);
 }
 
 export function SetInstallPath(arg1) {

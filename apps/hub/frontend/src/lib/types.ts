@@ -125,6 +125,44 @@ export interface SteamStatusData {
 	gamingMode: boolean;
 }
 
+// Console log types
+export const LOG_LEVEL_LOG = 1;
+export const LOG_LEVEL_WARN = 2;
+export const LOG_LEVEL_ERROR = 4;
+export const LOG_LEVEL_INFO = 8;
+export const LOG_LEVEL_DEBUG = 16;
+export const LOG_LEVEL_DEFAULT = LOG_LEVEL_LOG | LOG_LEVEL_WARN | LOG_LEVEL_ERROR | LOG_LEVEL_INFO; // 15
+
+export interface ConsoleLogStatus {
+	enabled: boolean;
+	levelMask: number;
+}
+
+export interface StyledSegment {
+	text: string;
+	css?: string;
+}
+
+export interface ConsoleLogEntry {
+	timestamp: number;
+	level: string;
+	source: string;
+	text: string;
+	url?: string;
+	line?: number;
+	segments?: StyledSegment[];
+}
+
+export interface ConsoleLogBatch {
+	entries: ConsoleLogEntry[];
+	dropped: number;
+}
+
+// Game log wrapper types
+export interface GameLogWrapperStatus {
+	wrappers: Record<number, boolean>;
+}
+
 // SteamGridDB types
 export interface SearchResult {
 	id: number;

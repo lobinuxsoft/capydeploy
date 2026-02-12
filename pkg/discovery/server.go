@@ -24,9 +24,16 @@ func NewServer(info ServiceInfo) *Server {
 
 // Start begins advertising the agent on the network.
 // The port must be set before calling Start (no longer defaults to DefaultPort).
+// Safe to call multiple times: stops the existing server before re-registering.
 func (s *Server) Start() error {
 	if s.info.Port == 0 {
 		return fmt.Errorf("port must be set before starting mDNS server")
+	}
+
+	// Stop existing server if running (idempotent restart)
+	if s.server != nil {
+		s.server.Shutdown()
+		s.server = nil
 	}
 
 	// Build TXT records with agent info

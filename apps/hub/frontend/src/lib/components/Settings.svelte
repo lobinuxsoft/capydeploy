@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Save, Loader2, Info, Server } from 'lucide-svelte';
+	import { ExternalLink, Save, Loader2, Info, Server, RotateCcw, FolderOpen } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
 		GetVersion,
-		GetHubInfo, SetHubName
+		GetHubInfo, SetHubName,
+		GetGameLogDirectory, SetGameLogDirectory, SelectFolder
 	} from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
 	import type { VersionInfo } from '$lib/types';
+	import { consoleColors, DEFAULT_COLORS, type ConsoleColors } from '$lib/stores/consolelog';
 
 	let hubName = $state('');
 	let hubId = $state('');
@@ -18,6 +20,18 @@
 	let apiKey = $state('');
 	let saving = $state(false);
 	let versionInfo = $state<VersionInfo | null>(null);
+
+	let logColors = $state<ConsoleColors>({ ...DEFAULT_COLORS });
+	let gameLogDir = $state('');
+	let savingGameLogDir = $state(false);
+
+	const colorLabels: { key: keyof ConsoleColors; label: string }[] = [
+		{ key: 'error', label: 'Error' },
+		{ key: 'warn', label: 'Warning' },
+		{ key: 'info', label: 'Info' },
+		{ key: 'debug', label: 'Debug' },
+		{ key: 'log', label: 'Log' }
+	];
 
 	async function loadSettings() {
 		if (!browser) return;
@@ -42,6 +56,12 @@
 			versionInfo = await GetVersion();
 		} catch (e) {
 			console.error('Failed to load version:', e);
+		}
+
+		try {
+			gameLogDir = (await GetGameLogDirectory()) || '';
+		} catch (e) {
+			console.error('Failed to load game log directory:', e);
 		}
 	}
 
@@ -69,6 +89,35 @@
 		}
 	}
 
+	async function selectGameLogDir() {
+		try {
+			const dir = await SelectFolder();
+			if (dir) {
+				gameLogDir = dir;
+				await saveGameLogDir();
+			}
+		} catch (e) {
+			// User cancelled
+		}
+	}
+
+	async function saveGameLogDir() {
+		savingGameLogDir = true;
+		try {
+			await SetGameLogDirectory(gameLogDir);
+			toast.success('Game log directory saved');
+		} catch (e) {
+			toast.error('Error', String(e));
+		} finally {
+			savingGameLogDir = false;
+		}
+	}
+
+	async function clearGameLogDir() {
+		gameLogDir = '';
+		await saveGameLogDir();
+	}
+
 	function openSteamGridDBApiPage() {
 		BrowserOpenURL('https://www.steamgriddb.com/profile/preferences/api');
 	}
@@ -76,7 +125,17 @@
 	$effect(() => {
 		if (!browser) return;
 		loadSettings();
+		const unsub = consoleColors.subscribe((c) => (logColors = c));
+		return unsub;
 	});
+
+	function handleColorChange(key: keyof ConsoleColors, value: string) {
+		consoleColors.updateColors({ [key]: value });
+	}
+
+	function resetLogColors() {
+		consoleColors.resetColors();
+	}
 </script>
 
 <div class="space-y-4">
@@ -156,6 +215,76 @@
 		{/if}
 		Save Settings
 	</Button>
+
+	<!-- Game Log Directory -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">Game Log Directory</h3>
+		<p class="text-sm cd-text-disabled mb-4">
+			Save console and game log entries to text files on disk. Leave empty to disable.
+		</p>
+
+		<div class="space-y-2">
+			<div class="flex gap-2">
+				<Input
+					type="text"
+					bind:value={gameLogDir}
+					placeholder="Not configured (file logging disabled)"
+					class="flex-1"
+					readonly
+				/>
+				<Button onclick={selectGameLogDir} disabled={savingGameLogDir} variant="outline">
+					<FolderOpen class="w-4 h-4" />
+				</Button>
+				{#if gameLogDir}
+					<Button onclick={clearGameLogDir} disabled={savingGameLogDir} variant="outline" class="text-destructive">
+						Clear
+					</Button>
+				{/if}
+			</div>
+			{#if gameLogDir}
+				<p class="text-xs cd-text-disabled">
+					Logs will be saved to: <span class="cd-mono">{gameLogDir}</span>
+				</p>
+			{/if}
+		</div>
+	</div>
+
+	<!-- Console Log Colors -->
+	<div class="cd-section p-4">
+		<div class="flex items-center justify-between mb-4">
+			<div>
+				<h3 class="cd-section-title">Console Log Colors</h3>
+				<p class="text-sm cd-text-disabled">Customize log level colors in the console viewer.</p>
+			</div>
+			<Button variant="outline" onclick={resetLogColors} class="text-xs">
+				<RotateCcw class="w-3 h-3 mr-1" />
+				Reset
+			</Button>
+		</div>
+
+		<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+			{#each colorLabels as { key, label }}
+				<div class="flex items-center gap-2">
+					<input
+						type="color"
+						value={logColors[key]}
+						oninput={(e) => handleColorChange(key, (e.target as HTMLInputElement).value)}
+						class="w-8 h-8 rounded border border-border cursor-pointer bg-transparent"
+					/>
+					<div class="flex flex-col">
+						<span class="text-sm font-medium">{label}</span>
+						<span class="text-[10px] font-mono cd-text-disabled">{logColors[key]}</span>
+					</div>
+					<span
+						class="ml-auto text-xs font-mono px-2 py-0.5 rounded"
+						style="color: {logColors[key]}; background: {logColors[key]}20"
+					>
+						sample
+					</span>
+				</div>
+			{/each}
+		</div>
+	</div>
 
 	<!-- About Section -->
 	<div class="cd-section p-4">

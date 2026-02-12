@@ -9,6 +9,8 @@ export function DisconnectHub():Promise<void>;
 
 export function GetAuthorizedHubs():Promise<Array<main.AuthorizedHubInfo>>;
 
+export function GetConsoleLogEnabled():Promise<boolean>;
+
 export function GetInstallPath():Promise<string>;
 
 export function GetShortcuts(arg1:string):Promise<Array<main.ShortcutInfo>>;
@@ -28,6 +30,8 @@ export function RevokeHub(arg1:string):Promise<void>;
 export function SelectInstallPath():Promise<string>;
 
 export function SetAcceptConnections(arg1:boolean):Promise<void>;
+
+export function SetConsoleLogEnabled(arg1:boolean):Promise<void>;
 
 export function SetInstallPath(arg1:string):Promise<void>;
 

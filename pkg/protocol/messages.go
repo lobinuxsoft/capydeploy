@@ -41,7 +41,10 @@ const (
 	MsgTypePairFailed      MessageType = "pair_failed"      // Agent → Hub: pairing failed
 
 	// Requests from Hub to Agent
-	MsgTypePing           MessageType = "ping"
+	MsgTypeSetConsoleLogFilter  MessageType = "set_console_log_filter"  // Hub → Agent: configure log level filter
+	MsgTypeSetConsoleLogEnabled MessageType = "set_console_log_enabled" // Hub → Agent: enable/disable console log
+	MsgTypeSetGameLogWrapper    MessageType = "set_game_log_wrapper"    // Hub → Agent: enable/disable game log wrapper
+	MsgTypePing                 MessageType = "ping"
 	MsgTypeGetInfo        MessageType = "get_info"
 	MsgTypeGetConfig      MessageType = "get_config"
 	MsgTypeGetSteamUsers  MessageType = "get_steam_users"
@@ -72,10 +75,13 @@ const (
 	MsgTypeError             MessageType = "error"
 
 	// Events from Agent to Hub (push notifications)
-	MsgTypeUploadProgress  MessageType = "upload_progress"
-	MsgTypeOperationEvent  MessageType = "operation_event"
-	MsgTypeTelemetryStatus MessageType = "telemetry_status"
-	MsgTypeTelemetryData   MessageType = "telemetry_data"
+	MsgTypeUploadProgress    MessageType = "upload_progress"
+	MsgTypeOperationEvent    MessageType = "operation_event"
+	MsgTypeTelemetryStatus   MessageType = "telemetry_status"
+	MsgTypeTelemetryData     MessageType = "telemetry_data"
+	MsgTypeConsoleLogStatus      MessageType = "console_log_status"
+	MsgTypeConsoleLogData        MessageType = "console_log_data"
+	MsgTypeGameLogWrapperStatus  MessageType = "game_log_wrapper_status"
 )
 
 // WSError represents an error in a WebSocket message.
@@ -146,6 +152,37 @@ const (
 	WSErrCodeNotImplemented = 501
 )
 
+// Console log level bitmask constants.
+const (
+	LogLevelLog   uint32 = 1  // 0x01
+	LogLevelWarn  uint32 = 2  // 0x02
+	LogLevelError uint32 = 4  // 0x04
+	LogLevelInfo  uint32 = 8  // 0x08
+	LogLevelDebug uint32 = 16 // 0x10
+
+	// LogLevelDefault enables Log, Warn, Error, Info (Debug off).
+	LogLevelDefault uint32 = LogLevelLog | LogLevelWarn | LogLevelError | LogLevelInfo // 15
+)
+
+// LogLevelBit maps a CDP log level string to its bitmask bit.
+// Returns 0 for unknown levels.
+func LogLevelBit(level string) uint32 {
+	switch level {
+	case "log":
+		return LogLevelLog
+	case "warn", "warning":
+		return LogLevelWarn
+	case "error":
+		return LogLevelError
+	case "info":
+		return LogLevelInfo
+	case "debug", "verbose":
+		return LogLevelDebug
+	default:
+		return 0
+	}
+}
+
 // Request payloads
 
 // InitUploadRequest starts a new upload session.
@@ -174,6 +211,26 @@ type CompleteUploadRequest struct {
 // CancelUploadRequest cancels an active upload.
 type CancelUploadRequest struct {
 	UploadID string `json:"uploadId"`
+}
+
+// SetConsoleLogFilterRequest sets which log levels the agent should collect.
+type SetConsoleLogFilterRequest struct {
+	LevelMask uint32 `json:"levelMask"`
+}
+
+// SetConsoleLogFilterResponse confirms the applied log level mask.
+type SetConsoleLogFilterResponse struct {
+	LevelMask uint32 `json:"levelMask"`
+}
+
+// SetConsoleLogEnabledRequest enables or disables console log streaming on the agent.
+type SetConsoleLogEnabledRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetConsoleLogEnabledResponse confirms the console log enabled state.
+type SetConsoleLogEnabledResponse struct {
+	Enabled bool `json:"enabled"`
 }
 
 // CreateShortcutRequest creates a Steam shortcut.
@@ -258,6 +315,7 @@ type AgentStatusResponse struct {
 	AcceptConnections bool   `json:"acceptConnections"`
 	TelemetryEnabled  bool   `json:"telemetryEnabled"`
 	TelemetryInterval int    `json:"telemetryInterval"`
+	ConsoleLogEnabled bool   `json:"consoleLogEnabled"`
 }
 
 // PairingRequiredResponse is sent when a Hub needs to pair.
@@ -500,6 +558,56 @@ type ArtworkImageResponse struct {
 	Success     bool   `json:"success"`
 	ArtworkType string `json:"artworkType"`
 	Error       string `json:"error,omitempty"`
+}
+
+// Console log payloads
+
+// ConsoleLogStatusEvent is sent when console log streaming is enabled/disabled.
+type ConsoleLogStatusEvent struct {
+	Enabled   bool   `json:"enabled"`
+	LevelMask uint32 `json:"levelMask"`
+}
+
+// StyledSegment represents a text segment with optional CSS styling from console %c directives.
+type StyledSegment struct {
+	Text string `json:"text"`
+	CSS  string `json:"css,omitempty"`
+}
+
+// ConsoleLogEntry represents a single console log entry from CEF/CDP.
+type ConsoleLogEntry struct {
+	Timestamp int64            `json:"timestamp"`
+	Level     string           `json:"level"`
+	Source    string           `json:"source"`
+	Text      string           `json:"text"`
+	URL       string           `json:"url,omitempty"`
+	Line      int              `json:"line,omitempty"`
+	Segments  []StyledSegment  `json:"segments,omitempty"`
+}
+
+// ConsoleLogBatch contains a batch of console log entries.
+type ConsoleLogBatch struct {
+	Entries []ConsoleLogEntry `json:"entries"`
+	Dropped int               `json:"dropped"`
+}
+
+// Game log wrapper payloads
+
+// SetGameLogWrapperRequest enables or disables the game log wrapper for a specific game.
+type SetGameLogWrapperRequest struct {
+	AppID   uint32 `json:"appId"`
+	Enabled bool   `json:"enabled"`
+}
+
+// SetGameLogWrapperResponse confirms the game log wrapper state.
+type SetGameLogWrapperResponse struct {
+	AppID   uint32 `json:"appId"`
+	Enabled bool   `json:"enabled"`
+}
+
+// GameLogWrapperStatusEvent reports the wrapper state for all tracked games.
+type GameLogWrapperStatusEvent struct {
+	Wrappers map[uint32]bool `json:"wrappers"`
 }
 
 // Steam control payloads
