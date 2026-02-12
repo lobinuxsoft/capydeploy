@@ -175,6 +175,64 @@ title: API Reference
         </div>
       </details>
 
+      <!-- Telemetry & Monitoring -->
+      <details class="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-800/50 transition">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold">Telemetry &amp; Monitoring</h3>
+              <p class="text-sm text-slate-400">Console log, game log, hardware telemetry</p>
+            </div>
+          </div>
+          <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </summary>
+        <div class="px-6 pb-6">
+          <div class="grid gap-2 text-sm">
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-capy-400 font-mono w-48">set_console_log_filter</code>
+              <span class="text-slate-400">→</span>
+              <code class="text-water-400 font-mono w-48">set_console_log_filter_response</code>
+              <span class="text-slate-500">Set log level bitmask</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-capy-400 font-mono w-48">set_console_log_enabled</code>
+              <span class="text-slate-400">→</span>
+              <code class="text-water-400 font-mono w-48">set_console_log_enabled_response</code>
+              <span class="text-slate-500">Enable/disable console log</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-capy-400 font-mono w-48">set_game_log_wrapper</code>
+              <span class="text-slate-400">→</span>
+              <code class="text-water-400 font-mono w-48">set_game_log_wrapper_response</code>
+              <span class="text-slate-500">Enable/disable game log wrapper (Linux)</span>
+            </div>
+          </div>
+          <div class="mt-4 grid md:grid-cols-2 gap-4">
+            <div class="bg-slate-950 rounded-xl p-4">
+              <h4 class="text-sm font-semibold text-slate-300 mb-3">set_console_log_filter payload</h4>
+              <pre class="text-xs text-slate-400 overflow-x-auto"><code>{
+  <span class="text-slate-600">// Bitmask: Log=1, Warn=2, Error=4, Info=8, Debug=16</span>
+  "levelMask": 15  <span class="text-slate-600">// Default: all except Debug</span>
+}</code></pre>
+            </div>
+            <div class="bg-slate-950 rounded-xl p-4">
+              <h4 class="text-sm font-semibold text-slate-300 mb-3">set_game_log_wrapper payload</h4>
+              <pre class="text-xs text-slate-400 overflow-x-auto"><code>{
+  "appId": 123456,
+  "enabled": true
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <!-- File Upload -->
       <details class="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-800/50 transition">
@@ -249,12 +307,32 @@ JSON header:
         <div class="px-6 pb-6">
           <div class="grid gap-2 text-sm">
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
-              <code class="text-pink-400 font-mono w-40">upload_progress</code>
+              <code class="text-pink-400 font-mono w-48">upload_progress</code>
               <span class="text-slate-500">Real-time upload progress (bytes, speed, ETA)</span>
             </div>
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
-              <code class="text-pink-400 font-mono w-40">operation_event</code>
+              <code class="text-pink-400 font-mono w-48">operation_event</code>
               <span class="text-slate-500">Operation progress (delete, install, restart)</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-pink-400 font-mono w-48">telemetry_status</code>
+              <span class="text-slate-500">Telemetry collector state (enabled, interval)</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-pink-400 font-mono w-48">telemetry_data</code>
+              <span class="text-slate-500">Hardware metrics (CPU, GPU, RAM, battery, fan, power)</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-pink-400 font-mono w-48">console_log_status</code>
+              <span class="text-slate-500">Console log collector state (enabled, level mask)</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-pink-400 font-mono w-48">console_log_data</code>
+              <span class="text-slate-500">Batch of console log entries with level/source</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-pink-400 font-mono w-48">game_log_wrapper_status</code>
+              <span class="text-slate-500">Active game log wrappers (appID &rarr; enabled)</span>
             </div>
           </div>
           <div class="mt-4 bg-slate-950 rounded-xl p-4">
@@ -266,6 +344,33 @@ JSON header:
   "progress": 50,
   "message": "Restarting Steam..."
 }</code></pre>
+          </div>
+          <div class="mt-4 grid md:grid-cols-2 gap-4">
+            <div class="bg-slate-950 rounded-xl p-4">
+              <h4 class="text-sm font-semibold text-slate-300 mb-3">telemetry_data payload</h4>
+              <pre class="text-xs text-slate-400 overflow-x-auto"><code>{
+  "timestamp": 1707500000,
+  "cpu": { "usagePercent": 45.2, "tempCelsius": 62, "freqMHz": 3200 },
+  "gpu": { "usagePercent": 80, "tempCelsius": 71, "freqMHz": 1800 },
+  "memory": { "totalBytes": 16000000000, "availableBytes": 8000000000 },
+  "battery": { "capacity": 72, "status": "Discharging" },
+  "fan": { "rpm": 3200 }
+}</code></pre>
+            </div>
+            <div class="bg-slate-950 rounded-xl p-4">
+              <h4 class="text-sm font-semibold text-slate-300 mb-3">console_log_data payload</h4>
+              <pre class="text-xs text-slate-400 overflow-x-auto"><code>{
+  "entries": [
+    {
+      "timestamp": 1707500001,
+      "level": "warn",
+      "source": "script",
+      "text": "Deprecated API call"
+    }
+  ],
+  "dropped": 0
+}</code></pre>
+            </div>
           </div>
         </div>
       </details>

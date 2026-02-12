@@ -341,7 +341,7 @@ title: Usage Guide
           <span class="w-8 h-8 rounded-full bg-capy-500 flex items-center justify-center text-white text-sm font-bold">4</span>
           <h4 class="text-lg font-semibold">Installed Games Tab</h4>
         </div>
-        <p class="text-slate-400 text-sm mb-4 ml-11">View and manage games already installed on the connected device. Delete directly from here — the Agent handles shortcut removal and Steam restart.</p>
+        <p class="text-slate-400 text-sm mb-4 ml-11">View and manage games installed on the connected device. Edit artwork, run with console log capture (Linux), or delete — the Agent handles everything.</p>
 
         <!-- Mockup: Installed Games -->
         <div class="cd-mockup max-w-2xl mx-auto">
@@ -366,14 +366,22 @@ title: Usage Guide
                   <div class="text-sm font-medium text-slate-200">Celeste</div>
                   <div class="text-xs text-slate-500 mt-1 font-mono">482 MB</div>
                 </div>
-                <span class="cd-btn-destructive text-xs">Delete</span>
+                <div class="flex gap-2">
+                  <span class="cd-btn-outline text-xs px-2" title="Run with Console Log">&#9654;</span>
+                  <span class="cd-btn-outline text-xs px-2" title="Edit Artwork">&#9998;</span>
+                  <span class="cd-btn-destructive text-xs">Delete</span>
+                </div>
               </div>
               <div class="cd-glass-section flex items-center justify-between">
                 <div>
                   <div class="text-sm font-medium text-slate-200">Hollow Knight</div>
                   <div class="text-xs text-slate-500 mt-1 font-mono">1.8 GB</div>
                 </div>
-                <span class="cd-btn-destructive text-xs">Delete</span>
+                <div class="flex gap-2">
+                  <span class="cd-btn-outline text-xs px-2" title="Run with Console Log">&#9654;</span>
+                  <span class="cd-btn-outline text-xs px-2" title="Edit Artwork">&#9998;</span>
+                  <span class="cd-btn-destructive text-xs">Delete</span>
+                </div>
               </div>
             </div>
           </div>
@@ -788,10 +796,54 @@ title: Usage Guide
         </div>
       </div>
 
-      <!-- Step 5: Install Progress -->
+      <!-- Step 5: Telemetry -->
       <div class="mb-12">
         <div class="flex items-center gap-3 mb-4">
           <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">5</span>
+          <h4 class="text-lg font-semibold">Telemetry &amp; Console Log</h4>
+        </div>
+        <p class="text-slate-400 text-sm mb-4 ml-11">Toggle hardware telemetry and console log streaming. Metrics are sent in real-time to the Hub for monitoring. The game log wrapper can be activated from the game's context menu.</p>
+
+        <!-- Mockup: Telemetry -->
+        <div class="cd-qam-mockup">
+          <div class="cd-mockup">
+            <div class="cd-mockup-body space-y-2">
+              <div class="cd-section-title text-slate-400 mb-2">Telemetry</div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="text-xs text-slate-300">Enable Telemetry</span>
+                <div class="w-10 h-5 rounded-full bg-cyan-500 relative">
+                  <div class="w-4 h-4 rounded-full bg-white absolute right-0.5 top-0.5"></div>
+                </div>
+              </div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="text-xs text-slate-300">Interval</span>
+                <span class="text-xs text-cyan-400 font-mono">2s</span>
+              </div>
+              <div class="cd-section-title text-slate-400 mb-2 mt-3">Console Log</div>
+              <div class="cd-glass-section flex items-center justify-between">
+                <span class="text-xs text-slate-300">Enable Console Log</span>
+                <div class="w-10 h-5 rounded-full bg-cyan-500 relative">
+                  <div class="w-4 h-4 rounded-full bg-white absolute right-0.5 top-0.5"></div>
+                </div>
+              </div>
+              <div class="cd-glass-section">
+                <span class="text-xs text-slate-400">Level Filter</span>
+                <div class="flex gap-2 mt-1">
+                  <span class="cd-badge cd-badge-success" style="font-size:0.6em">Log</span>
+                  <span class="cd-badge" style="font-size:0.6em; background:rgba(234,179,8,0.15); color:#facc15; border:1px solid rgba(234,179,8,0.2)">Warn</span>
+                  <span class="cd-badge" style="font-size:0.6em; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.2)">Error</span>
+                  <span class="cd-badge cd-badge-success" style="font-size:0.6em">Info</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 6: Install Progress -->
+      <div class="mb-12">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-bold">6</span>
           <h4 class="text-lg font-semibold">Install Progress</h4>
         </div>
         <p class="text-slate-400 text-sm mb-4 ml-11">When a game is being uploaded, a modal overlay shows real-time progress. On completion, a checkmark confirms the install was successful.</p>
