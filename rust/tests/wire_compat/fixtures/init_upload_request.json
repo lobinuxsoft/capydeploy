@@ -1,0 +1,11 @@
+{
+  "config": {
+    "gameName": "Test Game",
+    "installPath": "/games/test",
+    "executable": "game.exe",
+    "launchOptions": "--windowed",
+    "tags": "indie,rpg"
+  },
+  "totalSize": 1073741824,
+  "fileCount": 42
+}

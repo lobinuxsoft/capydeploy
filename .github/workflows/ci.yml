@@ -141,6 +141,54 @@ jobs:
             apps/agents/desktop/build/bin/
           retention-days: 7
 
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "rust -> target"
+
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --all
+
+  wire-compat:
+    name: Wire compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "rust -> target"
+
+      - name: Generate Go fixtures
+        run: GENERATE_FIXTURES=1 go test ./pkg/protocol/ -run TestGenerateFixtures -v
+
+      - name: Run Rust wire compat tests
+        working-directory: rust
+        run: cargo test -p wire-compat
+
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest

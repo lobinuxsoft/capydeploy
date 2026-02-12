@@ -1,0 +1,11 @@
+{
+  "id": "agent-1",
+  "name": "Test Agent",
+  "platform": "steamdeck",
+  "version": "0.6.0",
+  "acceptConnections": true,
+  "supportedImageFormats": [
+    "png",
+    "jpg"
+  ]
+}

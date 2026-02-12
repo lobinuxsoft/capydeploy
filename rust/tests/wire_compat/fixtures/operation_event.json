@@ -1,0 +1,7 @@
+{
+  "type": "install",
+  "status": "progress",
+  "gameName": "Test Game",
+  "progress": 42.5,
+  "message": "Extracting files..."
+}

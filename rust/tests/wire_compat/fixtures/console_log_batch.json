@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "timestamp": 1700000001,
+      "level": "error",
+      "source": "console",
+      "text": "Something went wrong",
+      "url": "https://example.com/app.js",
+      "line": 42,
+      "segments": [
+        {
+          "text": "Error: ",
+          "css": "color: red; font-weight: bold"
+        },
+        {
+          "text": "details here"
+        }
+      ]
+    },
+    {
+      "timestamp": 1700000002,
+      "level": "log",
+      "source": "console",
+      "text": "Hello world"
+    }
+  ],
+  "dropped": 3
+}

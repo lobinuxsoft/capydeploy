@@ -44,6 +44,9 @@ ehthumbs.db
 # Wails temp files
 *.md5
 
+# Rust
+rust/target/
+
 # Config files (user-specific)
 config.json
 devices.json

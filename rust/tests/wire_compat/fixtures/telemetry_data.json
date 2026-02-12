@@ -1,0 +1,38 @@
+{
+  "timestamp": 1700000000,
+  "cpu": {
+    "usagePercent": 45.5,
+    "tempCelsius": 65,
+    "freqMHz": 3200
+  },
+  "gpu": {
+    "usagePercent": 80,
+    "tempCelsius": 75,
+    "freqMHz": 1800,
+    "memFreqMHz": 6000,
+    "vramUsedBytes": 4294967296,
+    "vramTotalBytes": 8589934592
+  },
+  "memory": {
+    "totalBytes": 16000000000,
+    "availableBytes": 8000000000,
+    "usagePercent": 50,
+    "swapTotalBytes": 8000000000,
+    "swapFreeBytes": 6000000000
+  },
+  "battery": {
+    "capacity": 85,
+    "status": "discharging"
+  },
+  "power": {
+    "tdpWatts": 15,
+    "powerWatts": 12.5
+  },
+  "fan": {
+    "rpm": 2400
+  },
+  "steam": {
+    "running": true,
+    "gamingMode": true
+  }
+}
