@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { Button, Card, Input } from '$lib/components/ui';
 	import { toast } from '$lib/stores/toast';
-	import { ExternalLink, Save, Loader2, Info, Server, RotateCcw } from 'lucide-svelte';
+	import { ExternalLink, Save, Loader2, Info, Server, RotateCcw, FolderOpen } from 'lucide-svelte';
 	import {
 		GetSteamGridDBAPIKey, SetSteamGridDBAPIKey,
 		GetVersion,
-		GetHubInfo, SetHubName
+		GetHubInfo, SetHubName,
+		GetGameLogDirectory, SetGameLogDirectory, SelectFolder
 	} from '$lib/wailsjs';
 	import { BrowserOpenURL } from '$wailsjs/runtime/runtime';
 	import { browser } from '$app/environment';
@@ -21,6 +22,8 @@
 	let versionInfo = $state<VersionInfo | null>(null);
 
 	let logColors = $state<ConsoleColors>({ ...DEFAULT_COLORS });
+	let gameLogDir = $state('');
+	let savingGameLogDir = $state(false);
 
 	const colorLabels: { key: keyof ConsoleColors; label: string }[] = [
 		{ key: 'error', label: 'Error' },
@@ -54,6 +57,12 @@
 		} catch (e) {
 			console.error('Failed to load version:', e);
 		}
+
+		try {
+			gameLogDir = (await GetGameLogDirectory()) || '';
+		} catch (e) {
+			console.error('Failed to load game log directory:', e);
+		}
 	}
 
 	async function saveSettings() {
@@ -78,6 +87,35 @@
 		} finally {
 			savingHubName = false;
 		}
+	}
+
+	async function selectGameLogDir() {
+		try {
+			const dir = await SelectFolder();
+			if (dir) {
+				gameLogDir = dir;
+				await saveGameLogDir();
+			}
+		} catch (e) {
+			// User cancelled
+		}
+	}
+
+	async function saveGameLogDir() {
+		savingGameLogDir = true;
+		try {
+			await SetGameLogDirectory(gameLogDir);
+			toast.success('Game log directory saved');
+		} catch (e) {
+			toast.error('Error', String(e));
+		} finally {
+			savingGameLogDir = false;
+		}
+	}
+
+	async function clearGameLogDir() {
+		gameLogDir = '';
+		await saveGameLogDir();
 	}
 
 	function openSteamGridDBApiPage() {
@@ -177,6 +215,39 @@
 		{/if}
 		Save Settings
 	</Button>
+
+	<!-- Game Log Directory -->
+	<div class="cd-section p-4">
+		<h3 class="cd-section-title">Game Log Directory</h3>
+		<p class="text-sm cd-text-disabled mb-4">
+			Save console and game log entries to text files on disk. Leave empty to disable.
+		</p>
+
+		<div class="space-y-2">
+			<div class="flex gap-2">
+				<Input
+					type="text"
+					bind:value={gameLogDir}
+					placeholder="Not configured (file logging disabled)"
+					class="flex-1"
+					readonly
+				/>
+				<Button onclick={selectGameLogDir} disabled={savingGameLogDir} variant="outline">
+					<FolderOpen class="w-4 h-4" />
+				</Button>
+				{#if gameLogDir}
+					<Button onclick={clearGameLogDir} disabled={savingGameLogDir} variant="outline" class="text-destructive">
+						Clear
+					</Button>
+				{/if}
+			</div>
+			{#if gameLogDir}
+				<p class="text-xs cd-text-disabled">
+					Logs will be saved to: <span class="cd-mono">{gameLogDir}</span>
+				</p>
+			{/if}
+		</div>
+	</div>
 
 	<!-- Console Log Colors -->
 	<div class="cd-section p-4">

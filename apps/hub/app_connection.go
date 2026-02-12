@@ -61,12 +61,16 @@ func (a *App) ConnectAgent(agentID string) error {
 		return fmt.Errorf("failed to create WS client: %w", err)
 	}
 
+	// Initialize log writer for file logging (if configured)
+	a.initLogWriter()
+
 	// Set callbacks for push events
 	wsClient.SetCallbacks(
 		func() {
 			// On disconnect — guard against shutdown (WebView already gone)
 			a.mu.Lock()
 			a.connectedAgent = nil
+			a.closeLogWriter()
 			shutting := a.shuttingDown
 			a.mu.Unlock()
 			if !shutting {
@@ -100,6 +104,14 @@ func (a *App) ConnectAgent(agentID string) error {
 		func(event protocol.ConsoleLogBatch) {
 			// On console log data
 			runtime.EventsEmit(a.ctx, "consolelog:data", event)
+			// Write to file if log writer is active
+			if a.logWriter != nil {
+				a.logWriter.WriteBatch(event.Entries)
+			}
+		},
+		func(event protocol.GameLogWrapperStatusEvent) {
+			// On game log wrapper status
+			runtime.EventsEmit(a.ctx, "gamelog:wrapper-status", event)
 		},
 	)
 
@@ -161,6 +173,7 @@ func (a *App) DisconnectAgent() {
 		a.connectedAgent.WSClient.Close()
 	}
 	a.connectedAgent = nil
+	a.closeLogWriter()
 	shutting := a.shuttingDown
 	a.mu.Unlock()
 
@@ -282,6 +295,23 @@ func (a *App) SetConsoleLogEnabled(enabled bool) error {
 	defer cancel()
 
 	_, err := wsClient.SetConsoleLogEnabled(ctx, enabled)
+	return err
+}
+
+// SetGameLogWrapper enables or disables the game log wrapper for a specific game on the connected agent.
+func (a *App) SetGameLogWrapper(appID uint32, enabled bool) error {
+	a.mu.RLock()
+	if a.connectedAgent == nil || a.connectedAgent.WSClient == nil {
+		a.mu.RUnlock()
+		return fmt.Errorf("no agent connected")
+	}
+	wsClient := a.connectedAgent.WSClient
+	a.mu.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := wsClient.SetGameLogWrapper(ctx, appID, enabled)
 	return err
 }
 

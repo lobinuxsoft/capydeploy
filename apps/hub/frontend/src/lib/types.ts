@@ -158,6 +158,11 @@ export interface ConsoleLogBatch {
 	dropped: number;
 }
 
+// Game log wrapper types
+export interface GameLogWrapperStatus {
+	wrappers: Record<number, boolean>;
+}
+
 // SteamGridDB types
 export interface SearchResult {
 	id: number;

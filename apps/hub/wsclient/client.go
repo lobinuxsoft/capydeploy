@@ -55,9 +55,10 @@ type Client struct {
 	onOperationEvent    func(event protocol.OperationEvent)
 	onTelemetryStatus   func(event protocol.TelemetryStatusEvent)
 	onTelemetryData     func(event protocol.TelemetryData)
-	onConsoleLogStatus  func(event protocol.ConsoleLogStatusEvent)
-	onConsoleLogData    func(event protocol.ConsoleLogBatch)
-	onPairingRequired   func(agentID string)
+	onConsoleLogStatus      func(event protocol.ConsoleLogStatusEvent)
+	onConsoleLogData        func(event protocol.ConsoleLogBatch)
+	onGameLogWrapperStatus  func(event protocol.GameLogWrapperStatusEvent)
+	onPairingRequired       func(agentID string)
 }
 
 // NewClient creates a new WebSocket client for an Agent.
@@ -103,6 +104,7 @@ func (c *Client) SetCallbacks(
 	onTelemetryData func(protocol.TelemetryData),
 	onConsoleLogStatus func(protocol.ConsoleLogStatusEvent),
 	onConsoleLogData func(protocol.ConsoleLogBatch),
+	onGameLogWrapperStatus func(protocol.GameLogWrapperStatusEvent),
 ) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -113,6 +115,7 @@ func (c *Client) SetCallbacks(
 	c.onTelemetryData = onTelemetryData
 	c.onConsoleLogStatus = onConsoleLogStatus
 	c.onConsoleLogData = onConsoleLogData
+	c.onGameLogWrapperStatus = onGameLogWrapperStatus
 }
 
 // Connect establishes the WebSocket connection to the Agent.
@@ -453,6 +456,16 @@ func (c *Client) handleTextMessage(data []byte) {
 				callback(event)
 			}
 		}
+	case protocol.MsgTypeGameLogWrapperStatus:
+		var event protocol.GameLogWrapperStatusEvent
+		if err := msg.ParsePayload(&event); err == nil {
+			c.mu.RLock()
+			callback := c.onGameLogWrapperStatus
+			c.mu.RUnlock()
+			if callback != nil {
+				callback(event)
+			}
+		}
 	default:
 		log.Printf("WS Client: Unhandled message type: %s", msg.Type)
 	}
@@ -488,6 +501,7 @@ func (c *Client) handleDisconnect() {
 	c.onTelemetryData = nil
 	c.onConsoleLogStatus = nil
 	c.onConsoleLogData = nil
+	c.onGameLogWrapperStatus = nil
 	c.mu.Unlock()
 
 	log.Printf("WS Client: Disconnected")
@@ -939,6 +953,25 @@ func (c *Client) SetConsoleLogEnabled(ctx context.Context, enabled bool) (bool, 
 	}
 
 	var result protocol.SetConsoleLogEnabledResponse
+	if err := resp.ParsePayload(&result); err != nil {
+		return false, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return result.Enabled, nil
+}
+
+// SetGameLogWrapper enables or disables the game log wrapper for a specific game.
+// Returns the confirmed enabled state.
+func (c *Client) SetGameLogWrapper(ctx context.Context, appID uint32, enabled bool) (bool, error) {
+	resp, err := c.sendRequest(ctx, protocol.MsgTypeSetGameLogWrapper, protocol.SetGameLogWrapperRequest{
+		AppID:   appID,
+		Enabled: enabled,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	var result protocol.SetGameLogWrapperResponse
 	if err := resp.ParsePayload(&result); err != nil {
 		return false, fmt.Errorf("failed to parse response: %w", err)
 	}

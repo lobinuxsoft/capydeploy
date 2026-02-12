@@ -50,6 +50,10 @@ export function GetDiscoveredAgents() {
   return window['go']['main']['App']['GetDiscoveredAgents']();
 }
 
+export function GetGameLogDirectory() {
+  return window['go']['main']['App']['GetGameLogDirectory']();
+}
+
 export function GetGameSetups() {
   return window['go']['main']['App']['GetGameSetups']();
 }
@@ -124,6 +128,14 @@ export function SetConsoleLogEnabled(arg1) {
 
 export function SetConsoleLogFilter(arg1) {
   return window['go']['main']['App']['SetConsoleLogFilter'](arg1);
+}
+
+export function SetGameLogDirectory(arg1) {
+  return window['go']['main']['App']['SetGameLogDirectory'](arg1);
+}
+
+export function SetGameLogWrapper(arg1, arg2) {
+  return window['go']['main']['App']['SetGameLogWrapper'](arg1, arg2);
 }
 
 export function SetHubName(arg1) {

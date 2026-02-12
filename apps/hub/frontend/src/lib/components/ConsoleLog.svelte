@@ -26,6 +26,7 @@
 	const sourceOptions = [
 		{ value: 'all', label: 'All Sources' },
 		{ value: 'console', label: 'Console' },
+		{ value: 'game', label: 'Game' },
 		{ value: 'network', label: 'Network' },
 		{ value: 'javascript', label: 'JavaScript' },
 		{ value: 'other', label: 'Other' }
@@ -171,11 +172,12 @@
 	}
 </script>
 
-{#if !status.enabled}
+{#if !status.enabled && entries.length === 0}
 	<div class="flex flex-col items-center justify-center py-16 text-center">
 		<Terminal class="w-12 h-12 text-muted-foreground mb-4" />
 		<p class="text-muted-foreground text-sm max-w-md mb-4">
-			Enable console log streaming from the agent to view Steam CEF logs.
+			Enable console log streaming from the agent to view Steam CEF logs,
+			or enable a game log wrapper to capture game output.
 		</p>
 		<button
 			type="button"
@@ -187,7 +189,7 @@
 			{enabling ? 'Enabling...' : 'Enable Console Log'}
 		</button>
 	</div>
-{:else if entries.length === 0}
+{:else if status.enabled && entries.length === 0}
 	<div class="flex flex-col items-center justify-center py-16 text-center">
 		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
 		<p class="text-muted-foreground text-sm">Waiting for console log data...</p>
@@ -226,15 +228,27 @@
 			Clear
 		</button>
 
-		<button
-			type="button"
-			onclick={() => handleEnableToggle(false)}
-			disabled={enabling}
-			class="text-xs bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5 text-destructive hover:bg-destructive/20 transition-colors flex items-center gap-1 disabled:opacity-50"
-		>
-			<Power class="w-3 h-3" />
-			Disable
-		</button>
+		{#if status.enabled}
+			<button
+				type="button"
+				onclick={() => handleEnableToggle(false)}
+				disabled={enabling}
+				class="text-xs bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5 text-destructive hover:bg-destructive/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+			>
+				<Power class="w-3 h-3" />
+				Disable
+			</button>
+		{:else}
+			<button
+				type="button"
+				onclick={() => handleEnableToggle(true)}
+				disabled={enabling}
+				class="text-xs bg-primary/10 border border-primary/30 rounded px-2 py-1.5 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+			>
+				<Power class="w-3 h-3" />
+				Enable Console
+			</button>
+		{/if}
 
 		{#if totalDropped > 0}
 			<span class="text-xs text-yellow-400">{totalDropped} dropped</span>

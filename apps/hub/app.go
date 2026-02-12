@@ -7,7 +7,9 @@ import (
 
 	"github.com/lobinuxsoft/capydeploy/apps/hub/auth"
 	hubconfig "github.com/lobinuxsoft/capydeploy/apps/hub/config"
+	"github.com/lobinuxsoft/capydeploy/apps/hub/logwriter"
 	"github.com/lobinuxsoft/capydeploy/apps/hub/modules"
+	"github.com/lobinuxsoft/capydeploy/pkg/config"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/version"
@@ -25,6 +27,7 @@ type App struct {
 	shuttingDown    bool
 	tokenStore      *auth.TokenStore
 	configMgr       *hubconfig.Manager
+	logWriter       *logwriter.Writer
 }
 
 // ConnectedAgent represents a connected agent with its client
@@ -126,6 +129,28 @@ func (a *App) startup(ctx context.Context) {
 	go a.runDiscovery()
 }
 
+// initLogWriter creates a new log writer if game log directory is configured.
+func (a *App) initLogWriter() {
+	dir, err := config.GetGameLogDirectory()
+	if err != nil || dir == "" {
+		return
+	}
+	w, err := logwriter.New(dir)
+	if err != nil {
+		log.Printf("Warning: failed to create log writer: %v", err)
+		return
+	}
+	a.logWriter = w
+}
+
+// closeLogWriter closes the active log writer.
+func (a *App) closeLogWriter() {
+	if a.logWriter != nil {
+		a.logWriter.Close()
+		a.logWriter = nil
+	}
+}
+
 // shutdown is called when the app is closing.
 // The WebView is already destroyed at this point, so no EventsEmit calls.
 func (a *App) shutdown(ctx context.Context) {
@@ -135,6 +160,7 @@ func (a *App) shutdown(ctx context.Context) {
 		a.connectedAgent.WSClient.Close()
 	}
 	a.connectedAgent = nil
+	a.closeLogWriter()
 	a.mu.Unlock()
 
 	// Cancel discovery goroutine context

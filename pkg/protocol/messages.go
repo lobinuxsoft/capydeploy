@@ -43,6 +43,7 @@ const (
 	// Requests from Hub to Agent
 	MsgTypeSetConsoleLogFilter  MessageType = "set_console_log_filter"  // Hub → Agent: configure log level filter
 	MsgTypeSetConsoleLogEnabled MessageType = "set_console_log_enabled" // Hub → Agent: enable/disable console log
+	MsgTypeSetGameLogWrapper    MessageType = "set_game_log_wrapper"    // Hub → Agent: enable/disable game log wrapper
 	MsgTypePing                 MessageType = "ping"
 	MsgTypeGetInfo        MessageType = "get_info"
 	MsgTypeGetConfig      MessageType = "get_config"
@@ -78,8 +79,9 @@ const (
 	MsgTypeOperationEvent    MessageType = "operation_event"
 	MsgTypeTelemetryStatus   MessageType = "telemetry_status"
 	MsgTypeTelemetryData     MessageType = "telemetry_data"
-	MsgTypeConsoleLogStatus  MessageType = "console_log_status"
-	MsgTypeConsoleLogData    MessageType = "console_log_data"
+	MsgTypeConsoleLogStatus      MessageType = "console_log_status"
+	MsgTypeConsoleLogData        MessageType = "console_log_data"
+	MsgTypeGameLogWrapperStatus  MessageType = "game_log_wrapper_status"
 )
 
 // WSError represents an error in a WebSocket message.
@@ -587,6 +589,25 @@ type ConsoleLogEntry struct {
 type ConsoleLogBatch struct {
 	Entries []ConsoleLogEntry `json:"entries"`
 	Dropped int               `json:"dropped"`
+}
+
+// Game log wrapper payloads
+
+// SetGameLogWrapperRequest enables or disables the game log wrapper for a specific game.
+type SetGameLogWrapperRequest struct {
+	AppID   uint32 `json:"appId"`
+	Enabled bool   `json:"enabled"`
+}
+
+// SetGameLogWrapperResponse confirms the game log wrapper state.
+type SetGameLogWrapperResponse struct {
+	AppID   uint32 `json:"appId"`
+	Enabled bool   `json:"enabled"`
+}
+
+// GameLogWrapperStatusEvent reports the wrapper state for all tracked games.
+type GameLogWrapperStatusEvent struct {
+	Wrappers map[uint32]bool `json:"wrappers"`
 }
 
 // Steam control payloads

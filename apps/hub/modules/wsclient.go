@@ -90,8 +90,9 @@ func (c *WSClient) SetCallbacks(
 	onTelemetryData func(protocol.TelemetryData),
 	onConsoleLogStatus func(protocol.ConsoleLogStatusEvent),
 	onConsoleLogData func(protocol.ConsoleLogBatch),
+	onGameLogWrapperStatus func(protocol.GameLogWrapperStatusEvent),
 ) {
-	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent, onTelemetryStatus, onTelemetryData, onConsoleLogStatus, onConsoleLogData)
+	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent, onTelemetryStatus, onTelemetryData, onConsoleLogStatus, onConsoleLogData, onGameLogWrapperStatus)
 }
 
 // PlatformClient implementation
@@ -212,6 +213,13 @@ func (c *WSClient) SetConsoleLogFilter(ctx context.Context, mask uint32) (uint32
 // SetConsoleLogEnabled enables or disables console log streaming on the agent.
 func (c *WSClient) SetConsoleLogEnabled(ctx context.Context, enabled bool) (bool, error) {
 	return c.client.SetConsoleLogEnabled(ctx, enabled)
+}
+
+// GameLogWrapper implementation
+
+// SetGameLogWrapper enables or disables the game log wrapper for a specific game.
+func (c *WSClient) SetGameLogWrapper(ctx context.Context, appID uint32, enabled bool) (bool, error) {
+	return c.client.SetGameLogWrapper(ctx, appID, enabled)
 }
 
 // GameManager implementation

@@ -29,6 +29,8 @@ export function GetConnectionStatus():Promise<main.ConnectionStatus>;
 
 export function GetDiscoveredAgents():Promise<Array<main.DiscoveredAgentInfo>>;
 
+export function GetGameLogDirectory():Promise<string>;
+
 export function GetGameSetups():Promise<Array<config.GameSetup>>;
 
 export function GetGrids(arg1:number,arg2:steamgriddb.ImageFilters,arg3:number):Promise<Array<steamgriddb.ImageData>>;
@@ -66,6 +68,10 @@ export function SelectFolder():Promise<string>;
 export function SetConsoleLogEnabled(arg1:boolean):Promise<void>;
 
 export function SetConsoleLogFilter(arg1:number):Promise<void>;
+
+export function SetGameLogDirectory(arg1:string):Promise<void>;
+
+export function SetGameLogWrapper(arg1:number,arg2:boolean):Promise<void>;
 
 export function SetHubName(arg1:string):Promise<void>;
 
