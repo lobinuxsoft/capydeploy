@@ -66,6 +66,103 @@ export interface UploadProgress {
 	done: boolean;
 }
 
+// Telemetry types
+export interface TelemetryStatus {
+	enabled: boolean;
+	interval: number;
+}
+
+export interface TelemetryData {
+	timestamp: number;
+	cpu?: CPUMetrics;
+	gpu?: GPUMetrics;
+	memory?: MemoryMetrics;
+	battery?: BatteryMetrics;
+	power?: PowerMetrics;
+	fan?: FanMetrics;
+	steam?: SteamStatusData;
+}
+
+export interface CPUMetrics {
+	usagePercent: number;
+	tempCelsius: number;
+	freqMHz: number;
+}
+
+export interface GPUMetrics {
+	usagePercent: number;
+	tempCelsius: number;
+	freqMHz: number;
+	memFreqMHz?: number;
+	vramUsedBytes?: number;
+	vramTotalBytes?: number;
+}
+
+export interface MemoryMetrics {
+	totalBytes: number;
+	availableBytes: number;
+	usagePercent: number;
+	swapTotalBytes?: number;
+	swapFreeBytes?: number;
+}
+
+export interface BatteryMetrics {
+	capacity: number;
+	status: string;
+}
+
+export interface PowerMetrics {
+	tdpWatts: number;
+	powerWatts: number;
+}
+
+export interface FanMetrics {
+	rpm: number;
+}
+
+export interface SteamStatusData {
+	running: boolean;
+	gamingMode: boolean;
+}
+
+// Console log types
+export const LOG_LEVEL_LOG = 1;
+export const LOG_LEVEL_WARN = 2;
+export const LOG_LEVEL_ERROR = 4;
+export const LOG_LEVEL_INFO = 8;
+export const LOG_LEVEL_DEBUG = 16;
+export const LOG_LEVEL_DEFAULT = LOG_LEVEL_LOG | LOG_LEVEL_WARN | LOG_LEVEL_ERROR | LOG_LEVEL_INFO; // 15
+
+export interface ConsoleLogStatus {
+	enabled: boolean;
+	levelMask: number;
+}
+
+export interface StyledSegment {
+	text: string;
+	css?: string;
+}
+
+export interface ConsoleLogEntry {
+	timestamp: number;
+	level: string;
+	source: string;
+	text: string;
+	url?: string;
+	line?: number;
+	segments?: StyledSegment[];
+}
+
+export interface ConsoleLogBatch {
+	entries: ConsoleLogEntry[];
+	dropped: number;
+}
+
+// Game log wrapper types
+export interface GameLogWrapperStatus {
+	wrappers: Record<number, boolean>;
+}
+
 // SteamGridDB types
 export interface SearchResult {
 	id: number;

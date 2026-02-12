@@ -66,14 +66,23 @@ func NewWSServer(s *Server, authMgr *auth.Manager, onConnect func(string, string
 }
 
 // DisconnectHub closes the current Hub connection if any.
+// Sends a WebSocket close frame so the Hub detects disconnection immediately.
 func (ws *WSServer) DisconnectHub() {
 	ws.mu.Lock()
 	hub := ws.hubConn
 	ws.mu.Unlock()
 
-	if hub != nil && hub.conn != nil {
-		hub.conn.Close()
+	if hub == nil || hub.conn == nil {
+		return
 	}
+
+	// WriteControl is safe to call concurrently with writePump
+	hub.conn.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "connections disabled"),
+		time.Now().Add(5*time.Second),
+	)
+	hub.conn.Close()
 }
 
 // HandleWS handles the WebSocket upgrade and connection.
@@ -240,6 +249,10 @@ func (ws *WSServer) handleTextMessage(hub *HubConnection, data []byte) {
 		ws.handleCompleteUpload(hub, &msg)
 	case protocol.MsgTypeCancelUpload:
 		ws.handleCancelUpload(hub, &msg)
+	case protocol.MsgTypeSetConsoleLogFilter:
+		ws.handleSetConsoleLogFilter(hub, &msg)
+	case protocol.MsgTypeSetConsoleLogEnabled:
+		ws.handleSetConsoleLogEnabled(hub, &msg)
 	default:
 		log.Printf("WS: Unknown message type: %s", msg.Type)
 		ws.sendError(hub, msg.ID, protocol.WSErrCodeNotImplemented, "unknown message type")
@@ -312,6 +325,10 @@ func (ws *WSServer) closeHub(hub *HubConnection) {
 	}
 	hub.closed = true
 	hub.closeMu.Unlock()
+
+	// Stop telemetry and console log when Hub disconnects
+	ws.server.StopTelemetry()
+	ws.server.StopConsoleLog()
 
 	close(hub.closeCh)
 	hub.conn.Close()

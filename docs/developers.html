@@ -28,6 +28,14 @@ title: Developers
             <div class="flex items-center gap-2"><code class="text-slate-400">steam_restart</code><span class="text-slate-500">— Restart Steam</span></div>
           </div>
         </div>
+        <div class="bg-slate-950 rounded-xl p-4">
+          <h4 class="text-sm font-semibold text-emerald-400 mb-2">Monitoring Capabilities (optional)</h4>
+          <div class="space-y-1 text-sm">
+            <div class="flex items-center gap-2"><code class="text-slate-400">telemetry</code><span class="text-slate-500">— Hardware metrics streaming</span></div>
+            <div class="flex items-center gap-2"><code class="text-slate-400">console_log</code><span class="text-slate-500">— Console log capture &amp; streaming</span></div>
+            <div class="flex items-center gap-2"><code class="text-slate-400">game_log_wrapper</code><span class="text-slate-500">— Game stdout/stderr capture (Linux)</span></div>
+          </div>
+        </div>
       </div>
       <div class="mt-4 grid md:grid-cols-3 gap-3 text-xs">
         <div class="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
@@ -138,6 +146,18 @@ title: Developers
         <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
           <code class="text-water-400">EnsureRunning()</code>
           <span class="text-slate-500">Start if needed</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">LaunchGame(appID)</code>
+          <span class="text-slate-500">Launch via steam:// protocol</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">IsCEFAvailable()</code>
+          <span class="text-slate-500">Check CEF debugger</span>
+        </div>
+        <div class="flex items-center gap-3 p-3 bg-slate-950 rounded-lg">
+          <code class="text-water-400">WaitForCEF()</code>
+          <span class="text-slate-500">Wait for CEF ready</span>
         </div>
       </div>
     </div>

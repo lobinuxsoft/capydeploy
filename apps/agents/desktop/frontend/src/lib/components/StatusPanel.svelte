@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { Card, Badge, Button, Input } from '$lib/components/ui';
-	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { Card, Badge, Button, Input, Toggle } from '$lib/components/ui';
+	import { GetStatus, GetVersion, SetAcceptConnections, DisconnectHub, SetName, GetInstallPath, SelectInstallPath, SetTelemetryEnabled, SetTelemetryInterval, SetConsoleLogEnabled, EventsOn, EventsOff } from '$lib/wailsjs';
 	import type { AgentStatus, VersionInfo } from '$lib/types';
-	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { Monitor, Wifi, WifiOff, Unplug, Pencil, Check, X, Folder, FolderOpen, Key, Info, ChevronDown, ChevronRight, Activity, ChevronsUpDown, Terminal } from 'lucide-svelte';
 
 	let status = $state<AgentStatus | null>(null);
 	let versionInfo = $state<VersionInfo | null>(null);
@@ -17,7 +17,7 @@
 	let pairingTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Collapsible sections state
-	let expandedSections = $state<Set<string>>(new Set(['version', 'install', 'network', 'connections']));
+	let expandedSections = $state<Set<string>>(new Set(['version', 'install', 'network', 'telemetry', 'connections']));
 
 	function toggleSection(section: string) {
 		if (expandedSections.has(section)) {
@@ -50,11 +50,6 @@
 		} catch (e) {
 			console.error('Error selecting folder:', e);
 		}
-	}
-
-	async function toggleConnections() {
-		if (!status) return;
-		await SetAcceptConnections(!status.acceptConnections);
 	}
 
 	async function disconnect() {
@@ -135,6 +130,50 @@
 			}
 		};
 	});
+
+	async function toggleTelemetry(checked: boolean) {
+		if (!status) return;
+		await SetTelemetryEnabled(checked);
+	}
+
+	async function toggleConsoleLog(checked: boolean) {
+		if (!status) return;
+		await SetConsoleLogEnabled(checked);
+	}
+
+	let intervalDropdownOpen = $state(false);
+	let triggerEl = $state<HTMLButtonElement | null>(null);
+	let menuPos = $state({ top: 0, left: 0 });
+	const intervalOptions = [
+		{ value: 1, label: '1s' },
+		{ value: 2, label: '2s' },
+		{ value: 3, label: '3s' },
+		{ value: 5, label: '5s' },
+		{ value: 10, label: '10s' },
+	];
+
+	function toggleDropdown() {
+		if (!intervalDropdownOpen && triggerEl) {
+			const rect = triggerEl.getBoundingClientRect();
+			menuPos = { top: rect.bottom + 4, left: rect.right };
+		}
+		intervalDropdownOpen = !intervalDropdownOpen;
+	}
+
+	async function selectTelemetryInterval(seconds: number) {
+		intervalDropdownOpen = false;
+		await SetTelemetryInterval(seconds);
+	}
+
+	function handleDropdownKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			intervalDropdownOpen = false;
+		}
+	}
+
+	function closeDropdown() {
+		intervalDropdownOpen = false;
+	}
 
 	function getPlatformIcon(platform: string) {
 		switch (platform.toLowerCase()) {
@@ -314,6 +353,105 @@
 			{/if}
 		</div>
 
+		<!-- Telemetry -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between">
+				<button
+					type="button"
+					class="flex items-center gap-2 hover:text-primary transition-colors"
+					onclick={() => toggleSection('telemetry')}
+				>
+					{#if expandedSections.has('telemetry')}
+						<ChevronDown class="w-4 h-4 cd-text-primary" />
+					{:else}
+						<ChevronRight class="w-4 h-4 cd-text-disabled" />
+					{/if}
+					<Activity class="w-4 h-4 cd-text-disabled" />
+					<span class="cd-section-title">Telemetry</span>
+				</button>
+				<Toggle checked={status.telemetryEnabled} onchange={toggleTelemetry} />
+			</div>
+
+			{#if expandedSections.has('telemetry')}
+				<div class="mt-3">
+					<div class="flex items-center justify-between mb-3">
+						<span class="text-sm cd-text-disabled">Interval</span>
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div onkeydown={handleDropdownKeydown}>
+							<button
+								type="button"
+								class="cd-select-trigger"
+								data-open={intervalDropdownOpen}
+								bind:this={triggerEl}
+								onclick={toggleDropdown}
+							>
+								<span>{intervalOptions.find(o => o.value === status!.telemetryInterval)?.label ?? `${status!.telemetryInterval}s`}</span>
+								<ChevronsUpDown class="w-3 h-3 cd-text-disabled" />
+							</button>
+						</div>
+					</div>
+					{#if status.telemetryEnabled}
+						<div class="flex items-center gap-2 text-sm">
+							<span class="cd-pulse"></span>
+							<span class="cd-status-connected">Sending hardware metrics</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Interval dropdown (rendered outside cd-section to avoid overflow clip) -->
+		{#if intervalDropdownOpen}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="fixed inset-0 z-40" onclick={closeDropdown} onkeydown={handleDropdownKeydown}></div>
+			<div class="cd-select-menu" style="top:{menuPos.top}px; left:{menuPos.left}px;">
+				{#each intervalOptions as opt}
+					<button
+						type="button"
+						class="cd-select-option"
+						data-selected={opt.value === status.telemetryInterval}
+						onclick={() => selectTelemetryInterval(opt.value)}
+					>
+						{opt.label}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Console Log -->
+		<div class="cd-section p-4">
+			<div class="flex items-center justify-between">
+				<button
+					type="button"
+					class="flex items-center gap-2 hover:text-primary transition-colors"
+					onclick={() => toggleSection('consolelog')}
+				>
+					{#if expandedSections.has('consolelog')}
+						<ChevronDown class="w-4 h-4 cd-text-primary" />
+					{:else}
+						<ChevronRight class="w-4 h-4 cd-text-disabled" />
+					{/if}
+					<Terminal class="w-4 h-4 cd-text-disabled" />
+					<span class="cd-section-title">Console Log</span>
+				</button>
+				<Toggle checked={status.consoleLogEnabled} onchange={toggleConsoleLog} />
+			</div>
+
+			{#if expandedSections.has('consolelog')}
+				<div class="mt-3">
+					<p class="text-xs cd-text-disabled">
+						Stream Steam CEF console output to the Hub for remote debugging.
+					</p>
+					{#if status.consoleLogEnabled}
+						<div class="flex items-center gap-2 text-sm mt-2">
+							<span class="cd-pulse"></span>
+							<span class="cd-status-connected">Streaming console logs</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
 		<!-- Pairing Code (shown when a Hub requests pairing) -->
 		{#if pairingCode}
 			<div class="cd-section p-4">
@@ -353,9 +491,10 @@
 					{/if}
 					<span class="cd-section-title">Connections</span>
 				</button>
-				<Badge variant={status.acceptConnections ? 'success' : 'warning'}>
-					{status.acceptConnections ? 'Accepting' : 'Blocked'}
-				</Badge>
+				<Toggle
+					checked={status.acceptConnections}
+					onchange={(checked) => SetAcceptConnections(checked)}
+				/>
 			</div>
 
 			{#if expandedSections.has('connections')}
@@ -367,19 +506,24 @@
 							<span class="cd-status-connected">{status.connectedHub.name}</span>
 							<span class="text-xs cd-text-disabled">({status.connectedHub.ip})</span>
 						</div>
+						<Button
+							variant="destructive"
+							size="sm"
+							class="w-full"
+							onclick={disconnect}
+						>
+							<Unplug class="w-3 h-3 mr-1" />
+							Disconnect Hub
+						</Button>
 					{:else if !status.acceptConnections}
-						<p class="text-xs cd-text-disabled mb-3">
+						<p class="text-xs cd-text-disabled">
 							The Hub can see this agent but cannot perform operations
 						</p>
+					{:else}
+						<p class="text-xs cd-text-disabled">
+							Waiting for a Hub connection...
+						</p>
 					{/if}
-
-					<Button
-						variant={status.acceptConnections ? 'destructive' : 'gradient'}
-						class="w-full"
-						onclick={toggleConnections}
-					>
-						{status.acceptConnections ? 'Block Operations' : 'Allow Operations'}
-					</Button>
 				</div>
 			{/if}
 		</div>

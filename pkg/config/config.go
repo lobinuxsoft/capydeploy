@@ -31,6 +31,7 @@ type AppConfig struct {
 	GameSetups        []GameSetup `json:"game_setups"`
 	SteamGridDBAPIKey string      `json:"steamgriddb_api_key,omitempty"`
 	ImageCacheEnabled bool        `json:"image_cache_enabled"`
+	GameLogDirectory  string      `json:"game_log_directory,omitempty"`
 }
 
 // GetConfigPath returns the path to the config file
@@ -195,5 +196,24 @@ func SetImageCacheEnabled(enabled bool) error {
 		return err
 	}
 	config.ImageCacheEnabled = enabled
+	return Save(config)
+}
+
+// GetGameLogDirectory returns the directory for game log files
+func GetGameLogDirectory() (string, error) {
+	config, err := Load()
+	if err != nil {
+		return "", err
+	}
+	return config.GameLogDirectory, nil
+}
+
+// SetGameLogDirectory sets the directory for game log files
+func SetGameLogDirectory(dir string) error {
+	config, err := Load()
+	if err != nil {
+		return err
+	}
+	config.GameLogDirectory = dir
 	return Save(config)
 }

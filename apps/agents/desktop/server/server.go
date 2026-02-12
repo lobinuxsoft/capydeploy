@@ -17,7 +17,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/auth"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/consolelog"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/pathutil"
+	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/telemetry"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/protocol"
 	"github.com/lobinuxsoft/capydeploy/pkg/transfer"
@@ -46,10 +48,15 @@ type Config struct {
 	OnOperation       func(event OperationEvent)                 // Callback for operation progress
 	OnHubConnect      func(hubID, hubName, hubIP string)         // Callback when a Hub connects
 	OnHubDisconnect   func()                                     // Callback when the Hub disconnects
-	AuthManager       *auth.Manager                              // Authentication manager for pairing
-	OnPairingCode     func(code string, expiresIn time.Duration) // Callback when pairing code is generated
-	OnPairingSuccess  func()                                     // Callback when pairing is successful
-	OnPortAssigned    func(port int)                             // Callback when port is assigned (useful for dynamic ports)
+	AuthManager          *auth.Manager                              // Authentication manager for pairing
+	OnPairingCode        func(code string, expiresIn time.Duration) // Callback when pairing code is generated
+	OnPairingSuccess     func()                                     // Callback when pairing is successful
+	OnPortAssigned       func(port int)                             // Callback when port is assigned (useful for dynamic ports)
+	GetTelemetryEnabled  func() bool                                // Callback to check if telemetry is enabled
+	GetTelemetryInterval func() int                                 // Callback to get telemetry interval in seconds
+	GetSteamStatus       func() (running bool, gamingMode bool)     // Callback to get Steam process status
+	GetConsoleLogEnabled func() bool                                // Callback to check if console log is enabled
+	SetConsoleLogEnabled func(enabled bool) error                    // Callback to enable/disable console log
 }
 
 // Server is the main agent server that handles WebSocket connections and mDNS discovery.
@@ -67,6 +74,12 @@ type Server struct {
 	// Upload management
 	uploadMu sync.RWMutex
 	uploads  map[string]*transfer.UploadSession
+
+	// Telemetry
+	telemetry *telemetry.Collector
+
+	// Console log streaming
+	consoleLog *consolelog.Collector
 }
 
 // New creates a new agent server.
@@ -95,6 +108,19 @@ func New(cfg Config) (*Server, error) {
 		authMgr: cfg.AuthManager,
 		uploads: make(map[string]*transfer.UploadSession),
 	}
+
+	// Initialize telemetry collector
+	srv.telemetry = telemetry.NewCollector(func(data protocol.TelemetryData) {
+		srv.SendEvent(protocol.MsgTypeTelemetryData, data)
+	})
+	if cfg.GetSteamStatus != nil {
+		srv.telemetry.SetSteamStatusFunc(cfg.GetSteamStatus)
+	}
+
+	// Initialize console log collector
+	srv.consoleLog = consolelog.NewCollector(func(batch protocol.ConsoleLogBatch) {
+		srv.SendEvent(protocol.MsgTypeConsoleLogData, batch)
+	})
 
 	// Set pairing code callback if provided
 	if srv.authMgr != nil && cfg.OnPairingCode != nil {
@@ -341,6 +367,126 @@ func (s *Server) SendEvent(msgType protocol.MessageType, payload any) {
 	if s.wsSrv != nil {
 		s.wsSrv.SendEvent(msgType, payload)
 	}
+}
+
+// StartTelemetry starts the telemetry collector if enabled and a Hub is connected.
+func (s *Server) StartTelemetry() {
+	enabled := false
+	if s.cfg.GetTelemetryEnabled != nil {
+		enabled = s.cfg.GetTelemetryEnabled()
+	}
+	if !enabled || !s.IsHubConnected() {
+		return
+	}
+
+	interval := 2
+	if s.cfg.GetTelemetryInterval != nil {
+		interval = s.cfg.GetTelemetryInterval()
+	}
+
+	s.telemetry.Start(interval)
+	s.NotifyTelemetryStatus()
+	log.Printf("Telemetry started (interval: %ds)", interval)
+}
+
+// StopTelemetry stops the telemetry collector.
+func (s *Server) StopTelemetry() {
+	if s.telemetry.IsRunning() {
+		s.telemetry.Stop()
+		log.Printf("Telemetry stopped")
+	}
+}
+
+// NotifyTelemetryStatus sends the current telemetry status to the Hub.
+func (s *Server) NotifyTelemetryStatus() {
+	enabled := false
+	if s.cfg.GetTelemetryEnabled != nil {
+		enabled = s.cfg.GetTelemetryEnabled()
+	}
+	interval := 2
+	if s.cfg.GetTelemetryInterval != nil {
+		interval = s.cfg.GetTelemetryInterval()
+	}
+
+	s.SendEvent(protocol.MsgTypeTelemetryStatus, protocol.TelemetryStatusEvent{
+		Enabled:  enabled,
+		Interval: interval,
+	})
+}
+
+// StartConsoleLog starts the console log collector if enabled and a Hub is connected.
+func (s *Server) StartConsoleLog() {
+	enabled := false
+	if s.cfg.GetConsoleLogEnabled != nil {
+		enabled = s.cfg.GetConsoleLogEnabled()
+	}
+	if !enabled || !s.IsHubConnected() {
+		return
+	}
+
+	s.consoleLog.Start()
+	s.NotifyConsoleLogStatus()
+	log.Printf("Console log started")
+}
+
+// StopConsoleLog stops the console log collector.
+func (s *Server) StopConsoleLog() {
+	if s.consoleLog.IsRunning() {
+		s.consoleLog.Stop()
+		log.Printf("Console log stopped")
+	}
+}
+
+// NotifyConsoleLogStatus sends the current console log status to the Hub.
+func (s *Server) NotifyConsoleLogStatus() {
+	enabled := false
+	if s.cfg.GetConsoleLogEnabled != nil {
+		enabled = s.cfg.GetConsoleLogEnabled()
+	}
+
+	s.SendEvent(protocol.MsgTypeConsoleLogStatus, protocol.ConsoleLogStatusEvent{
+		Enabled:   enabled,
+		LevelMask: s.consoleLog.GetLevelMask(),
+	})
+}
+
+// SetConsoleLogEnabled enables or disables console log via the config callback, then starts/stops the collector.
+func (s *Server) SetConsoleLogEnabled(enabled bool) error {
+	if s.cfg.SetConsoleLogEnabled != nil {
+		if err := s.cfg.SetConsoleLogEnabled(enabled); err != nil {
+			return err
+		}
+	}
+
+	if enabled {
+		s.StartConsoleLog()
+	} else {
+		s.StopConsoleLog()
+		s.NotifyConsoleLogStatus()
+	}
+
+	return nil
+}
+
+// DisableConnections disconnects the current Hub and stops mDNS advertising.
+func (s *Server) DisableConnections() {
+	if s.wsSrv != nil {
+		s.wsSrv.DisconnectHub()
+	}
+	if s.mdnsSrv != nil {
+		s.mdnsSrv.Stop()
+	}
+	log.Printf("Connections disabled: Hub disconnected, mDNS stopped")
+}
+
+// EnableConnections restarts mDNS advertising.
+func (s *Server) EnableConnections() {
+	if s.mdnsSrv != nil {
+		if err := s.mdnsSrv.Start(); err != nil {
+			log.Printf("Failed to restart mDNS: %v", err)
+		}
+	}
+	log.Printf("Connections enabled: mDNS started")
 }
 
 // GetPort returns the actual port the server is listening on.

@@ -15,6 +15,7 @@ import (
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/firewall"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/server"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/shortcuts"
+	agentSteam "github.com/lobinuxsoft/capydeploy/apps/agents/desktop/steam"
 	"github.com/lobinuxsoft/capydeploy/apps/agents/desktop/tray"
 	"github.com/lobinuxsoft/capydeploy/pkg/discovery"
 	"github.com/lobinuxsoft/capydeploy/pkg/steam"
@@ -63,6 +64,9 @@ type AgentStatus struct {
 	IPs               []string      `json:"ips"`
 	AcceptConnections bool          `json:"acceptConnections"`
 	ConnectedHub      *ConnectedHub `json:"connectedHub"`
+	TelemetryEnabled  bool          `json:"telemetryEnabled"`
+	TelemetryInterval int           `json:"telemetryInterval"`
+	ConsoleLogEnabled bool          `json:"consoleLogEnabled"`
 }
 
 // SteamUserInfo represents a Steam user for the UI
@@ -219,6 +223,39 @@ func (a *App) startServer() {
 			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 			a.updateTrayStatus()
 		},
+		GetTelemetryEnabled: func() bool {
+			if a.configMgr != nil {
+				return a.configMgr.GetTelemetryEnabled()
+			}
+			return false
+		},
+		GetTelemetryInterval: func() int {
+			if a.configMgr != nil {
+				return a.configMgr.GetTelemetryInterval()
+			}
+			return 2
+		},
+		GetSteamStatus: func() (bool, bool) {
+			ctrl := agentSteam.NewController()
+			return ctrl.IsRunning(), ctrl.IsGamingMode()
+		},
+		GetConsoleLogEnabled: func() bool {
+			if a.configMgr != nil {
+				return a.configMgr.GetConsoleLogEnabled()
+			}
+			return false
+		},
+		SetConsoleLogEnabled: func(enabled bool) error {
+			if a.configMgr == nil {
+				return fmt.Errorf("configuration not available")
+			}
+			if err := a.configMgr.SetConsoleLogEnabled(enabled); err != nil {
+				return fmt.Errorf("failed to save console log setting: %w", err)
+			}
+			log.Printf("Console log enabled (remote): %v", enabled)
+			runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+			return nil
+		},
 	}
 
 	srv, err := server.New(cfg)
@@ -259,6 +296,15 @@ func (a *App) GetStatus() AgentStatus {
 	acceptConnections := a.acceptConnections
 	a.connectionMu.RUnlock()
 
+	var telemetryEnabled bool
+	var telemetryInterval int
+	var consoleLogEnabled bool
+	if a.configMgr != nil {
+		telemetryEnabled = a.configMgr.GetTelemetryEnabled()
+		telemetryInterval = a.configMgr.GetTelemetryInterval()
+		consoleLogEnabled = a.configMgr.GetConsoleLogEnabled()
+	}
+
 	return AgentStatus{
 		Running:           running,
 		Name:              a.getName(),
@@ -268,6 +314,9 @@ func (a *App) GetStatus() AgentStatus {
 		IPs:               getLocalIPs(),
 		AcceptConnections: acceptConnections,
 		ConnectedHub:      connectedHub,
+		TelemetryEnabled:  telemetryEnabled,
+		TelemetryInterval: telemetryInterval,
+		ConsoleLogEnabled: consoleLogEnabled,
 	}
 }
 
@@ -366,14 +415,139 @@ func (a *App) DeleteShortcut(userID string, appID uint32) error {
 	return nil
 }
 
-// SetAcceptConnections enables or disables new connections
+// SetAcceptConnections enables or disables new connections.
+// When disabled, disconnects the current Hub and stops mDNS advertising.
+// When enabled, restarts mDNS advertising so the agent is discoverable again.
 func (a *App) SetAcceptConnections(accept bool) {
 	a.connectionMu.Lock()
 	a.acceptConnections = accept
 	a.connectionMu.Unlock()
 
+	// Start/stop network services
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil {
+		if accept {
+			srv.EnableConnections()
+		} else {
+			srv.DisableConnections()
+		}
+	}
+
 	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
 	a.updateTrayStatus()
+}
+
+// GetTelemetryEnabled returns whether telemetry is enabled
+func (a *App) GetTelemetryEnabled() bool {
+	if a.configMgr != nil {
+		return a.configMgr.GetTelemetryEnabled()
+	}
+	return false
+}
+
+// SetTelemetryEnabled enables or disables telemetry streaming
+func (a *App) SetTelemetryEnabled(enabled bool) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if err := a.configMgr.SetTelemetryEnabled(enabled); err != nil {
+		return fmt.Errorf("failed to save telemetry setting: %w", err)
+	}
+
+	log.Printf("Telemetry enabled: %v", enabled)
+
+	// Start or stop telemetry on the server
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil {
+		if enabled {
+			srv.StartTelemetry()
+		} else {
+			srv.StopTelemetry()
+			srv.NotifyTelemetryStatus()
+		}
+	}
+
+	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	return nil
+}
+
+// GetTelemetryInterval returns the telemetry interval in seconds
+func (a *App) GetTelemetryInterval() int {
+	if a.configMgr != nil {
+		return a.configMgr.GetTelemetryInterval()
+	}
+	return 2
+}
+
+// SetTelemetryInterval sets the telemetry interval in seconds (1-10)
+func (a *App) SetTelemetryInterval(seconds int) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if err := a.configMgr.SetTelemetryInterval(seconds); err != nil {
+		return fmt.Errorf("failed to save telemetry interval: %w", err)
+	}
+
+	log.Printf("Telemetry interval changed to: %ds", seconds)
+
+	// Update running collector if active
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil && a.configMgr.GetTelemetryEnabled() {
+		srv.StopTelemetry()
+		srv.StartTelemetry()
+	}
+
+	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	return nil
+}
+
+// GetConsoleLogEnabled returns whether console log streaming is enabled
+func (a *App) GetConsoleLogEnabled() bool {
+	if a.configMgr != nil {
+		return a.configMgr.GetConsoleLogEnabled()
+	}
+	return false
+}
+
+// SetConsoleLogEnabled enables or disables console log streaming
+func (a *App) SetConsoleLogEnabled(enabled bool) error {
+	if a.configMgr == nil {
+		return fmt.Errorf("configuration not available")
+	}
+
+	if err := a.configMgr.SetConsoleLogEnabled(enabled); err != nil {
+		return fmt.Errorf("failed to save console log setting: %w", err)
+	}
+
+	log.Printf("Console log enabled: %v", enabled)
+
+	// Start or stop console log on the server
+	a.serverMu.RLock()
+	srv := a.server
+	a.serverMu.RUnlock()
+
+	if srv != nil {
+		if enabled {
+			srv.StartConsoleLog()
+		} else {
+			srv.StopConsoleLog()
+			srv.NotifyConsoleLogStatus()
+		}
+	}
+
+	runtime.EventsEmit(a.ctx, "status:changed", a.GetStatus())
+	return nil
 }
 
 // DisconnectHub disconnects the current Hub

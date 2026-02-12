@@ -82,8 +82,17 @@ func (c *WSClient) IsConnected() bool {
 }
 
 // SetCallbacks sets the event callbacks.
-func (c *WSClient) SetCallbacks(onDisconnect func(), onUploadProgress func(protocol.UploadProgressEvent), onOperationEvent func(protocol.OperationEvent)) {
-	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent)
+func (c *WSClient) SetCallbacks(
+	onDisconnect func(),
+	onUploadProgress func(protocol.UploadProgressEvent),
+	onOperationEvent func(protocol.OperationEvent),
+	onTelemetryStatus func(protocol.TelemetryStatusEvent),
+	onTelemetryData func(protocol.TelemetryData),
+	onConsoleLogStatus func(protocol.ConsoleLogStatusEvent),
+	onConsoleLogData func(protocol.ConsoleLogBatch),
+	onGameLogWrapperStatus func(protocol.GameLogWrapperStatusEvent),
+) {
+	c.client.SetCallbacks(onDisconnect, onUploadProgress, onOperationEvent, onTelemetryStatus, onTelemetryData, onConsoleLogStatus, onConsoleLogData, onGameLogWrapperStatus)
 }
 
 // PlatformClient implementation
@@ -192,6 +201,25 @@ func (c *WSClient) CancelUpload(ctx context.Context, uploadID string) error {
 func (c *WSClient) GetUploadStatus(ctx context.Context, uploadID string) (*protocol.UploadProgress, error) {
 	// WS client doesn't have this method directly - uploads use progress events
 	return nil, fmt.Errorf("use progress events for WS uploads")
+}
+
+// ConsoleLogFilter implementation
+
+// SetConsoleLogFilter sets the log level bitmask on the agent.
+func (c *WSClient) SetConsoleLogFilter(ctx context.Context, mask uint32) (uint32, error) {
+	return c.client.SetConsoleLogFilter(ctx, mask)
+}
+
+// SetConsoleLogEnabled enables or disables console log streaming on the agent.
+func (c *WSClient) SetConsoleLogEnabled(ctx context.Context, enabled bool) (bool, error) {
+	return c.client.SetConsoleLogEnabled(ctx, enabled)
+}
+
+// GameLogWrapper implementation
+
+// SetGameLogWrapper enables or disables the game log wrapper for a specific game.
+func (c *WSClient) SetGameLogWrapper(ctx context.Context, appID uint32, enabled bool) (bool, error) {
+	return c.client.SetGameLogWrapper(ctx, appID, enabled)
 }
 
 // GameManager implementation

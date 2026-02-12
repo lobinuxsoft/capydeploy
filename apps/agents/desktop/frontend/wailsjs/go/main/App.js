@@ -14,6 +14,10 @@ export function GetAuthorizedHubs() {
   return window['go']['main']['App']['GetAuthorizedHubs']();
 }
 
+export function GetConsoleLogEnabled() {
+  return window['go']['main']['App']['GetConsoleLogEnabled']();
+}
+
 export function GetInstallPath() {
   return window['go']['main']['App']['GetInstallPath']();
 }
@@ -28,6 +32,14 @@ export function GetStatus() {
 
 export function GetSteamUsers() {
   return window['go']['main']['App']['GetSteamUsers']();
+}
+
+export function GetTelemetryEnabled() {
+  return window['go']['main']['App']['GetTelemetryEnabled']();
+}
+
+export function GetTelemetryInterval() {
+  return window['go']['main']['App']['GetTelemetryInterval']();
 }
 
 export function GetVersion() {
@@ -46,10 +58,22 @@ export function SetAcceptConnections(arg1) {
   return window['go']['main']['App']['SetAcceptConnections'](arg1);
 }
 
+export function SetConsoleLogEnabled(arg1) {
+  return window['go']['main']['App']['SetConsoleLogEnabled'](arg1);
+}
+
 export function SetInstallPath(arg1) {
   return window['go']['main']['App']['SetInstallPath'](arg1);
 }
 
 export function SetName(arg1) {
   return window['go']['main']['App']['SetName'](arg1);
+}
+
+export function SetTelemetryEnabled(arg1) {
+  return window['go']['main']['App']['SetTelemetryEnabled'](arg1);
+}
+
+export function SetTelemetryInterval(arg1) {
+  return window['go']['main']['App']['SetTelemetryInterval'](arg1);
 }

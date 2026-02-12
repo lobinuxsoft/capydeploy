@@ -127,6 +127,16 @@ func (a *App) RemoveGameSetup(id string) error {
 	return config.RemoveGameSetup(id)
 }
 
+// GetGameLogDirectory returns the directory for game log file output
+func (a *App) GetGameLogDirectory() (string, error) {
+	return config.GetGameLogDirectory()
+}
+
+// SetGameLogDirectory sets the directory for game log file output
+func (a *App) SetGameLogDirectory(dir string) error {
+	return config.SetGameLogDirectory(dir)
+}
+
 // SelectFolder opens a folder selection dialog
 func (a *App) SelectFolder() (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
