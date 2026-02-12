@@ -476,9 +476,7 @@ func (ws *WSServer) handleSetConsoleLogFilter(hub *HubConnection, msg *protocol.
 	ws.server.consoleLog.SetLevelMask(req.LevelMask)
 	log.Printf("WS: Console log filter updated: mask=0x%02x", req.LevelMask)
 
-	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogFilter, protocol.SetConsoleLogFilterResponse{
-		LevelMask: req.LevelMask,
-	})
+	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogFilter, protocol.SetConsoleLogFilterResponse(req))
 	ws.send(hub, resp)
 }
 
@@ -497,9 +495,7 @@ func (ws *WSServer) handleSetConsoleLogEnabled(hub *HubConnection, msg *protocol
 
 	log.Printf("WS: Console log enabled (remote): %v", req.Enabled)
 
-	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogEnabled, protocol.SetConsoleLogEnabledResponse{
-		Enabled: req.Enabled,
-	})
+	resp, _ := msg.Reply(protocol.MsgTypeSetConsoleLogEnabled, protocol.SetConsoleLogEnabledResponse(req))
 	ws.send(hub, resp)
 }
 
