@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.5.0...v0.6.0) (2026-02-12)
+
+
+### Features
+
+* add remote hardware telemetry streaming (Phase 1) ([51ff9ad](https://github.com/lobinuxsoft/capydeploy/commit/51ff9adf72332ae4c350db288b4c9df3f02e5198)), closes [#48](https://github.com/lobinuxsoft/capydeploy/issues/48)
+* completar telemetría de hardware remota (Phase 2) ([75e6131](https://github.com/lobinuxsoft/capydeploy/commit/75e6131a555320aa909c8238bc4f44be5248ed03))
+* console log remota + game log wrapper + protocol extensions ([#107](https://github.com/lobinuxsoft/capydeploy/issues/107)) ([820fb59](https://github.com/lobinuxsoft/capydeploy/commit/820fb59326ae0e80cc2db65dcf5e64141310e8dc))
+* telemetría de hardware remota completa ([#48](https://github.com/lobinuxsoft/capydeploy/issues/48)) ([045cd8e](https://github.com/lobinuxsoft/capydeploy/commit/045cd8e0cc0222922c142dad10cf314bb5b5f35f))
+
+
+### Bug Fixes
+
+* agregar stubs de VRAM, MCLK y swap para Windows ([85dbab3](https://github.com/lobinuxsoft/capydeploy/commit/85dbab3ad7e42e4897e2660d381d62aca378fa44))
+* corregir escritura concurrente en WebSocket del Hub ([ee13a4b](https://github.com/lobinuxsoft/capydeploy/commit/ee13a4beb2ca4695b3717f15069bad542b1d9a4b))
+* corregir memory leaks y optimizar telemetría ([2ac9142](https://github.com/lobinuxsoft/capydeploy/commit/2ac91429aad2181f1f0b5fc5a2581ed19ad1555a))
+
+
+### Refactoring
+
+* remove Decky plugin build from monorepo CI/CD ([#103](https://github.com/lobinuxsoft/capydeploy/issues/103)) ([42302c9](https://github.com/lobinuxsoft/capydeploy/commit/42302c96cd5b63ea278ff9236ba8d8997cefc22e))
+
 ## [0.5.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.4.0...v0.5.0) (2026-02-09)
 
 
