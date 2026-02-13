@@ -220,6 +220,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-hub-telemetry"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-protocol",
+]
+
+[[package]]
 name = "capydeploy-protocol"
 version = "0.1.0"
 dependencies = [

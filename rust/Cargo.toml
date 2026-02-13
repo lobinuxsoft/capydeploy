@@ -14,6 +14,7 @@ members = [
     "crates/hub-connection",
     "crates/hub-deploy",
     "crates/hub-games",
+    "crates/hub-telemetry",
     "apps/agent-desktop",
     "tests/wire_compat",
 ]
@@ -52,6 +53,7 @@ capydeploy-steamgriddb = { path = "crates/steamgriddb" }
 capydeploy-hub-connection = { path = "crates/hub-connection" }
 capydeploy-hub-deploy = { path = "crates/hub-deploy" }
 capydeploy-hub-games = { path = "crates/hub-games" }
+capydeploy-hub-telemetry = { path = "crates/hub-telemetry" }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"
