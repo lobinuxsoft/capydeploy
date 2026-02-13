@@ -58,10 +58,11 @@ fn detect_linux_platform() -> &'static str {
 
     // Only check /home/deck if it's a real directory (not a symlink).
     // This avoids false positives on Bazzite which symlinks /home/deck.
-    if let Ok(meta) = std::fs::symlink_metadata("/home/deck") {
-        if !meta.file_type().is_symlink() && meta.is_dir() {
-            return "steamdeck";
-        }
+    if let Ok(meta) = std::fs::symlink_metadata("/home/deck")
+        && !meta.file_type().is_symlink()
+        && meta.is_dir()
+    {
+        return "steamdeck";
     }
 
     "linux"

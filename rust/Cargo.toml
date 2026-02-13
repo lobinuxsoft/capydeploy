@@ -3,6 +3,7 @@ members = [
     "crates/protocol",
     "crates/steam",
     "crates/discovery",
+    "crates/transfer",
     "tests/wire_compat",
 ]
 resolver = "2"
@@ -29,3 +30,6 @@ hostname = "0.4"
 capydeploy-protocol = { path = "crates/protocol" }
 capydeploy-steam = { path = "crates/steam" }
 capydeploy-discovery = { path = "crates/discovery" }
+capydeploy-transfer = { path = "crates/transfer" }
+sha2 = "0.10"
+hex = "0.4"
