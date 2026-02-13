@@ -71,6 +71,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-console-log"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-protocol",
+ "capydeploy-steam",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "capydeploy-discovery"
 version = "0.1.0"
 dependencies = [
