@@ -101,10 +101,25 @@ version = "0.1.0"
 dependencies = [
  "capydeploy-protocol",
  "crc32fast",
+ "futures-util",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
  "winreg",
+]
+
+[[package]]
+name = "capydeploy-telemetry"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-protocol",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]

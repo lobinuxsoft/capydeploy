@@ -5,6 +5,7 @@ members = [
     "crates/discovery",
     "crates/transfer",
     "crates/agent-server",
+    "crates/telemetry",
     "tests/wire_compat",
 ]
 resolver = "2"
@@ -33,6 +34,7 @@ capydeploy-steam = { path = "crates/steam" }
 capydeploy-discovery = { path = "crates/discovery" }
 capydeploy-transfer = { path = "crates/transfer" }
 capydeploy-agent-server = { path = "crates/agent-server" }
+capydeploy-telemetry = { path = "crates/telemetry" }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"
