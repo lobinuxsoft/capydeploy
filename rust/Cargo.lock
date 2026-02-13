@@ -206,6 +206,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-hub-games"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-protocol",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "capydeploy-protocol"
 version = "0.1.0"
 dependencies = [
