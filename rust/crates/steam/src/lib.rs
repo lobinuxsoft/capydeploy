@@ -1,3 +1,4 @@
+pub mod cef;
 pub mod controller;
 pub mod paths;
 #[cfg(target_os = "linux")]
@@ -9,6 +10,7 @@ pub mod users;
 pub mod vdf;
 
 // Re-export primary types.
+pub use cef::CefClient;
 pub use controller::Controller;
 pub use paths::{ArtworkType, Paths};
 pub use shortcuts::{ShortcutManager, convert_to_shortcut_info, generate_app_id};
@@ -41,4 +43,7 @@ pub enum SteamError {
 
     #[error("timeout: {0}")]
     Timeout(String),
+
+    #[error("CEF error: {0}")]
+    Cef(String),
 }
