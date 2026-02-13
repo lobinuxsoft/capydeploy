@@ -12,6 +12,7 @@ members = [
     "crates/tray",
     "crates/steamgriddb",
     "crates/hub-connection",
+    "crates/hub-deploy",
     "apps/agent-desktop",
     "tests/wire_compat",
 ]
@@ -48,6 +49,7 @@ capydeploy-file-ops = { path = "crates/file-ops" }
 capydeploy-tray = { path = "crates/tray" }
 capydeploy-steamgriddb = { path = "crates/steamgriddb" }
 capydeploy-hub-connection = { path = "crates/hub-connection" }
+capydeploy-hub-deploy = { path = "crates/hub-deploy" }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"

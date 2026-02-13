@@ -190,6 +190,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-hub-deploy"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-protocol",
+ "capydeploy-steamgriddb",
+ "capydeploy-transfer",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "capydeploy-protocol"
 version = "0.1.0"
 dependencies = [
