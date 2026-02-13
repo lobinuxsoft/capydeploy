@@ -12,8 +12,8 @@ mod handler;
 mod server;
 
 pub use binary::{BinaryArtworkHeader, BinaryChunkHeader, BinaryMessage, parse_binary_message};
-pub use connection::HubConnection;
-pub use handler::Handler;
+pub use connection::{HubConnection, Sender};
+pub use handler::{Handler, HandlerFuture};
 pub use server::{AgentServer, ServerConfig};
 
 /// Send buffer capacity (matches Go's channel size).
