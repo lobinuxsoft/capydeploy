@@ -1,3 +1,4 @@
+pub mod controller;
 pub mod paths;
 #[cfg(target_os = "linux")]
 pub mod paths_linux;
@@ -8,6 +9,7 @@ pub mod users;
 pub mod vdf;
 
 // Re-export primary types.
+pub use controller::Controller;
 pub use paths::{ArtworkType, Paths};
 pub use shortcuts::{ShortcutManager, convert_to_shortcut_info, generate_app_id};
 pub use users::{User, get_users, get_users_with_paths, u32_to_user_id, user_id_to_u32};
@@ -33,4 +35,10 @@ pub enum SteamError {
 
     #[error("I/O error: {0}")]
     Io(String),
+
+    #[error("controller error: {0}")]
+    Controller(String),
+
+    #[error("timeout: {0}")]
+    Timeout(String),
 }
