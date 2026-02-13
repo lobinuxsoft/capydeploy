@@ -1,0 +1,7 @@
+[package]
+name = "capydeploy-hub-settings"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hub settings state: toast notification queue, Hub-local UI state"
