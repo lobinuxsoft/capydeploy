@@ -15,6 +15,8 @@ members = [
     "crates/hub-deploy",
     "crates/hub-games",
     "crates/hub-telemetry",
+    "crates/hub-console-log",
+    "crates/hub-settings",
     "apps/agent-desktop",
     "tests/wire_compat",
 ]
@@ -54,6 +56,8 @@ capydeploy-hub-connection = { path = "crates/hub-connection" }
 capydeploy-hub-deploy = { path = "crates/hub-deploy" }
 capydeploy-hub-games = { path = "crates/hub-games" }
 capydeploy-hub-telemetry = { path = "crates/hub-telemetry" }
+capydeploy-hub-console-log = { path = "crates/hub-console-log" }
+capydeploy-hub-settings = { path = "crates/hub-settings" }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"

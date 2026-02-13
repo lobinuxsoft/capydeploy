@@ -190,6 +190,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-hub-console-log"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-hub-telemetry",
+ "capydeploy-protocol",
+]
+
+[[package]]
 name = "capydeploy-hub-deploy"
 version = "0.1.0"
 dependencies = [
@@ -218,6 +226,10 @@ dependencies = [
  "tokio",
  "tracing",
 ]
+
+[[package]]
+name = "capydeploy-hub-settings"
+version = "0.1.0"
 
 [[package]]
 name = "capydeploy-hub-telemetry"
