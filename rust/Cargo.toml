@@ -9,6 +9,7 @@ members = [
     "crates/console-log",
     "crates/game-log",
     "crates/file-ops",
+    "crates/tray",
     "tests/wire_compat",
 ]
 resolver = "2"
@@ -41,6 +42,7 @@ capydeploy-telemetry = { path = "crates/telemetry" }
 capydeploy-console-log = { path = "crates/console-log" }
 capydeploy-game-log = { path = "crates/game-log" }
 capydeploy-file-ops = { path = "crates/file-ops" }
+capydeploy-tray = { path = "crates/tray" }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"
