@@ -172,6 +172,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-hub-connection"
+version = "0.1.0"
+dependencies = [
+ "capydeploy-discovery",
+ "capydeploy-protocol",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "capydeploy-protocol"
 version = "0.1.0"
 dependencies = [
