@@ -2,6 +2,7 @@
 
 use capydeploy_hub_connection::{ConnectedAgent, ConnectionEvent};
 use capydeploy_hub_deploy::DeployResult;
+use capydeploy_hub_games::InstalledGame;
 
 /// Navigation pages in the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +96,22 @@ pub enum Message {
     /// Dismiss the deploy status message.
     DismissDeployStatus,
 
+    // -- Games --
+    /// Fetch installed games from the connected agent.
+    RefreshGames,
+    /// Games list fetched successfully.
+    GamesLoaded(Result<Vec<InstalledGame>, String>),
+    /// Delete a game from the agent by AppID.
+    DeleteGame(u32),
+    /// Game deletion result.
+    DeleteGameResult(Result<u32, String>),
+
+    // -- Settings --
+    /// Update a setting field value.
+    UpdateSetting(SettingField, String),
+    /// Save settings to disk.
+    SaveSettings,
+
     // -- Console Log --
     /// Toggle a log level bit in the UI filter.
     ConsoleToggleLevel(u32),
@@ -122,4 +139,12 @@ pub enum SetupField {
     InstallPath,
     LaunchOptions,
     Tags,
+}
+
+/// Fields in settings that can be edited.
+#[derive(Debug, Clone)]
+pub enum SettingField {
+    Name,
+    SteamGridDbApiKey,
+    GameLogDir,
 }

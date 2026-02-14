@@ -21,10 +21,11 @@ use capydeploy_protocol::constants::{self, MessageType};
 use capydeploy_hub_deploy::{
     build_artwork_assignment, DeployConfig, DeployOrchestrator, GameSetup,
 };
+use capydeploy_hub_games::{GamesManager, InstalledGame};
 
 use crate::config::HubConfig;
 use crate::dialogs::pairing::PairingDialog;
-use crate::message::{Message, NavPage, SetupField};
+use crate::message::{Message, NavPage, SettingField, SetupField};
 use crate::theme;
 use crate::views::deploy::DeployStatus;
 use crate::views::TelemetryWidgets;
@@ -56,6 +57,13 @@ pub struct Hub {
     // Deploy state.
     editing_setup: Option<GameSetup>,
     deploy_status: Option<DeployStatus>,
+
+    // Games state.
+    installed_games: Vec<InstalledGame>,
+    games_loading: bool,
+
+    // Settings state.
+    settings_dirty: bool,
 }
 
 impl Hub {
@@ -126,6 +134,9 @@ impl Application for Hub {
             console_search: String::new(),
             editing_setup: None,
             deploy_status: None,
+            installed_games: Vec::new(),
+            games_loading: false,
+            settings_dirty: false,
         };
 
         (app, cosmic::app::Task::none())
@@ -244,6 +255,93 @@ impl Application for Hub {
                     }
                 }
             },
+
+            // -- Games --
+            Message::RefreshGames => {
+                if let Some(agent_id) = self.connected_agent_id().map(String::from) {
+                    self.games_loading = true;
+                    let mgr = self.connection_mgr.clone();
+                    let games_mgr = GamesManager::new(reqwest::Client::new());
+                    return cosmic::app::Task::perform(
+                        async move {
+                            let bridge =
+                                crate::bridge::ConnectionBridge::new(mgr, agent_id);
+                            games_mgr.get_installed_games(&bridge).await
+                        },
+                        |result| {
+                            cosmic::action::app(Message::GamesLoaded(
+                                result.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    );
+                }
+            }
+
+            Message::GamesLoaded(result) => {
+                self.games_loading = false;
+                match result {
+                    Ok(games) => {
+                        self.installed_games = games;
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "failed to fetch installed games");
+                    }
+                }
+            }
+
+            Message::DeleteGame(app_id) => {
+                if let Some(agent_id) = self.connected_agent_id().map(String::from) {
+                    let mgr = self.connection_mgr.clone();
+                    let games_mgr = GamesManager::new(reqwest::Client::new());
+                    return cosmic::app::Task::perform(
+                        async move {
+                            let bridge =
+                                crate::bridge::ConnectionBridge::new(mgr, agent_id);
+                            games_mgr
+                                .delete_game(&bridge, app_id)
+                                .await
+                                .map(|_| app_id)
+                        },
+                        |result| {
+                            cosmic::action::app(Message::DeleteGameResult(
+                                result.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    );
+                }
+            }
+
+            Message::DeleteGameResult(result) => match result {
+                Ok(app_id) => {
+                    tracing::info!(app_id, "game deleted");
+                    self.installed_games.retain(|g| g.app_id != app_id);
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "failed to delete game");
+                }
+            },
+
+            // -- Settings --
+            Message::UpdateSetting(field, value) => {
+                self.settings_dirty = true;
+                match field {
+                    SettingField::Name => self.config.name = value,
+                    SettingField::SteamGridDbApiKey => self.config.steamgriddb_api_key = value,
+                    SettingField::GameLogDir => self.config.game_log_dir = value,
+                }
+            }
+
+            Message::SaveSettings => {
+                match self.config.save() {
+                    Ok(()) => {
+                        self.settings_dirty = false;
+                        tracing::info!("settings saved");
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "failed to save settings");
+                    }
+                }
+            }
 
             // -- Console Log --
             Message::ConsoleToggleLevel(bit) => {
@@ -680,7 +778,10 @@ impl Hub {
                 self.deploy_status.as_ref(),
                 self.is_connected(),
             ),
-            NavPage::Games => self.view_placeholder("Games"),
+            NavPage::Games => crate::views::games::view(
+                &self.installed_games,
+                self.games_loading,
+            ),
             NavPage::Telemetry => crate::views::telemetry::view(
                 &self.telemetry_hub,
                 self.connected_agent_id(),
@@ -692,7 +793,10 @@ impl Hub {
                 self.console_level_filter,
                 &self.console_search,
             ),
-            NavPage::Settings => self.view_placeholder("Settings"),
+            NavPage::Settings => crate::views::settings::view(
+                &self.config,
+                self.settings_dirty,
+            ),
         };
 
         container(content)
@@ -703,13 +807,6 @@ impl Hub {
             .into()
     }
 
-    fn view_placeholder(&self, name: &'static str) -> Element<'_, Message> {
-        widget::column()
-            .push(widget::text::title3(name))
-            .push(widget::text("Coming soon...").class(theme::MUTED_TEXT))
-            .spacing(8)
-            .into()
-    }
 }
 
 /// Content area background.

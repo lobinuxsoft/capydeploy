@@ -735,6 +735,7 @@ dependencies = [
  "futures-util",
  "hostname",
  "libcosmic",
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",
