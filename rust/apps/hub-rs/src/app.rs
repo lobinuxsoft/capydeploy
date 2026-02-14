@@ -37,6 +37,10 @@ pub struct Hub {
     config: HubConfig,
     nav_page: NavPage,
 
+    // Tokio runtime for async operations (WsClient, mDNS, reqwest).
+    // cosmic/iced doesn't provide a tokio context, so we manage our own.
+    tokio_rt: tokio::runtime::Runtime,
+
     // Connection state.
     connection_mgr: Arc<ConnectionManager>,
     discovered_agents: Vec<DiscoveredAgent>,
@@ -79,6 +83,31 @@ pub struct Hub {
 }
 
 impl Hub {
+    /// Spawns an async task on the tokio runtime and maps the result to a Message.
+    ///
+    /// Use this instead of `cosmic::app::Task::perform` for any async operation
+    /// that needs tokio (WebSocket, mDNS, reqwest, etc.).
+    fn tokio_perform<F, T>(
+        &self,
+        future: F,
+        f: impl Fn(T) -> cosmic::Action<Message> + Send + 'static,
+    ) -> cosmic::app::Task<Message>
+    where
+        F: std::future::Future<Output = T> + Send + 'static,
+        T: Send + 'static,
+    {
+        let handle = self.tokio_rt.handle().clone();
+        cosmic::app::Task::perform(
+            async move {
+                handle
+                    .spawn(future)
+                    .await
+                    .expect("tokio task panicked")
+            },
+            f,
+        )
+    }
+
     /// Whether any agent is currently connected.
     fn is_connected(&self) -> bool {
         self.connected_agent.is_some()
@@ -119,7 +148,7 @@ impl Hub {
             dialog.loading.insert(tab, true);
         }
         let api_key = self.config.steamgriddb_api_key.clone();
-        cosmic::app::Task::perform(
+        self.tokio_perform(
             async move {
                 let client = capydeploy_steamgriddb::Client::new(&api_key)?;
                 match tab {
@@ -162,7 +191,8 @@ impl Application for Hub {
     const APP_ID: &'static str = "com.capydeploy.hub";
 
     fn init(mut core: Core, config: HubConfig) -> (Self, cosmic::app::Task<Message>) {
-        core.window.show_headerbar = false;
+        core.window.show_headerbar = true;
+        core.set_header_title("CapyDeploy Hub".into());
 
         let hub_identity = HubIdentity {
             name: config.name.clone(),
@@ -182,10 +212,17 @@ impl Application for Hub {
 
         let connection_mgr = Arc::new(ConnectionManager::new(hub_identity, token_store));
 
+        let tokio_rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .expect("failed to create tokio runtime");
+
         let app = Self {
             core,
             config,
             nav_page: NavPage::Devices,
+            tokio_rt,
             connection_mgr,
             discovered_agents: Vec::new(),
             connected_agent: None,
@@ -221,8 +258,10 @@ impl Application for Hub {
     }
 
     fn subscription(&self) -> cosmic::iced::Subscription<Message> {
-        let mut subs =
-            vec![crate::subscriptions::connection_events(self.connection_mgr.clone())];
+        let mut subs = vec![crate::subscriptions::connection_events(
+            self.connection_mgr.clone(),
+            self.tokio_rt.handle().clone(),
+        )];
 
         // Stream deploy progress events while a deploy is active.
         if matches!(self.deploy_status, Some(DeployStatus::Deploying { .. })) {
@@ -262,7 +301,7 @@ impl Application for Hub {
                 self.connection_states
                     .insert(agent_id.clone(), ConnectionState::Connecting);
                 let mgr = self.connection_mgr.clone();
-                return cosmic::app::Task::perform(
+                return self.tokio_perform(
                     async move { mgr.connect_agent(&agent_id).await },
                     |result| cosmic::action::app(Message::ConnectResult(result.map_err(|e| e.to_string()))),
                 );
@@ -294,7 +333,7 @@ impl Application for Hub {
                     self.nav_page = NavPage::Devices;
                 }
                 let mgr = self.connection_mgr.clone();
-                return cosmic::app::Task::perform(
+                return self.tokio_perform(
                     async move { mgr.disconnect_agent().await },
                     |()| cosmic::action::app(Message::DiscoveryStarted),
                 );
@@ -313,7 +352,7 @@ impl Application for Hub {
                     let mgr = self.connection_mgr.clone();
                     let agent_id = dialog.agent_id.clone();
                     let code = dialog.input.clone();
-                    return cosmic::app::Task::perform(
+                    return self.tokio_perform(
                         async move { mgr.confirm_pairing(&agent_id, &code).await },
                         |result| cosmic::action::app(Message::PairingResult(result.map_err(|e| e.to_string()))),
                     );
@@ -325,7 +364,7 @@ impl Application for Hub {
                     self.connection_states
                         .insert(dialog.agent_id, ConnectionState::Discovered);
                     let mgr = self.connection_mgr.clone();
-                    return cosmic::app::Task::perform(
+                    return self.tokio_perform(
                         async move { mgr.disconnect_agent().await },
                         |()| cosmic::action::app(Message::DiscoveryStarted),
                     );
@@ -354,7 +393,7 @@ impl Application for Hub {
                     self.games_loading = true;
                     let mgr = self.connection_mgr.clone();
                     let games_mgr = GamesManager::new(reqwest::Client::new());
-                    return cosmic::app::Task::perform(
+                    return self.tokio_perform(
                         async move {
                             let bridge =
                                 crate::bridge::ConnectionBridge::new(mgr, agent_id);
@@ -388,7 +427,7 @@ impl Application for Hub {
                 if let Some(agent_id) = self.connected_agent_id().map(String::from) {
                     let mgr = self.connection_mgr.clone();
                     let games_mgr = GamesManager::new(reqwest::Client::new());
-                    return cosmic::app::Task::perform(
+                    return self.tokio_perform(
                         async move {
                             let bridge =
                                 crate::bridge::ConnectionBridge::new(mgr, agent_id);
@@ -447,7 +486,7 @@ impl Application for Hub {
                     if let Some(agent_id) = self.connected_agent_id().map(String::from) {
                         let mgr = self.connection_mgr.clone();
                         let games_mgr = GamesManager::new(reqwest::Client::new());
-                        return cosmic::app::Task::perform(
+                        return self.tokio_perform(
                             async move {
                                 let bridge =
                                     crate::bridge::ConnectionBridge::new(mgr, agent_id);
@@ -506,7 +545,7 @@ impl Application for Hub {
             }
 
             Message::BrowseGameLogDir => {
-                return cosmic::app::Task::perform(
+                return self.tokio_perform(
                     async {
                         rfd::AsyncFileDialog::new()
                             .set_title("Select Game Log Directory")
@@ -552,7 +591,7 @@ impl Application for Hub {
             Message::ConsoleSetEnabled(enabled) => {
                 let mgr = self.connection_mgr.clone();
                 let payload = serde_json::json!({ "enabled": enabled });
-                return cosmic::app::Task::perform(
+                return self.tokio_perform(
                     async move {
                         mgr.send_request(MessageType::SetConsoleLogEnabled, Some(&payload))
                             .await
@@ -651,7 +690,7 @@ impl Application for Hub {
             }
 
             Message::BrowseLocalPath => {
-                return cosmic::app::Task::perform(
+                return self.tokio_perform(
                     async {
                         rfd::AsyncFileDialog::new()
                             .set_title("Select Game Folder")
@@ -697,7 +736,7 @@ impl Application for Hub {
                         *self.deploy_events_rx.lock().unwrap() = Some(events_rx);
                     }
 
-                    return cosmic::app::Task::perform(
+                    return self.tokio_perform(
                         async move {
                             let bridge =
                                 crate::bridge::ConnectionBridge::new(mgr, agent_id);
@@ -794,7 +833,7 @@ impl Application for Hub {
                     dialog.searching = true;
                     let api_key = self.config.steamgriddb_api_key.clone();
                     let query = dialog.search_query.clone();
-                    return cosmic::app::Task::perform(
+                    return self.tokio_perform(
                         async move {
                             let client = capydeploy_steamgriddb::Client::new(&api_key)?;
                             client.search(&query).await
@@ -929,20 +968,43 @@ impl Application for Hub {
         cosmic::app::Task::none()
     }
 
+    fn header_end(&self) -> Vec<Element<'_, Self::Message>> {
+        let mut items: Vec<Element<'_, Message>> = Vec::new();
+
+        if let Some(agent) = &self.connected_agent {
+            items.push(
+                widget::text::caption(format!(
+                    "{} — {} ({})",
+                    agent.agent.info.name,
+                    agent.agent.info.platform,
+                    agent.agent.address(),
+                ))
+                .class(theme::CONNECTED_COLOR)
+                .into(),
+            );
+            items.push(
+                widget::button::standard("Disconnect")
+                    .on_press(Message::DisconnectAgent)
+                    .into(),
+            );
+        } else {
+            items.push(
+                widget::text::caption("No agent connected")
+                    .class(theme::MUTED_TEXT)
+                    .into(),
+            );
+        }
+
+        items
+    }
+
     fn view(&self) -> Element<'_, Message> {
         let sidebar = self.view_sidebar();
-        let header = self.view_header();
         let content = self.view_content();
-
-        let right_panel = widget::column()
-            .push(header)
-            .push(content)
-            .width(Length::Fill)
-            .height(Length::Fill);
 
         let main: Element<'_, Message> = widget::row()
             .push(sidebar)
-            .push(right_panel)
+            .push(content)
             .width(Length::Fill)
             .height(Length::Fill)
             .into();
@@ -1188,40 +1250,6 @@ impl Hub {
             .into()
     }
 
-    fn view_header(&self) -> Element<'_, Message> {
-        let mut row = widget::row()
-            .push(widget::Space::with_width(Length::Fill))
-            .spacing(12)
-            .align_y(Alignment::Center)
-            .padding([8, 24]);
-
-        if let Some(agent) = &self.connected_agent {
-            row = row.push(
-                widget::text::caption(format!(
-                    "{} — {} ({})",
-                    agent.agent.info.name,
-                    agent.agent.info.platform,
-                    agent.agent.address(),
-                ))
-                .class(theme::CONNECTED_COLOR),
-            );
-            row = row.push(
-                widget::button::standard("Disconnect")
-                    .on_press(Message::DisconnectAgent),
-            );
-        } else {
-            row = row.push(
-                widget::text::caption("No agent connected")
-                    .class(theme::MUTED_TEXT),
-            );
-        }
-
-        container(row)
-            .width(Length::Fill)
-            .class(cosmic::theme::Container::Custom(Box::new(header_bg)))
-            .into()
-    }
-
     fn view_content(&self) -> Element<'_, Message> {
         let content = match self.nav_page {
             NavPage::Devices => crate::views::devices::view(
@@ -1273,21 +1301,6 @@ impl Hub {
             .into()
     }
 
-}
-
-/// Header bar background.
-fn header_bg(_theme: &cosmic::Theme) -> iced_container::Style {
-    iced_container::Style {
-        background: Some(cosmic::iced::Background::Color(cosmic::iced::Color::from_rgb(
-            0.10, 0.10, 0.12,
-        ))),
-        border: cosmic::iced::Border {
-            color: cosmic::iced::Color::from_rgb(0.18, 0.18, 0.22),
-            width: 0.0,
-            radius: 0.0.into(),
-        },
-        ..Default::default()
-    }
 }
 
 /// Content area background.

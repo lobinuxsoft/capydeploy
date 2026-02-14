@@ -17,7 +17,7 @@ use crate::message::Message;
 /// Internal state machine for the connection subscription.
 enum SubState {
     /// First poll: take the events receiver and start discovery.
-    Init(Arc<ConnectionManager>),
+    Init(Arc<ConnectionManager>, tokio::runtime::Handle),
     /// Subsequent polls: forward events from the receiver.
     Running(tokio::sync::mpsc::Receiver<capydeploy_hub_connection::ConnectionEvent>),
 }
@@ -36,27 +36,38 @@ const DISCOVERY_INTERVAL: Duration = Duration::from_secs(5);
 /// Creates a subscription that streams `ConnectionEvent`s as `Message`s.
 ///
 /// On first poll, it takes the event receiver from the manager and
-/// starts mDNS discovery. Subsequent polls forward events to the
-/// iced runtime.
-pub fn connection_events(mgr: Arc<ConnectionManager>) -> cosmic::iced::Subscription<Message> {
+/// starts mDNS discovery on the provided tokio runtime. Subsequent
+/// polls forward events to the iced runtime.
+pub fn connection_events(
+    mgr: Arc<ConnectionManager>,
+    handle: tokio::runtime::Handle,
+) -> cosmic::iced::Subscription<Message> {
     cosmic::iced::Subscription::run_with_id(
         "connection-events",
-        stream::unfold(SubState::Init(mgr), |state| async move {
+        stream::unfold(SubState::Init(mgr, handle), |state| async move {
             match state {
-                SubState::Init(mgr) => {
-                    if let Some(rx) = mgr.take_events().await {
-                        mgr.start_discovery(DISCOVERY_INTERVAL).await;
-                        tracing::info!("mDNS discovery started");
-                        Some((Message::DiscoveryStarted, SubState::Running(rx)))
-                    } else {
-                        tracing::warn!("connection events already taken");
-                        None
-                    }
+                SubState::Init(mgr, handle) => {
+                    // ConnectionManager::start_discovery() uses tokio::spawn internally.
+                    // iced's subscription executor doesn't provide a tokio context, so
+                    // we use the Hub's global tokio runtime via block_on (safe because
+                    // this runs on iced's executor, not inside tokio).
+                    let mgr_init = mgr.clone();
+                    let rx = handle.block_on(async move {
+                        let rx = mgr_init.take_events().await;
+                        if rx.is_some() {
+                            mgr_init.start_discovery(DISCOVERY_INTERVAL).await;
+                        }
+                        rx
+                    })?;
+
+                    tracing::info!("mDNS discovery started");
+                    Some((Message::DiscoveryStarted, SubState::Running(rx)))
                 }
                 SubState::Running(mut rx) => match rx.recv().await {
-                    Some(event) => {
-                        Some((Message::ConnectionEvent(event), SubState::Running(rx)))
-                    }
+                    Some(event) => Some((
+                        Message::ConnectionEvent(event),
+                        SubState::Running(rx),
+                    )),
                     None => {
                         tracing::debug!("connection event channel closed");
                         None

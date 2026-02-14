@@ -85,24 +85,54 @@ impl Client {
     }
 
     /// Begins continuous agent discovery.
+    ///
+    /// Creates a single `ServiceDaemon` that browses for the entire
+    /// session, avoiding the repeated create/destroy cycle that causes
+    /// noisy shutdown errors in the `mdns_sd` crate.
     pub async fn start_continuous_discovery(
         &self,
         mut cancel: tokio::sync::watch::Receiver<bool>,
-        interval: Duration,
+        prune_interval: Duration,
     ) {
-        // Initial discovery
-        let _ = self.discover(Duration::from_secs(3)).await;
+        let daemon = match ServiceDaemon::new() {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("discovery: failed to create mDNS daemon: {e}");
+                return;
+            }
+        };
 
-        let mut ticker = tokio::time::interval(interval);
-        ticker.tick().await; // consume first immediate tick
+        let service_type = format!("{SERVICE_NAME}.local.");
+        let event_rx = match daemon.browse(&service_type) {
+            Ok(rx) => rx,
+            Err(e) => {
+                eprintln!("discovery: failed to browse mDNS: {e}");
+                let _ = daemon.shutdown();
+                return;
+            }
+        };
+
+        let mut prune_ticker = tokio::time::interval(prune_interval);
+        prune_ticker.tick().await; // consume first immediate tick
 
         loop {
             tokio::select! {
-                _ = ticker.tick() => {
-                    let _ = self.discover(Duration::from_secs(3)).await;
+                // Receive mDNS events via spawn_blocking (recv is blocking).
+                result = tokio::task::spawn_blocking({
+                    let rx = event_rx.clone();
+                    move || rx.recv_timeout(Duration::from_millis(500))
+                }) => {
+                    if let Ok(Ok(event)) = result {
+                        self.process_event(&event);
+                    }
+                }
+                // Periodically prune stale agents.
+                _ = prune_ticker.tick() => {
                     self.prune_stale_agents().await;
                 }
+                // Cancellation signal.
                 _ = cancel.changed() => {
+                    let _ = daemon.shutdown();
                     return;
                 }
             }

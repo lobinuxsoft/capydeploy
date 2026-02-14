@@ -37,7 +37,9 @@ fn main() -> cosmic::iced::Result {
     };
 
     let settings = cosmic::app::Settings::default()
-        .size(cosmic::iced::Size::new(1100.0, 750.0));
+        .size(cosmic::iced::Size::new(1100.0, 750.0))
+        .theme(cosmic::Theme::dark())
+        .default_icon_theme("Adwaita");
 
     cosmic::app::run::<app::Hub>(settings, hub_config)
 }
