@@ -428,6 +428,31 @@ impl Application for Hub {
                 }
             }
 
+            Message::BrowseGameLogDir => {
+                return cosmic::app::Task::perform(
+                    async {
+                        rfd::AsyncFileDialog::new()
+                            .set_title("Select Game Log Directory")
+                            .pick_folder()
+                            .await
+                            .map(|h| h.path().to_string_lossy().into_owned())
+                    },
+                    |result| cosmic::action::app(Message::BrowseGameLogDirResult(result)),
+                );
+            }
+
+            Message::BrowseGameLogDirResult(Some(path)) => {
+                self.config.game_log_dir = path;
+                self.settings_dirty = true;
+            }
+
+            Message::BrowseGameLogDirResult(None) => {}
+
+            Message::ClearGameLogDir => {
+                self.config.game_log_dir.clear();
+                self.settings_dirty = true;
+            }
+
             // -- Console Log --
             Message::ConsoleToggleLevel(bit) => {
                 self.console_level_filter ^= bit;
@@ -543,6 +568,27 @@ impl Application for Hub {
                     }
                 }
             }
+
+            Message::BrowseLocalPath => {
+                return cosmic::app::Task::perform(
+                    async {
+                        rfd::AsyncFileDialog::new()
+                            .set_title("Select Game Folder")
+                            .pick_folder()
+                            .await
+                            .map(|h| h.path().to_string_lossy().into_owned())
+                    },
+                    |result| cosmic::action::app(Message::BrowseLocalPathResult(result)),
+                );
+            }
+
+            Message::BrowseLocalPathResult(Some(path)) => {
+                if let Some(setup) = &mut self.editing_setup {
+                    setup.local_path = path;
+                }
+            }
+
+            Message::BrowseLocalPathResult(None) => {}
 
             Message::StartDeploy(setup_id) => {
                 if let Some(agent_id) = self.connected_agent_id().map(String::from)

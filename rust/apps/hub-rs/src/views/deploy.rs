@@ -125,7 +125,12 @@ fn edit_form(setup: &GameSetup) -> Element<'_, Message> {
     let form = widget::column()
         .push(widget::text::title4("Edit Game Setup"))
         .push(form_field("Name", &setup.name, SetupField::Name))
-        .push(form_field("Local Path", &setup.local_path, SetupField::LocalPath))
+        .push(path_field_with_browse(
+            "Local Path",
+            &setup.local_path,
+            SetupField::LocalPath,
+            Message::BrowseLocalPath,
+        ))
         .push(form_field("Executable", &setup.executable, SetupField::Executable))
         .push(form_field(
             "Install Path (on agent)",
@@ -270,6 +275,30 @@ fn form_field<'a>(
         .push(
             widget::text_input(label, value)
                 .on_input(move |v| Message::UpdateSetupField(field.clone(), v)),
+        )
+        .spacing(4)
+        .into()
+}
+
+/// Renders a labeled text input with a "Browse" folder button.
+fn path_field_with_browse<'a>(
+    label: &'a str,
+    value: &'a str,
+    field: SetupField,
+    browse_msg: Message,
+) -> Element<'a, Message> {
+    widget::column()
+        .push(widget::text::caption(label).class(theme::MUTED_TEXT))
+        .push(
+            widget::row()
+                .push(
+                    widget::text_input(label, value)
+                        .on_input(move |v| Message::UpdateSetupField(field.clone(), v))
+                        .width(Length::Fill),
+                )
+                .push(widget::button::standard("Browse").on_press(browse_msg))
+                .spacing(8)
+                .align_y(Alignment::Center),
         )
         .spacing(4)
         .into()

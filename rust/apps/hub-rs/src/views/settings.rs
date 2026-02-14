@@ -1,6 +1,6 @@
 //! Settings view — Hub configuration (name, SteamGridDB API key, log directory).
 
-use cosmic::iced::Length;
+use cosmic::iced::{Alignment, Length};
 use cosmic::widget::{self, container};
 use cosmic::Element;
 
@@ -22,10 +22,9 @@ pub fn view(config: &HubConfig, dirty: bool) -> Element<'_, Message> {
             &config.steamgriddb_api_key,
             SettingField::SteamGridDbApiKey,
         ))
-        .push(setting_field(
+        .push(path_setting_field(
             "Game Log Directory",
             &config.game_log_dir,
-            SettingField::GameLogDir,
         ))
         .spacing(12);
 
@@ -68,6 +67,29 @@ fn setting_field<'a>(
             widget::text_input(label, value)
                 .on_input(move |v| Message::UpdateSetting(field.clone(), v)),
         )
+        .spacing(4)
+        .into()
+}
+
+/// Renders the game log directory field with Browse and Clear buttons.
+fn path_setting_field<'a>(label: &'a str, value: &'a str) -> Element<'a, Message> {
+    let mut row = widget::row()
+        .push(
+            widget::text_input(label, value)
+                .on_input(|v| Message::UpdateSetting(SettingField::GameLogDir, v))
+                .width(Length::Fill),
+        )
+        .push(widget::button::standard("Browse").on_press(Message::BrowseGameLogDir))
+        .spacing(8)
+        .align_y(Alignment::Center);
+
+    if !value.is_empty() {
+        row = row.push(widget::button::destructive("Clear").on_press(Message::ClearGameLogDir));
+    }
+
+    widget::column()
+        .push(widget::text::caption(label).class(theme::MUTED_TEXT))
+        .push(row)
         .spacing(4)
         .into()
 }

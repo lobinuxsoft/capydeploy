@@ -94,6 +94,10 @@ pub enum Message {
     DeleteSetup(String),
     /// Update a field in the currently editing setup.
     UpdateSetupField(SetupField, String),
+    /// Open a native folder picker for the setup's local path.
+    BrowseLocalPath,
+    /// Folder picker result for local path.
+    BrowseLocalPathResult(Option<String>),
     /// Start deploying a game setup to the connected agent.
     StartDeploy(String),
     /// Deploy completed (one result per agent).
@@ -118,6 +122,12 @@ pub enum Message {
     UpdateSetting(SettingField, String),
     /// Save settings to disk.
     SaveSettings,
+    /// Open a native folder picker for the game log directory.
+    BrowseGameLogDir,
+    /// Folder picker result for game log directory.
+    BrowseGameLogDirResult(Option<String>),
+    /// Clear the game log directory setting.
+    ClearGameLogDir,
 
     // -- Console Log --
     /// Toggle a log level bit in the UI filter.
