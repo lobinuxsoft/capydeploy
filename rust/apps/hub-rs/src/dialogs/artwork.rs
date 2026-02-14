@@ -67,6 +67,7 @@ pub struct ArtworkDialog {
     pub active_tab: ArtworkTab,
     pub images: HashMap<ArtworkTab, Vec<ImageData>>,
     pub loading: HashMap<ArtworkTab, bool>,
+    pub pages: HashMap<ArtworkTab, i32>,
 
     // Current selections (URLs).
     pub grid_portrait: String,
@@ -101,6 +102,7 @@ impl ArtworkDialog {
             active_tab: ArtworkTab::Capsule,
             images: HashMap::new(),
             loading: HashMap::new(),
+            pages: HashMap::new(),
             grid_portrait: grid_portrait.to_string(),
             grid_landscape: grid_landscape.to_string(),
             hero_image: hero_image.to_string(),
@@ -384,6 +386,12 @@ fn images_panel(dialog: &ArtworkDialog) -> Element<'_, Message> {
                 for img in images {
                     list = list.push(image_row(img, dialog.active_tab, selected_url));
                 }
+                // "Load More" button at the bottom.
+                list = list.push(
+                    widget::button::standard("Load More")
+                        .on_press(Message::ArtworkLoadMore)
+                        .width(Length::Fill),
+                );
                 panel = panel.push(
                     widget::scrollable(list)
                         .width(Length::Fill)

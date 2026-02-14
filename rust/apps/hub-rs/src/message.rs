@@ -116,6 +116,12 @@ pub enum Message {
     DeleteGame(u32),
     /// Game deletion result.
     DeleteGameResult(Result<u32, String>),
+    /// Open artwork editor for an installed game.
+    EditGameArtwork(u32),
+    /// Save artwork edits for an installed game (triggered from ArtworkSave).
+    SaveGameArtwork,
+    /// Result of updating game artwork on the agent.
+    SaveGameArtworkResult(Result<u32, String>),
 
     // -- Settings --
     /// Update a setting field value.
@@ -136,6 +142,8 @@ pub enum Message {
     ConsoleSearchInput(String),
     /// Clear the console log buffer.
     ConsoleClear,
+    /// Change the source filter for console log entries.
+    ConsoleSourceFilter(String),
     /// Enable or disable console log streaming on the agent.
     ConsoleSetEnabled(bool),
     /// Result of a console log enable/disable request.
@@ -158,6 +166,8 @@ pub enum Message {
     ArtworkImagesLoaded(ArtworkTab, Result<Vec<ImageData>, String>),
     /// User selected an image URL for a tab.
     ArtworkSelectImage(ArtworkTab, String),
+    /// Load more images for the current artwork tab (next page).
+    ArtworkLoadMore,
     /// Clear all artwork selections.
     ArtworkClearAll,
     /// Save artwork selections to the editing setup.

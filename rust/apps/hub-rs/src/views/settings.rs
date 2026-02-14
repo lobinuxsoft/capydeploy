@@ -47,9 +47,28 @@ pub fn view(config: &HubConfig, dirty: bool) -> Element<'_, Message> {
     };
     content = content.push(save_btn);
 
-    // Hub info footer.
+    // About section.
+    let about = widget::column()
+        .push(widget::text::title4("About"))
+        .push(
+            widget::text::caption(format!("Version: {}", env!("CARGO_PKG_VERSION")))
+                .class(theme::MUTED_TEXT),
+        )
+        .push(
+            widget::text::caption(format!("Hub ID: {}", config.hub_id))
+                .class(theme::MUTED_TEXT),
+        )
+        .push(
+            widget::text::caption(format!("Platform: {} ({})", std::env::consts::OS, std::env::consts::ARCH))
+                .class(theme::MUTED_TEXT),
+        )
+        .spacing(4)
+        .padding(24);
+
     content = content.push(
-        widget::text::caption(format!("Hub ID: {}", config.hub_id)).class(theme::MUTED_TEXT),
+        container(about)
+            .width(Length::Fill)
+            .class(cosmic::theme::Container::Custom(Box::new(theme::canvas_bg))),
     );
 
     content.into()

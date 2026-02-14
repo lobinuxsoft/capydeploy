@@ -17,6 +17,7 @@ pub fn view<'a>(
     hub: &'a ConsoleLogHub,
     agent_id: Option<&str>,
     level_filter: u32,
+    source_filter: &'a str,
     search: &'a str,
 ) -> Element<'a, Message> {
     let mut content = widget::column().spacing(12);
@@ -63,6 +64,32 @@ pub fn view<'a>(
         .spacing(6);
     content = content.push(filters);
 
+    // -- Source filter buttons --
+    let sources = ["All", "console", "network", "game"];
+    let mut source_row = widget::row().spacing(6);
+    for src in sources {
+        let is_active = if src == "All" {
+            source_filter.is_empty()
+        } else {
+            source_filter == src
+        };
+        let color = if is_active {
+            theme::CYAN
+        } else {
+            theme::MUTED_TEXT
+        };
+        let filter_val = if src == "All" {
+            String::new()
+        } else {
+            src.to_string()
+        };
+        source_row = source_row.push(
+            widget::button::custom(widget::text::caption(src).class(color))
+                .on_press(Message::ConsoleSourceFilter(filter_val)),
+        );
+    }
+    content = content.push(source_row);
+
     // -- Search input --
     let search_input = widget::text_input("Search logs...", search)
         .on_input(Message::ConsoleSearchInput);
@@ -79,6 +106,11 @@ pub fn view<'a>(
             // Level filter.
             let level_bit = capydeploy_protocol::constants::log_level_bit(&entry.level);
             if level_bit & level_filter == 0 {
+                continue;
+            }
+
+            // Source filter.
+            if !source_filter.is_empty() && entry.source != source_filter {
                 continue;
             }
 

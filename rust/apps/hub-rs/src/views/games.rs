@@ -72,12 +72,21 @@ fn game_card(game: &InstalledGame) -> Element<'_, Message> {
         .push(widget::text::caption(&game.path).class(theme::MUTED_TEXT))
         .spacing(2);
 
+    let artwork_btn = widget::button::standard("Edit Artwork")
+        .on_press(Message::EditGameArtwork(game.app_id));
+
     let delete_btn = widget::button::destructive("Delete")
         .on_press(Message::DeleteGame(game.app_id));
 
+    let actions = widget::row()
+        .push(artwork_btn)
+        .push(delete_btn)
+        .spacing(6)
+        .align_y(Alignment::Center);
+
     let row = widget::row()
         .push(info.width(Length::Fill))
-        .push(delete_btn)
+        .push(actions)
         .spacing(16)
         .align_y(Alignment::Center)
         .padding(16);

@@ -53,6 +53,7 @@ pub struct Hub {
     // Console log state.
     console_log_hub: ConsoleLogHub,
     console_level_filter: u32,
+    console_source_filter: String,
     console_search: String,
 
     // Deploy state.
@@ -69,6 +70,8 @@ pub struct Hub {
 
     // Artwork selector dialog.
     artwork_dialog: Option<ArtworkDialog>,
+    /// When editing artwork for an installed game, holds the AppID.
+    game_artwork_app_id: Option<u32>,
 
     // Toast notifications.
     toasts: Toasts<Message>,
@@ -109,6 +112,7 @@ impl Hub {
         &mut self,
         tab: ArtworkTab,
         game_id: i32,
+        page: i32,
     ) -> cosmic::app::Task<Message> {
         if let Some(dialog) = &mut self.artwork_dialog {
             dialog.loading.insert(tab, true);
@@ -119,7 +123,7 @@ impl Hub {
                 let client = capydeploy_steamgriddb::Client::new(&api_key)?;
                 match tab {
                     ArtworkTab::Capsule => {
-                        let grids = client.get_grids(game_id, None, 0).await?;
+                        let grids = client.get_grids(game_id, None, page).await?;
                         // Filter to portrait (height > width).
                         Ok(grids
                             .into_iter()
@@ -127,16 +131,16 @@ impl Hub {
                             .collect())
                     }
                     ArtworkTab::Wide => {
-                        let grids = client.get_grids(game_id, None, 0).await?;
+                        let grids = client.get_grids(game_id, None, page).await?;
                         // Filter to landscape (width > height).
                         Ok(grids
                             .into_iter()
                             .filter(|g| g.width > g.height)
                             .collect())
                     }
-                    ArtworkTab::Hero => client.get_heroes(game_id, None, 0).await,
-                    ArtworkTab::Logo => client.get_logos(game_id, None, 0).await,
-                    ArtworkTab::Icon => client.get_icons(game_id, None, 0).await,
+                    ArtworkTab::Hero => client.get_heroes(game_id, None, page).await,
+                    ArtworkTab::Logo => client.get_logos(game_id, None, page).await,
+                    ArtworkTab::Icon => client.get_icons(game_id, None, page).await,
                 }
             },
             move |result| {
@@ -190,6 +194,7 @@ impl Application for Hub {
             telemetry_widgets: TelemetryWidgets::new(),
             console_log_hub: ConsoleLogHub::new(),
             console_level_filter: constants::LOG_LEVEL_DEFAULT | constants::LOG_LEVEL_DEBUG,
+            console_source_filter: String::new(),
             console_search: String::new(),
             editing_setup: None,
             deploy_status: None,
@@ -198,6 +203,7 @@ impl Application for Hub {
             games_loading: false,
             settings_dirty: false,
             artwork_dialog: None,
+            game_artwork_app_id: None,
             toasts: Toasts::new(Message::CloseToast),
         };
 
@@ -404,6 +410,65 @@ impl Application for Hub {
                 }
             },
 
+            Message::EditGameArtwork(app_id) => {
+                let game_name = self
+                    .installed_games
+                    .iter()
+                    .find(|g| g.app_id == app_id)
+                    .map(|g| g.name.as_str())
+                    .unwrap_or("Unknown");
+                self.game_artwork_app_id = Some(app_id);
+                self.artwork_dialog = Some(ArtworkDialog::new(
+                    game_name, 0, "", "", "", "", "",
+                ));
+            }
+
+            Message::SaveGameArtwork => {
+                if let Some(app_id) = self.game_artwork_app_id.take()
+                    && let Some(dialog) = self.artwork_dialog.take()
+                {
+                    let sel = dialog.selection();
+                    let artwork = capydeploy_hub_games::ArtworkUpdate {
+                        grid: sel.grid_portrait,
+                        banner: sel.grid_landscape,
+                        hero: sel.hero_image,
+                        logo: sel.logo_image,
+                        icon: sel.icon_image,
+                    };
+
+                    if let Some(agent_id) = self.connected_agent_id().map(String::from) {
+                        let mgr = self.connection_mgr.clone();
+                        let games_mgr = GamesManager::new(reqwest::Client::new());
+                        return cosmic::app::Task::perform(
+                            async move {
+                                let bridge =
+                                    crate::bridge::ConnectionBridge::new(mgr, agent_id);
+                                games_mgr
+                                    .update_game_artwork(&bridge, app_id, &artwork)
+                                    .await
+                                    .map(|_| app_id)
+                            },
+                            |result| {
+                                cosmic::action::app(Message::SaveGameArtworkResult(
+                                    result.map_err(|e| e.to_string()),
+                                ))
+                            },
+                        );
+                    }
+                }
+            }
+
+            Message::SaveGameArtworkResult(result) => match result {
+                Ok(app_id) => {
+                    tracing::info!(app_id, "game artwork updated");
+                    return self.push_toast(format!("Artwork updated for game {app_id}"));
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "failed to update game artwork");
+                    return self.push_toast(format!("Artwork update failed: {e}"));
+                }
+            },
+
             // -- Settings --
             Message::UpdateSetting(field, value) => {
                 self.settings_dirty = true;
@@ -456,6 +521,10 @@ impl Application for Hub {
             // -- Console Log --
             Message::ConsoleToggleLevel(bit) => {
                 self.console_level_filter ^= bit;
+            }
+
+            Message::ConsoleSourceFilter(source) => {
+                self.console_source_filter = source;
             }
 
             Message::ConsoleSearchInput(text) => {
@@ -746,8 +815,9 @@ impl Application for Hub {
                     dialog.selected_game_name = game_name;
                     dialog.griddb_game_id = game_id;
                     dialog.images.clear();
-                    // Load images for all tabs in parallel.
-                    return self.load_artwork_tab(ArtworkTab::Capsule, game_id);
+                    dialog.pages.clear();
+                    // Load first page for default tab.
+                    return self.load_artwork_tab(ArtworkTab::Capsule, game_id, 0);
                 }
             }
 
@@ -758,7 +828,7 @@ impl Application for Hub {
                     if !dialog.images.contains_key(&tab)
                         && let Some(game_id) = dialog.selected_game_id
                     {
-                        return self.load_artwork_tab(tab, game_id);
+                        return self.load_artwork_tab(tab, game_id, 0);
                     }
                 }
             }
@@ -767,12 +837,17 @@ impl Application for Hub {
                 if let Some(dialog) = &mut self.artwork_dialog {
                     dialog.loading.insert(tab, false);
                     match result {
-                        Ok(images) => {
-                            dialog.images.insert(tab, images);
+                        Ok(new_images) => {
+                            // Append to existing images (pagination support).
+                            dialog
+                                .images
+                                .entry(tab)
+                                .or_default()
+                                .extend(new_images);
                         }
                         Err(e) => {
                             tracing::warn!(error = %e, tab = ?tab, "artwork load failed");
-                            dialog.images.insert(tab, Vec::new());
+                            dialog.images.entry(tab).or_default();
                             return self.push_toast(format!("Load failed: {e}"));
                         }
                     }
@@ -782,6 +857,17 @@ impl Application for Hub {
             Message::ArtworkSelectImage(tab, url) => {
                 if let Some(dialog) = &mut self.artwork_dialog {
                     dialog.select_image(tab, &url);
+                }
+            }
+
+            Message::ArtworkLoadMore => {
+                if let Some(dialog) = &mut self.artwork_dialog
+                    && let Some(game_id) = dialog.selected_game_id
+                {
+                    let tab = dialog.active_tab;
+                    let next_page = dialog.pages.get(&tab).copied().unwrap_or(0) + 1;
+                    dialog.pages.insert(tab, next_page);
+                    return self.load_artwork_tab(tab, game_id, next_page);
                 }
             }
 
@@ -797,6 +883,10 @@ impl Application for Hub {
             }
 
             Message::ArtworkSave => {
+                // Dispatch based on context: game setup vs installed game.
+                if self.game_artwork_app_id.is_some() {
+                    return self.update(Message::SaveGameArtwork);
+                }
                 if let Some(dialog) = self.artwork_dialog.take() {
                     let sel = dialog.selection();
                     if let Some(setup) = &mut self.editing_setup {
@@ -813,6 +903,7 @@ impl Application for Hub {
 
             Message::ArtworkCancel => {
                 self.artwork_dialog = None;
+                self.game_artwork_app_id = None;
             }
 
             // -- Toasts --
@@ -1111,6 +1202,7 @@ impl Hub {
                 &self.console_log_hub,
                 self.connected_agent_id(),
                 self.console_level_filter,
+                &self.console_source_filter,
                 &self.console_search,
             ),
             NavPage::Settings => crate::views::settings::view(
