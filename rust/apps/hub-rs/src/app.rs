@@ -931,11 +931,18 @@ impl Application for Hub {
 
     fn view(&self) -> Element<'_, Message> {
         let sidebar = self.view_sidebar();
+        let header = self.view_header();
         let content = self.view_content();
+
+        let right_panel = widget::column()
+            .push(header)
+            .push(content)
+            .width(Length::Fill)
+            .height(Length::Fill);
 
         let main: Element<'_, Message> = widget::row()
             .push(sidebar)
-            .push(content)
+            .push(right_panel)
             .width(Length::Fill)
             .height(Length::Fill)
             .into();
@@ -1181,6 +1188,40 @@ impl Hub {
             .into()
     }
 
+    fn view_header(&self) -> Element<'_, Message> {
+        let mut row = widget::row()
+            .push(widget::Space::with_width(Length::Fill))
+            .spacing(12)
+            .align_y(Alignment::Center)
+            .padding([8, 24]);
+
+        if let Some(agent) = &self.connected_agent {
+            row = row.push(
+                widget::text::caption(format!(
+                    "{} — {} ({})",
+                    agent.agent.info.name,
+                    agent.agent.info.platform,
+                    agent.agent.address(),
+                ))
+                .class(theme::CONNECTED_COLOR),
+            );
+            row = row.push(
+                widget::button::standard("Disconnect")
+                    .on_press(Message::DisconnectAgent),
+            );
+        } else {
+            row = row.push(
+                widget::text::caption("No agent connected")
+                    .class(theme::MUTED_TEXT),
+            );
+        }
+
+        container(row)
+            .width(Length::Fill)
+            .class(cosmic::theme::Container::Custom(Box::new(header_bg)))
+            .into()
+    }
+
     fn view_content(&self) -> Element<'_, Message> {
         let content = match self.nav_page {
             NavPage::Devices => crate::views::devices::view(
@@ -1232,6 +1273,21 @@ impl Hub {
             .into()
     }
 
+}
+
+/// Header bar background.
+fn header_bg(_theme: &cosmic::Theme) -> iced_container::Style {
+    iced_container::Style {
+        background: Some(cosmic::iced::Background::Color(cosmic::iced::Color::from_rgb(
+            0.10, 0.10, 0.12,
+        ))),
+        border: cosmic::iced::Border {
+            color: cosmic::iced::Color::from_rgb(0.18, 0.18, 0.22),
+            width: 0.0,
+            radius: 0.0.into(),
+        },
+        ..Default::default()
+    }
 }
 
 /// Content area background.

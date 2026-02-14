@@ -554,3 +554,130 @@ fn backdrop_bg(theme: &cosmic::Theme) -> cosmic::iced::widget::container::Style 
         ..Default::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn artwork_tab_all_contains_every_variant() {
+        assert_eq!(ArtworkTab::ALL.len(), 5);
+        assert_eq!(ArtworkTab::ALL[0], ArtworkTab::Capsule);
+        assert_eq!(ArtworkTab::ALL[1], ArtworkTab::Wide);
+        assert_eq!(ArtworkTab::ALL[2], ArtworkTab::Hero);
+        assert_eq!(ArtworkTab::ALL[3], ArtworkTab::Logo);
+        assert_eq!(ArtworkTab::ALL[4], ArtworkTab::Icon);
+    }
+
+    #[test]
+    fn artwork_tab_labels() {
+        assert_eq!(ArtworkTab::Capsule.label(), "Capsule");
+        assert_eq!(ArtworkTab::Wide.label(), "Wide");
+        assert_eq!(ArtworkTab::Hero.label(), "Hero");
+        assert_eq!(ArtworkTab::Logo.label(), "Logo");
+        assert_eq!(ArtworkTab::Icon.label(), "Icon");
+    }
+
+    #[test]
+    fn artwork_dialog_new_defaults() {
+        let dlg = ArtworkDialog::new("Test Game", 0, "", "", "", "", "");
+        assert_eq!(dlg.search_query, "Test Game");
+        assert!(dlg.selected_game_id.is_none());
+        assert_eq!(dlg.active_tab, ArtworkTab::Capsule);
+        assert!(dlg.grid_portrait.is_empty());
+        assert!(dlg.grid_landscape.is_empty());
+        assert!(dlg.hero_image.is_empty());
+        assert!(dlg.logo_image.is_empty());
+        assert!(dlg.icon_image.is_empty());
+    }
+
+    #[test]
+    fn artwork_dialog_new_with_existing_game_id() {
+        let dlg = ArtworkDialog::new("Portal 2", 42, "p.png", "w.png", "h.png", "l.png", "i.png");
+        assert_eq!(dlg.selected_game_id, Some(42));
+        assert_eq!(dlg.griddb_game_id, 42);
+        assert_eq!(dlg.grid_portrait, "p.png");
+        assert_eq!(dlg.grid_landscape, "w.png");
+        assert_eq!(dlg.hero_image, "h.png");
+        assert_eq!(dlg.logo_image, "l.png");
+        assert_eq!(dlg.icon_image, "i.png");
+    }
+
+    #[test]
+    fn artwork_dialog_select_image_per_tab() {
+        let mut dlg = ArtworkDialog::new("Test", 0, "", "", "", "", "");
+
+        dlg.select_image(ArtworkTab::Capsule, "capsule.png");
+        assert_eq!(dlg.grid_portrait, "capsule.png");
+
+        dlg.select_image(ArtworkTab::Wide, "wide.png");
+        assert_eq!(dlg.grid_landscape, "wide.png");
+
+        dlg.select_image(ArtworkTab::Hero, "hero.png");
+        assert_eq!(dlg.hero_image, "hero.png");
+
+        dlg.select_image(ArtworkTab::Logo, "logo.png");
+        assert_eq!(dlg.logo_image, "logo.png");
+
+        dlg.select_image(ArtworkTab::Icon, "icon.png");
+        assert_eq!(dlg.icon_image, "icon.png");
+    }
+
+    #[test]
+    fn artwork_dialog_selection_builds_correctly() {
+        let mut dlg = ArtworkDialog::new("Test", 99, "", "", "", "", "");
+        dlg.select_image(ArtworkTab::Capsule, "c.png");
+        dlg.select_image(ArtworkTab::Hero, "h.png");
+
+        let sel = dlg.selection();
+        assert_eq!(sel.griddb_game_id, 99);
+        assert_eq!(sel.grid_portrait, "c.png");
+        assert!(sel.grid_landscape.is_empty());
+        assert_eq!(sel.hero_image, "h.png");
+        assert!(sel.logo_image.is_empty());
+        assert!(sel.icon_image.is_empty());
+    }
+
+    #[test]
+    fn artwork_dialog_selection_count() {
+        let mut dlg = ArtworkDialog::new("Test", 0, "", "", "", "", "");
+        assert_eq!(dlg.selection_count(), 0);
+
+        dlg.select_image(ArtworkTab::Capsule, "a.png");
+        assert_eq!(dlg.selection_count(), 1);
+
+        dlg.select_image(ArtworkTab::Wide, "b.png");
+        dlg.select_image(ArtworkTab::Hero, "c.png");
+        assert_eq!(dlg.selection_count(), 3);
+
+        // All five.
+        dlg.select_image(ArtworkTab::Logo, "d.png");
+        dlg.select_image(ArtworkTab::Icon, "e.png");
+        assert_eq!(dlg.selection_count(), 5);
+    }
+
+    #[test]
+    fn artwork_selection_default_empty() {
+        let sel = ArtworkSelection::default();
+        assert_eq!(sel.griddb_game_id, 0);
+        assert!(sel.grid_portrait.is_empty());
+        assert!(sel.grid_landscape.is_empty());
+        assert!(sel.hero_image.is_empty());
+        assert!(sel.logo_image.is_empty());
+        assert!(sel.icon_image.is_empty());
+    }
+
+    #[test]
+    fn truncate_url_short_unchanged() {
+        assert_eq!(truncate_url("https://img.png", 60), "https://img.png");
+    }
+
+    #[test]
+    fn truncate_url_long_truncated() {
+        let long = "https://cdn.steamgriddb.com/images/very/long/path/to/image.png";
+        let result = truncate_url(long, 20);
+        assert!(result.starts_with("..."));
+        // Result length = "..." (3) + last 20 chars = 23.
+        assert_eq!(result.len(), 23);
+    }
+}

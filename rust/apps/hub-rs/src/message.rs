@@ -207,3 +207,42 @@ pub enum SettingField {
     SteamGridDbApiKey,
     GameLogDir,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nav_page_all_contains_every_variant() {
+        assert_eq!(NavPage::ALL.len(), 6);
+        assert_eq!(NavPage::ALL[0], NavPage::Devices);
+        assert_eq!(NavPage::ALL[1], NavPage::Deploy);
+        assert_eq!(NavPage::ALL[2], NavPage::Games);
+        assert_eq!(NavPage::ALL[3], NavPage::Telemetry);
+        assert_eq!(NavPage::ALL[4], NavPage::Console);
+        assert_eq!(NavPage::ALL[5], NavPage::Settings);
+    }
+
+    #[test]
+    fn nav_page_labels() {
+        assert_eq!(NavPage::Devices.label(), "Devices");
+        assert_eq!(NavPage::Deploy.label(), "Deploy");
+        assert_eq!(NavPage::Games.label(), "Games");
+        assert_eq!(NavPage::Telemetry.label(), "Telemetry");
+        assert_eq!(NavPage::Console.label(), "Console");
+        assert_eq!(NavPage::Settings.label(), "Settings");
+    }
+
+    #[test]
+    fn nav_page_requires_connection() {
+        // Pages that require a connected agent.
+        assert!(NavPage::Deploy.requires_connection());
+        assert!(NavPage::Games.requires_connection());
+        assert!(NavPage::Telemetry.requires_connection());
+        assert!(NavPage::Console.requires_connection());
+
+        // Pages that work without connection.
+        assert!(!NavPage::Devices.requires_connection());
+        assert!(!NavPage::Settings.requires_connection());
+    }
+}

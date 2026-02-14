@@ -242,3 +242,69 @@ fn source_color(source: &str) -> Color {
         _ => theme::MUTED_TEXT,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_timestamp_zero() {
+        assert_eq!(format_timestamp(0), "00:00:00");
+    }
+
+    #[test]
+    fn format_timestamp_seconds() {
+        // 45 seconds = 45_000 ms.
+        assert_eq!(format_timestamp(45_000), "00:00:45");
+    }
+
+    #[test]
+    fn format_timestamp_minutes() {
+        // 5 minutes 30 seconds = 330_000 ms.
+        assert_eq!(format_timestamp(330_000), "00:05:30");
+    }
+
+    #[test]
+    fn format_timestamp_hours() {
+        // 2 hours 15 minutes 10 seconds.
+        let ms = (2 * 3600 + 15 * 60 + 10) * 1000;
+        assert_eq!(format_timestamp(ms), "02:15:10");
+    }
+
+    #[test]
+    fn format_timestamp_wraps_at_24h() {
+        // 25 hours should wrap to 01:00:00.
+        let ms = 25 * 3600 * 1000;
+        assert_eq!(format_timestamp(ms), "01:00:00");
+    }
+
+    #[test]
+    fn color_for_level_known_levels() {
+        assert_eq!(color_for_level("error"), ERROR_COLOR);
+        assert_eq!(color_for_level("warn"), WARN_COLOR);
+        assert_eq!(color_for_level("warning"), WARN_COLOR);
+        assert_eq!(color_for_level("info"), INFO_COLOR);
+        assert_eq!(color_for_level("debug"), DEBUG_COLOR);
+        assert_eq!(color_for_level("verbose"), DEBUG_COLOR);
+    }
+
+    #[test]
+    fn color_for_level_unknown_falls_to_log() {
+        assert_eq!(color_for_level("log"), LOG_COLOR);
+        assert_eq!(color_for_level("trace"), LOG_COLOR);
+        assert_eq!(color_for_level("unknown"), LOG_COLOR);
+    }
+
+    #[test]
+    fn source_color_known_sources() {
+        assert_eq!(source_color("console"), SOURCE_CONSOLE_COLOR);
+        assert_eq!(source_color("network"), SOURCE_NETWORK_COLOR);
+        assert_eq!(source_color("game"), SOURCE_GAME_COLOR);
+    }
+
+    #[test]
+    fn source_color_unknown_falls_to_muted() {
+        assert_eq!(source_color("other"), theme::MUTED_TEXT);
+        assert_eq!(source_color(""), theme::MUTED_TEXT);
+    }
+}
