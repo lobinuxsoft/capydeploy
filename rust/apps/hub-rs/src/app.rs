@@ -14,8 +14,9 @@ use capydeploy_hub_connection::pairing::default_token_path;
 use capydeploy_hub_connection::{
     ConnectedAgent, ConnectionEvent, ConnectionManager, ConnectionState, HubIdentity, TokenStore,
 };
+use capydeploy_hub_console_log::ConsoleLogHub;
 use capydeploy_hub_telemetry::TelemetryHub;
-use capydeploy_protocol::constants::MessageType;
+use capydeploy_protocol::constants::{self, MessageType};
 
 use crate::config::HubConfig;
 use crate::dialogs::pairing::PairingDialog;
@@ -41,6 +42,11 @@ pub struct Hub {
     // Telemetry state.
     telemetry_hub: TelemetryHub,
     telemetry_widgets: TelemetryWidgets,
+
+    // Console log state.
+    console_log_hub: ConsoleLogHub,
+    console_level_filter: u32,
+    console_search: String,
 }
 
 impl Hub {
@@ -106,6 +112,9 @@ impl Application for Hub {
             pairing_dialog: None,
             telemetry_hub: TelemetryHub::new(),
             telemetry_widgets: TelemetryWidgets::new(),
+            console_log_hub: ConsoleLogHub::new(),
+            console_level_filter: constants::LOG_LEVEL_DEFAULT | constants::LOG_LEVEL_DEBUG,
+            console_search: String::new(),
         };
 
         (app, cosmic::app::Task::none())
@@ -225,6 +234,48 @@ impl Application for Hub {
                 }
             },
 
+            // -- Console Log --
+            Message::ConsoleToggleLevel(bit) => {
+                self.console_level_filter ^= bit;
+            }
+
+            Message::ConsoleSearchInput(text) => {
+                self.console_search = text;
+            }
+
+            Message::ConsoleClear => {
+                if let Some(id) = self.connected_agent_id().map(String::from) {
+                    self.console_log_hub.remove_agent(&id);
+                }
+            }
+
+            Message::ConsoleSetEnabled(enabled) => {
+                let mgr = self.connection_mgr.clone();
+                let payload = serde_json::json!({ "enabled": enabled });
+                return cosmic::app::Task::perform(
+                    async move {
+                        mgr.send_request(MessageType::SetConsoleLogEnabled, Some(&payload))
+                            .await
+                    },
+                    move |result| {
+                        cosmic::action::app(Message::ConsoleSetEnabledResult(
+                            result
+                                .map(|_| enabled)
+                                .map_err(|e| e.to_string()),
+                        ))
+                    },
+                );
+            }
+
+            Message::ConsoleSetEnabledResult(result) => match result {
+                Ok(enabled) => {
+                    tracing::info!(enabled, "console log streaming toggled");
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "failed to toggle console log");
+                }
+            },
+
             // -- System --
             Message::Tick => {}
         }
@@ -296,6 +347,7 @@ impl Hub {
                 self.discovered_agents.retain(|a| a.info.id != id);
                 self.connection_states.remove(&id);
                 self.telemetry_hub.remove_agent(&id);
+                self.console_log_hub.remove_agent(&id);
                 // If the lost agent was connected, clear connection.
                 if self.connected_agent_id() == Some(&id) {
                     self.connected_agent = None;
@@ -352,8 +404,22 @@ impl Hub {
                     self.telemetry_hub.process_status(agent_id, &event);
                 }
             }
+            MessageType::ConsoleLogData => {
+                if let Ok(Some(batch)) =
+                    message.parse_payload::<capydeploy_protocol::console_log::ConsoleLogBatch>()
+                {
+                    self.console_log_hub.process_batch(agent_id, &batch);
+                }
+            }
+            MessageType::ConsoleLogStatus => {
+                if let Ok(Some(event)) = message
+                    .parse_payload::<capydeploy_protocol::console_log::ConsoleLogStatusEvent>()
+                {
+                    self.console_log_hub.process_status(agent_id, &event);
+                }
+            }
             _ => {
-                // Console log, deploy events, etc. handled in later steps.
+                // Deploy events, etc. handled in later steps.
             }
         }
     }
@@ -477,7 +543,12 @@ impl Hub {
                 self.connected_agent_id(),
                 &self.telemetry_widgets,
             ),
-            NavPage::Console => self.view_placeholder("Console"),
+            NavPage::Console => crate::views::console::view(
+                &self.console_log_hub,
+                self.connected_agent_id(),
+                self.console_level_filter,
+                &self.console_search,
+            ),
             NavPage::Settings => self.view_placeholder("Settings"),
         };
 

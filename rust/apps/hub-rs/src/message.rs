@@ -74,6 +74,18 @@ pub enum Message {
     /// Pairing attempt finished.
     PairingResult(Result<ConnectedAgent, String>),
 
+    // -- Console Log --
+    /// Toggle a log level bit in the UI filter.
+    ConsoleToggleLevel(u32),
+    /// Update the console search text.
+    ConsoleSearchInput(String),
+    /// Clear the console log buffer.
+    ConsoleClear,
+    /// Enable or disable console log streaming on the agent.
+    ConsoleSetEnabled(bool),
+    /// Result of a console log enable/disable request.
+    ConsoleSetEnabledResult(Result<bool, String>),
+
     // -- System --
     /// Periodic tick for animations and timer-based events.
     #[allow(dead_code)]
