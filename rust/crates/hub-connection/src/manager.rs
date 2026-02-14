@@ -334,6 +334,17 @@ impl ConnectionManager {
         client.send_request(msg_type, payload).await
     }
 
+    /// Sends binary data with a JSON header to the connected Agent.
+    pub async fn send_binary(
+        &self,
+        header: &serde_json::Value,
+        data: &[u8],
+    ) -> Result<Message, WsError> {
+        let client = self.ws_client.lock().await;
+        let client = client.as_ref().ok_or(WsError::Closed)?;
+        client.send_binary(header, data).await
+    }
+
     /// Fetches full Agent info from the connected Agent.
     pub async fn get_info(&self) -> Result<InfoResponse, WsError> {
         let resp = self.send_request::<()>(MessageType::GetInfo, None).await?;
@@ -459,6 +470,14 @@ mod tests {
     async fn send_request_without_connection_fails() {
         let mgr = ConnectionManager::new(test_hub(), None);
         let result = mgr.send_request::<()>(MessageType::Ping, None).await;
+        assert!(matches!(result, Err(WsError::Closed)));
+    }
+
+    #[tokio::test]
+    async fn send_binary_without_connection_fails() {
+        let mgr = ConnectionManager::new(test_hub(), None);
+        let header = serde_json::json!({"type": "test"});
+        let result = mgr.send_binary(&header, b"data").await;
         assert!(matches!(result, Err(WsError::Closed)));
     }
 

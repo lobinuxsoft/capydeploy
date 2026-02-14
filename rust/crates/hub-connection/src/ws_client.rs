@@ -228,6 +228,63 @@ impl WsClient {
         *self.on_disconnect.lock().await = Some(cb);
     }
 
+    /// Sends binary data with a JSON header and waits for the text response.
+    ///
+    /// Wire format (matching the Go Hub):
+    /// `[4 bytes big-endian header length][JSON header bytes][binary data]`
+    ///
+    /// A UUID is injected into the header for request-response correlation.
+    pub async fn send_binary(
+        &self,
+        header: &serde_json::Value,
+        data: &[u8],
+    ) -> Result<Message, WsError> {
+        let id = uuid::Uuid::new_v4().to_string();
+
+        // Inject the request ID into the header.
+        let mut header = header.clone();
+        if let Some(obj) = header.as_object_mut() {
+            obj.insert("id".into(), serde_json::Value::String(id.clone()));
+        }
+
+        let header_bytes = serde_json::to_vec(&header)?;
+        let header_len = header_bytes.len();
+
+        // Build wire frame: [4 BE bytes][header JSON][data].
+        let mut frame = Vec::with_capacity(4 + header_len + data.len());
+        frame.push((header_len >> 24) as u8);
+        frame.push((header_len >> 16) as u8);
+        frame.push((header_len >> 8) as u8);
+        frame.push(header_len as u8);
+        frame.extend_from_slice(&header_bytes);
+        frame.extend_from_slice(data);
+
+        let (tx, rx) = oneshot::channel();
+        self.pending.lock().await.insert(id.clone(), tx);
+
+        self.write_tx
+            .send(tungstenite::Message::Binary(frame.into()))
+            .await
+            .map_err(|_| WsError::Closed)?;
+
+        let result = tokio::time::timeout(WS_REQUEST_TIMEOUT, rx).await;
+        self.pending.lock().await.remove(&id);
+
+        match result {
+            Ok(Ok(resp)) => {
+                if let Some(err) = &resp.error {
+                    return Err(WsError::AgentError {
+                        code: err.code,
+                        message: err.message.clone(),
+                    });
+                }
+                Ok(resp)
+            }
+            Ok(Err(_)) => Err(WsError::Closed),
+            Err(_) => Err(WsError::Timeout),
+        }
+    }
+
     /// Gracefully closes the connection.
     pub async fn close(&self) {
         self.cancel.cancel();
@@ -495,6 +552,66 @@ mod tests {
             .await
             .expect("should stop")
             .expect("no panic");
+    }
+
+    #[tokio::test]
+    async fn send_binary_builds_correct_wire_format() {
+        // Verify the wire frame format: [4 BE bytes len][header JSON][data].
+        let (write_tx, mut write_rx) = mpsc::channel::<tungstenite::Message>(16);
+        let pending: Arc<Mutex<HashMap<String, oneshot::Sender<Message>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
+        let on_disconnect: DisconnectCallback = Arc::new(Mutex::new(None));
+        let cancel = tokio_util::sync::CancellationToken::new();
+
+        let client = WsClient {
+            write_tx,
+            pending: pending.clone(),
+            on_event,
+            on_disconnect,
+            _read_handle: tokio::spawn(async {}),
+            _write_handle: tokio::spawn(async {}),
+            _ping_handle: tokio::spawn(async {}),
+            cancel,
+        };
+
+        let header = serde_json::json!({"type": "uploadChunk", "uploadId": "u1"});
+        let data = b"hello binary";
+
+        // Spawn send_binary — it will timeout waiting for response, but we can check the frame.
+        let send_handle = tokio::spawn(async move {
+            let _ = client.send_binary(&header, data).await;
+        });
+
+        // Read the frame from the write channel.
+        let frame_msg = write_rx.recv().await.unwrap();
+        let frame = match frame_msg {
+            tungstenite::Message::Binary(b) => b.to_vec(),
+            other => panic!("expected binary frame, got {other:?}"),
+        };
+
+        // Parse the 4-byte header length.
+        assert!(frame.len() > 4);
+        let header_len =
+            ((frame[0] as usize) << 24)
+            | ((frame[1] as usize) << 16)
+            | ((frame[2] as usize) << 8)
+            | (frame[3] as usize);
+
+        // Parse the JSON header.
+        let header_json: serde_json::Value =
+            serde_json::from_slice(&frame[4..4 + header_len]).unwrap();
+        assert_eq!(header_json["type"], "uploadChunk");
+        assert_eq!(header_json["uploadId"], "u1");
+        // UUID was injected.
+        assert!(header_json["id"].is_string());
+        assert!(!header_json["id"].as_str().unwrap().is_empty());
+
+        // The binary data follows.
+        let binary_data = &frame[4 + header_len..];
+        assert_eq!(binary_data, b"hello binary");
+
+        send_handle.abort();
     }
 
     #[tokio::test]

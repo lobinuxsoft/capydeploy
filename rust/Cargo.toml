@@ -19,6 +19,7 @@ members = [
     "crates/hub-settings",
     "crates/hub-widgets",
     "apps/agent-desktop",
+    "apps/hub-rs",
     "tests/wire_compat",
 ]
 resolver = "2"

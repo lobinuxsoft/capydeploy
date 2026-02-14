@@ -718,6 +718,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-hub"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capydeploy-hub-connection",
+ "capydeploy-hub-console-log",
+ "capydeploy-hub-deploy",
+ "capydeploy-hub-games",
+ "capydeploy-hub-settings",
+ "capydeploy-hub-telemetry",
+ "capydeploy-hub-widgets",
+ "capydeploy-protocol",
+ "capydeploy-steamgriddb",
+ "hostname",
+ "libcosmic",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "capydeploy-hub-connection"
 version = "0.1.0"
 dependencies = [

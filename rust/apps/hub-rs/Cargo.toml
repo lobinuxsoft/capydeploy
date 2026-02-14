@@ -1,0 +1,40 @@
+[package]
+name = "capydeploy-hub"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CapyDeploy Hub — GUI for managing remote game deployment agents"
+
+[[bin]]
+name = "capydeploy-hub"
+path = "src/main.rs"
+
+[dependencies]
+# UI
+libcosmic = { workspace = true, features = ["winit"] }
+
+# Workspace crates
+capydeploy-protocol = { workspace = true }
+capydeploy-hub-connection = { workspace = true }
+capydeploy-hub-deploy = { workspace = true }
+capydeploy-hub-games = { workspace = true }
+capydeploy-hub-telemetry = { workspace = true }
+capydeploy-hub-console-log = { workspace = true }
+capydeploy-hub-settings = { workspace = true }
+capydeploy-hub-widgets = { workspace = true }
+capydeploy-steamgriddb = { workspace = true }
+
+# Core
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { workspace = true }
+hostname = { workspace = true }
+toml = "0.8"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
