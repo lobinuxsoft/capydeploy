@@ -1,4 +1,5 @@
 pub mod console;
+pub mod deploy;
 pub mod devices;
 pub mod telemetry;
 

@@ -1,6 +1,7 @@
 //! Hub message types for the iced/cosmic runtime.
 
 use capydeploy_hub_connection::{ConnectedAgent, ConnectionEvent};
+use capydeploy_hub_deploy::DeployResult;
 
 /// Navigation pages in the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +75,26 @@ pub enum Message {
     /// Pairing attempt finished.
     PairingResult(Result<ConnectedAgent, String>),
 
+    // -- Deploy --
+    /// Create a new empty game setup for editing.
+    NewSetup,
+    /// Start editing an existing setup by ID.
+    EditSetup(String),
+    /// Save the currently edited setup.
+    SaveSetup,
+    /// Cancel editing without saving.
+    CancelEditSetup,
+    /// Delete a game setup by ID.
+    DeleteSetup(String),
+    /// Update a field in the currently editing setup.
+    UpdateSetupField(SetupField, String),
+    /// Start deploying a game setup to the connected agent.
+    StartDeploy(String),
+    /// Deploy completed (one result per agent).
+    DeployComplete(Vec<DeployResult>),
+    /// Dismiss the deploy status message.
+    DismissDeployStatus,
+
     // -- Console Log --
     /// Toggle a log level bit in the UI filter.
     ConsoleToggleLevel(u32),
@@ -90,4 +111,15 @@ pub enum Message {
     /// Periodic tick for animations and timer-based events.
     #[allow(dead_code)]
     Tick,
+}
+
+/// Fields in a game setup that can be edited.
+#[derive(Debug, Clone)]
+pub enum SetupField {
+    Name,
+    LocalPath,
+    Executable,
+    InstallPath,
+    LaunchOptions,
+    Tags,
 }

@@ -18,10 +18,15 @@ use capydeploy_hub_console_log::ConsoleLogHub;
 use capydeploy_hub_telemetry::TelemetryHub;
 use capydeploy_protocol::constants::{self, MessageType};
 
+use capydeploy_hub_deploy::{
+    build_artwork_assignment, DeployConfig, DeployOrchestrator, GameSetup,
+};
+
 use crate::config::HubConfig;
 use crate::dialogs::pairing::PairingDialog;
-use crate::message::{Message, NavPage};
+use crate::message::{Message, NavPage, SetupField};
 use crate::theme;
+use crate::views::deploy::DeployStatus;
 use crate::views::TelemetryWidgets;
 
 /// Main Hub application state.
@@ -47,6 +52,10 @@ pub struct Hub {
     console_log_hub: ConsoleLogHub,
     console_level_filter: u32,
     console_search: String,
+
+    // Deploy state.
+    editing_setup: Option<GameSetup>,
+    deploy_status: Option<DeployStatus>,
 }
 
 impl Hub {
@@ -115,6 +124,8 @@ impl Application for Hub {
             console_log_hub: ConsoleLogHub::new(),
             console_level_filter: constants::LOG_LEVEL_DEFAULT | constants::LOG_LEVEL_DEBUG,
             console_search: String::new(),
+            editing_setup: None,
+            deploy_status: None,
         };
 
         (app, cosmic::app::Task::none())
@@ -275,6 +286,133 @@ impl Application for Hub {
                     tracing::warn!(error = %e, "failed to toggle console log");
                 }
             },
+
+            // -- Deploy --
+            Message::NewSetup => {
+                self.editing_setup = Some(GameSetup {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: String::new(),
+                    local_path: String::new(),
+                    executable: String::new(),
+                    launch_options: String::new(),
+                    tags: String::new(),
+                    install_path: String::new(),
+                    griddb_game_id: 0,
+                    grid_portrait: String::new(),
+                    grid_landscape: String::new(),
+                    hero_image: String::new(),
+                    logo_image: String::new(),
+                    icon_image: String::new(),
+                });
+            }
+
+            Message::EditSetup(id) => {
+                if let Some(setup) = self.config.game_setups.iter().find(|s| s.id == id) {
+                    self.editing_setup = Some(setup.clone());
+                }
+            }
+
+            Message::SaveSetup => {
+                if let Some(setup) = self.editing_setup.take() {
+                    if let Some(existing) = self
+                        .config
+                        .game_setups
+                        .iter_mut()
+                        .find(|s| s.id == setup.id)
+                    {
+                        *existing = setup;
+                    } else {
+                        self.config.game_setups.push(setup);
+                    }
+                    if let Err(e) = self.config.save() {
+                        tracing::warn!(error = %e, "failed to save config");
+                    }
+                }
+            }
+
+            Message::CancelEditSetup => {
+                self.editing_setup = None;
+            }
+
+            Message::DeleteSetup(id) => {
+                self.config.game_setups.retain(|s| s.id != id);
+                if let Err(e) = self.config.save() {
+                    tracing::warn!(error = %e, "failed to save config");
+                }
+            }
+
+            Message::UpdateSetupField(field, value) => {
+                if let Some(setup) = &mut self.editing_setup {
+                    match field {
+                        SetupField::Name => setup.name = value,
+                        SetupField::LocalPath => setup.local_path = value,
+                        SetupField::Executable => setup.executable = value,
+                        SetupField::InstallPath => setup.install_path = value,
+                        SetupField::LaunchOptions => setup.launch_options = value,
+                        SetupField::Tags => setup.tags = value,
+                    }
+                }
+            }
+
+            Message::StartDeploy(setup_id) => {
+                if let Some(agent_id) = self.connected_agent_id().map(String::from)
+                    && let Some(setup) = self
+                        .config
+                        .game_setups
+                        .iter()
+                        .find(|s| s.id == setup_id)
+                        .cloned()
+                {
+                    let setup_name = setup.name.clone();
+                    self.deploy_status =
+                        Some(DeployStatus::Deploying { setup_name });
+
+                    let artwork = build_artwork_assignment(&setup);
+                    let config = DeployConfig { setup, artwork };
+                    let mgr = self.connection_mgr.clone();
+
+                    return cosmic::app::Task::perform(
+                        async move {
+                            let bridge =
+                                crate::bridge::ConnectionBridge::new(mgr, agent_id);
+                            let mut orch = DeployOrchestrator::new();
+                            let _ = orch.take_events(); // Progress events skipped for now.
+                            orch.deploy(config, vec![&bridge]).await
+                        },
+                        |results| cosmic::action::app(Message::DeployComplete(results)),
+                    );
+                }
+            }
+
+            Message::DeployComplete(results) => {
+                if let Some(result) = results.into_iter().next() {
+                    let setup_name = self
+                        .deploy_status
+                        .as_ref()
+                        .map(|s| match s {
+                            DeployStatus::Deploying { setup_name } => setup_name.clone(),
+                            DeployStatus::Success { setup_name, .. } => setup_name.clone(),
+                            DeployStatus::Failed { setup_name, .. } => setup_name.clone(),
+                        })
+                        .unwrap_or_default();
+
+                    if result.success {
+                        self.deploy_status = Some(DeployStatus::Success {
+                            setup_name,
+                            app_id: result.app_id.unwrap_or(0),
+                        });
+                    } else {
+                        self.deploy_status = Some(DeployStatus::Failed {
+                            setup_name,
+                            error: result.error.unwrap_or_else(|| "unknown error".into()),
+                        });
+                    }
+                }
+            }
+
+            Message::DismissDeployStatus => {
+                self.deploy_status = None;
+            }
 
             // -- System --
             Message::Tick => {}
@@ -536,7 +674,12 @@ impl Hub {
                 self.connected_agent_id(),
                 &self.connection_states,
             ),
-            NavPage::Deploy => self.view_placeholder("Deploy"),
+            NavPage::Deploy => crate::views::deploy::view(
+                &self.config.game_setups,
+                self.editing_setup.as_ref(),
+                self.deploy_status.as_ref(),
+                self.is_connected(),
+            ),
             NavPage::Games => self.view_placeholder("Games"),
             NavPage::Telemetry => crate::views::telemetry::view(
                 &self.telemetry_hub,
