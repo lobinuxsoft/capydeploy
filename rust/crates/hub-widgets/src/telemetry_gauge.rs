@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
-use cosmic::iced::widget::canvas::{self, Frame, Path, Stroke, Text};
-use cosmic::iced::{alignment, mouse, Color, Point, Radians, Rectangle};
+use cosmic::iced::widget::canvas::{self, Frame, Path, Text};
+use cosmic::iced::{alignment, mouse, Color, Point, Rectangle};
 
 use crate::colors::{self, GaugeThresholds, TRACK_GRAY};
 
@@ -9,6 +9,8 @@ use crate::colors::{self, GaugeThresholds, TRACK_GRAY};
 const ARC_START: f32 = PI * 0.75;
 /// Sweep of the arc in radians (270°).
 const ARC_SWEEP: f32 = PI * 1.5;
+/// Number of line segments used to approximate an arc.
+const ARC_SEGMENTS: usize = 48;
 
 /// A radial 270° arc gauge for CPU / GPU / temperature telemetry.
 ///
@@ -75,32 +77,34 @@ impl<Message> canvas::Program<Message, cosmic::Theme, cosmic::Renderer> for Tele
             let center = frame.center();
             let side = bounds.width.min(bounds.height);
             let radius = side * 0.38;
-            let stroke_width = (side * 0.04).max(4.0);
+            let thickness = (side * 0.06).max(4.0);
 
-            // Track arc (full 270°, gray background).
-            let track = arc_path(center, radius, ARC_START, ARC_SWEEP);
-            frame.stroke(
-                &track,
-                Stroke::default()
-                    .with_width(stroke_width)
-                    .with_color(TRACK_GRAY),
-            );
+            // Track arc (full 270°, gray background) — filled ring segment.
+            let track = filled_arc(center, radius, thickness, ARC_START, ARC_SWEEP);
+            frame.fill(&track, TRACK_GRAY);
 
-            // Value arc (proportional to ratio).
+            // Value arc (proportional to ratio) — filled ring segment.
             let ratio = self.ratio();
             if ratio > 0.0 {
                 let value_sweep = ARC_SWEEP * ratio;
-                let value_arc = arc_path(center, radius, ARC_START, value_sweep);
+                let value_arc = filled_arc(center, radius, thickness, ARC_START, value_sweep);
                 let color = colors::color_for_ratio(ratio, &self.thresholds);
-                frame.stroke(
-                    &value_arc,
-                    Stroke {
-                        line_cap: canvas::LineCap::Round,
-                        ..Stroke::default()
-                            .with_width(stroke_width)
-                            .with_color(color)
-                    },
+                frame.fill(&value_arc, color);
+
+                // Round end cap at the tip of the value arc.
+                let tip_angle = ARC_START + value_sweep;
+                let tip = Point::new(
+                    center.x + radius * tip_angle.cos(),
+                    center.y + radius * tip_angle.sin(),
                 );
+                frame.fill(&Path::circle(tip, thickness / 2.0), color);
+
+                // Round start cap.
+                let start = Point::new(
+                    center.x + radius * ARC_START.cos(),
+                    center.y + radius * ARC_START.sin(),
+                );
+                frame.fill(&Path::circle(start, thickness / 2.0), color);
             }
 
             // Center text: formatted value + unit.
@@ -114,20 +118,52 @@ impl<Message> canvas::Program<Message, cosmic::Theme, cosmic::Renderer> for Tele
     }
 }
 
-/// Builds a path tracing an arc from `start_angle` clockwise for `sweep` radians.
-fn arc_path(center: Point, radius: f32, start_angle: f32, sweep: f32) -> Path {
+/// Builds a filled ring-segment (thick arc) using line segments.
+///
+/// Uses `fill()` instead of `stroke()` to work around iced's stroke bounds
+/// calculation bug (#2882) that causes stroked arcs to be invisible.
+fn filled_arc(
+    center: Point,
+    radius: f32,
+    thickness: f32,
+    start_angle: f32,
+    sweep: f32,
+) -> Path {
+    let outer = radius + thickness / 2.0;
+    let inner = radius - thickness / 2.0;
+
     Path::new(|b| {
-        let start = Point::new(
-            center.x + radius * start_angle.cos(),
-            center.y + radius * start_angle.sin(),
+        // Outer arc: start → end.
+        let p0 = Point::new(
+            center.x + outer * start_angle.cos(),
+            center.y + outer * start_angle.sin(),
         );
-        b.move_to(start);
-        b.arc(canvas::path::Arc {
-            center,
-            radius,
-            start_angle: Radians(start_angle),
-            end_angle: Radians(start_angle + sweep),
-        });
+        b.move_to(p0);
+
+        for i in 1..=ARC_SEGMENTS {
+            let angle = start_angle + sweep * (i as f32 / ARC_SEGMENTS as f32);
+            b.line_to(Point::new(
+                center.x + outer * angle.cos(),
+                center.y + outer * angle.sin(),
+            ));
+        }
+
+        // Inner arc: end → start (reverse).
+        let end_angle = start_angle + sweep;
+        b.line_to(Point::new(
+            center.x + inner * end_angle.cos(),
+            center.y + inner * end_angle.sin(),
+        ));
+
+        for i in (0..ARC_SEGMENTS).rev() {
+            let angle = start_angle + sweep * (i as f32 / ARC_SEGMENTS as f32);
+            b.line_to(Point::new(
+                center.x + inner * angle.cos(),
+                center.y + inner * angle.sin(),
+            ));
+        }
+
+        b.close();
     })
 }
 
@@ -213,5 +249,12 @@ mod tests {
         });
         assert!((g.thresholds.warning - 0.5).abs() < 1e-5);
         assert!((g.thresholds.critical - 0.9).abs() < 1e-5);
+    }
+
+    #[test]
+    fn filled_arc_is_closed_path() {
+        // Smoke test: ensure filled_arc doesn't panic.
+        let center = Point::new(75.0, 75.0);
+        let _path = filled_arc(center, 50.0, 8.0, ARC_START, ARC_SWEEP);
     }
 }

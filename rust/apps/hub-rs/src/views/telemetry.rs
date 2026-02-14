@@ -1,6 +1,7 @@
-//! Telemetry dashboard — real-time gauges, sparklines, and system info cards.
+//! Telemetry dashboard — progress-bar gauges, sparklines, and system info.
 
-use cosmic::iced::Length;
+use cosmic::iced::widget::horizontal_space;
+use cosmic::iced::{Color, Length};
 use cosmic::widget::{self, canvas, container};
 use cosmic::Element;
 
@@ -11,13 +12,18 @@ use crate::theme;
 
 use super::TelemetryWidgets;
 
+// Color thresholds for usage and temperature.
+const GREEN: Color = Color::from_rgb(0.18, 0.80, 0.44);
+const YELLOW: Color = Color::from_rgb(0.90, 0.75, 0.10);
+const RED: Color = Color::from_rgb(0.90, 0.25, 0.20);
+
 /// Renders the telemetry dashboard.
 pub fn view<'a>(
     hub: &'a TelemetryHub,
     agent_id: Option<&str>,
     widgets: &'a TelemetryWidgets,
 ) -> Element<'a, Message> {
-    let mut content = widget::column().spacing(16);
+    let mut content = widget::column().spacing(12);
 
     content = content.push(widget::text::title3("Telemetry"));
 
@@ -33,65 +39,122 @@ pub fn view<'a>(
     }
 
     let agent = agent.unwrap();
+    let latest = agent.latest().unwrap();
 
-    // -- Gauges row --
-    let gauges = widget::row()
-        .push(gauge_card(&widgets.cpu_gauge))
-        .push(gauge_card(&widgets.gpu_gauge))
-        .push(gauge_card(&widgets.cpu_temp_gauge))
-        .push(gauge_card(&widgets.mem_gauge))
-        .spacing(12);
-    content = content.push(gauges);
+    // -- Metric cards (2x2 grid via flex_row) --
+    let mut cards: Vec<Element<'a, Message>> = Vec::new();
 
-    // -- Sparklines --
+    if let Some(cpu) = &latest.cpu {
+        cards.push(metric_card(
+            "CPU",
+            &format!("{:.1}%", cpu.usage_percent),
+            cpu.usage_percent / 100.0,
+            usage_color(cpu.usage_percent),
+        ));
+    }
+
+    if let Some(gpu) = &latest.gpu {
+        cards.push(metric_card(
+            "GPU",
+            &format!("{:.1}%", gpu.usage_percent),
+            gpu.usage_percent / 100.0,
+            usage_color(gpu.usage_percent),
+        ));
+    }
+
+    if let Some(cpu) = &latest.cpu {
+        cards.push(metric_card(
+            "Temp",
+            &format!("{:.1}°C", cpu.temp_celsius),
+            cpu.temp_celsius / 100.0,
+            temp_color(cpu.temp_celsius),
+        ));
+    }
+
+    if let Some(mem) = &latest.memory {
+        cards.push(metric_card(
+            "Mem",
+            &format!("{:.1}%", mem.usage_percent),
+            mem.usage_percent / 100.0,
+            usage_color(mem.usage_percent),
+        ));
+    }
+
+    if !cards.is_empty() {
+        content = content.push(
+            widget::flex_row(cards)
+                .column_spacing(12)
+                .row_spacing(12),
+        );
+    }
+
+    // -- Sparklines (canvas) --
     content = content.push(sparkline_card("CPU Usage", &widgets.cpu_sparkline));
     content = content.push(sparkline_card("GPU Usage", &widgets.gpu_sparkline));
     content = content.push(sparkline_card("Memory Usage", &widgets.mem_sparkline));
 
-    // -- System info cards --
+    // -- System info card --
     if let Some(latest) = agent.latest() {
-        let mut info_items: Vec<Element<'_, Message>> = Vec::new();
+        let mut info_col = widget::column().spacing(4);
 
         if let Some(cpu) = &latest.cpu {
-            info_items.push(info_chip(format!("CPU Freq: {:.0} MHz", cpu.freq_m_hz)));
+            info_col = info_col.push(info_entry("CPU Freq", &format_freq(cpu.freq_m_hz)));
         }
 
         if let Some(gpu) = &latest.gpu {
-            let mut gpu_text = format!("GPU Freq: {:.0} MHz", gpu.freq_m_hz);
+            info_col = info_col.push(info_entry("GPU Freq", &format_freq(gpu.freq_m_hz)));
             if gpu.vram_total_bytes > 0 {
                 let used_mb = gpu.vram_used_bytes as f64 / 1_048_576.0;
                 let total_mb = gpu.vram_total_bytes as f64 / 1_048_576.0;
-                gpu_text.push_str(&format!(" | VRAM: {:.0}/{:.0} MB", used_mb, total_mb));
+                info_col = info_col.push(info_entry(
+                    "VRAM",
+                    &format!("{:.0} / {:.0} MB", used_mb, total_mb),
+                ));
             }
-            info_items.push(info_chip(gpu_text));
         }
 
         if let Some(mem) = &latest.memory {
             let total_gb = mem.total_bytes as f64 / 1_073_741_824.0;
             let avail_gb = mem.available_bytes as f64 / 1_073_741_824.0;
             let used_gb = total_gb - avail_gb;
-            info_items.push(info_chip(format!(
-                "RAM: {:.1}/{:.1} GB ({:.0}%)",
-                used_gb, total_gb, mem.usage_percent
-            )));
+            info_col = info_col.push(info_entry(
+                "RAM",
+                &format!("{:.1} / {:.1} GB", used_gb, total_gb),
+            ));
+            if mem.swap_total_bytes > 0 {
+                let swap_total = mem.swap_total_bytes as f64 / 1_073_741_824.0;
+                let swap_free = mem.swap_free_bytes as f64 / 1_073_741_824.0;
+                let swap_used = swap_total - swap_free;
+                info_col = info_col.push(info_entry(
+                    "Swap",
+                    &format!("{:.1} / {:.1} GB", swap_used, swap_total),
+                ));
+            }
         }
 
         if let Some(bat) = &latest.battery {
-            info_items.push(info_chip(format!(
-                "Battery: {}% ({})",
-                bat.capacity, bat.status
-            )));
+            info_col = info_col.push(info_entry(
+                "Battery",
+                &format!("{}% ({})", bat.capacity, bat.status),
+            ));
         }
 
         if let Some(power) = &latest.power {
-            info_items.push(info_chip(format!(
-                "Power: {:.1}W / {:.1}W TDP",
-                power.power_watts, power.tdp_watts
-            )));
+            if power.tdp_watts > 0.0 {
+                info_col = info_col.push(info_entry(
+                    "Power",
+                    &format!("{:.1}W / {:.1}W TDP", power.power_watts, power.tdp_watts),
+                ));
+            } else if power.power_watts > 0.0 {
+                info_col = info_col.push(info_entry(
+                    "Power",
+                    &format!("{:.1}W", power.power_watts),
+                ));
+            }
         }
 
         if let Some(fan) = &latest.fan {
-            info_items.push(info_chip(format!("Fan: {} RPM", fan.rpm)));
+            info_col = info_col.push(info_entry("Fan", &format!("{} RPM", fan.rpm)));
         }
 
         if let Some(steam) = &latest.steam {
@@ -102,41 +165,58 @@ pub fn view<'a>(
             } else {
                 "Not running"
             };
-            info_items.push(info_chip(format!("Steam: {status}")));
+            info_col = info_col.push(info_entry("Steam", status));
         }
 
-        if !info_items.is_empty() {
-            let mut info_row = widget::row().spacing(8);
-            for item in info_items {
-                info_row = info_row.push(item);
-            }
-
-            content = content.push(
-                container(info_row.padding(12))
-                    .width(Length::Fill)
-                    .class(cosmic::theme::Container::Custom(Box::new(
-                        theme::canvas_bg,
-                    ))),
-            );
-        }
+        content = content.push(
+            container(info_col.padding(12))
+                .width(Length::Fill)
+                .class(cosmic::theme::Container::Custom(Box::new(
+                    theme::canvas_bg,
+                ))),
+        );
     }
 
     widget::scrollable(content).into()
 }
 
-/// Wraps a gauge widget in a styled card container.
-fn gauge_card<'a>(gauge: &'a capydeploy_hub_widgets::TelemetryGauge) -> Element<'a, Message> {
-    let canvas_widget = canvas::Canvas::new(gauge)
-        .width(Length::Fixed(150.0))
-        .height(Length::Fixed(150.0));
+// ---------------------------------------------------------------------------
+// Metric card (progress bar based — guaranteed to render)
+// ---------------------------------------------------------------------------
 
-    container(canvas_widget)
-        .padding(8)
+/// Builds a metric card with big value text, a colored progress bar, and label.
+fn metric_card(
+    label: &str,
+    value_text: &str,
+    ratio: f64,
+    color: Color,
+) -> Element<'static, Message> {
+    let clamped = (ratio as f32).clamp(0.0, 1.0);
+
+    let col = widget::column()
+        .push(
+            widget::text::title3(value_text.to_string())
+                .class(color),
+        )
+        .push(widget::progress_bar(0.0..=1.0, clamped).height(8))
+        .push(
+            widget::text::caption(label.to_string())
+                .class(theme::MUTED_TEXT),
+        )
+        .spacing(6)
+        .align_x(cosmic::iced::Alignment::Center);
+
+    container(col.padding(12))
+        .width(Length::Fixed(160.0))
         .class(cosmic::theme::Container::Custom(Box::new(
             theme::canvas_bg,
         )))
         .into()
 }
+
+// ---------------------------------------------------------------------------
+// Sparklines (canvas — these render correctly)
+// ---------------------------------------------------------------------------
 
 /// Wraps a sparkline widget in a labeled card container.
 fn sparkline_card<'a>(
@@ -162,7 +242,45 @@ fn sparkline_card<'a>(
     .into()
 }
 
-/// Small text chip for system info values.
-fn info_chip(text: String) -> Element<'static, Message> {
-    widget::text::caption(text).class(theme::MUTED_TEXT).into()
+// ---------------------------------------------------------------------------
+// Info helpers
+// ---------------------------------------------------------------------------
+
+/// A label: value row for system info entries.
+fn info_entry(label: &str, value: &str) -> Element<'static, Message> {
+    widget::row()
+        .push(widget::text::caption(label.to_string()).class(theme::MUTED_TEXT))
+        .push(horizontal_space())
+        .push(widget::text::caption(value.to_string()))
+        .into()
+}
+
+fn format_freq(mhz: f64) -> String {
+    if mhz >= 1000.0 {
+        format!("{:.2} GHz", mhz / 1000.0)
+    } else {
+        format!("{:.0} MHz", mhz)
+    }
+}
+
+fn usage_color(percent: f64) -> Color {
+    if percent < 60.0 {
+        GREEN
+    } else if percent <= 80.0 {
+        YELLOW
+    } else {
+        RED
+    }
+}
+
+fn temp_color(celsius: f64) -> Color {
+    if celsius < 0.0 {
+        theme::MUTED_TEXT
+    } else if celsius < 60.0 {
+        GREEN
+    } else if celsius <= 80.0 {
+        YELLOW
+    } else {
+        RED
+    }
 }
