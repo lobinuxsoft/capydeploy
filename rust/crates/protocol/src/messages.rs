@@ -257,6 +257,7 @@ pub struct ConfigResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SteamUser {
     pub id: String,
+    #[serde(default)]
     pub name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub avatar_url: String,

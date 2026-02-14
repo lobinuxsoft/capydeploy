@@ -44,6 +44,8 @@ pub enum MessageType {
     SetConsoleLogFilter,
     #[serde(rename = "set_console_log_enabled")]
     SetConsoleLogEnabled,
+    #[serde(rename = "set_telemetry_enabled")]
+    SetTelemetryEnabled,
     #[serde(rename = "set_game_log_wrapper")]
     SetGameLogWrapper,
     #[serde(rename = "ping")]

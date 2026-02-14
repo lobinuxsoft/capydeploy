@@ -19,18 +19,37 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let mut content = widget::column().spacing(16);
 
-    content = content.push(widget::text::title3("Telemetry"));
-
     let agent = agent_id.and_then(|id| hub.get_agent(id));
+    let enabled = agent.is_some_and(|a| a.enabled());
 
-    if agent.is_none() {
+    let toggle_label = if enabled { "Enabled" } else { "Disabled" };
+    let toggle = widget::toggler(enabled)
+        .label(toggle_label)
+        .on_toggle(Message::TelemetrySetEnabled);
+
+    let header = widget::row()
+        .push(widget::text::title3("Telemetry"))
+        .push(cosmic::iced::widget::horizontal_space())
+        .push(toggle)
+        .align_y(cosmic::iced::Alignment::Center);
+    content = content.push(header);
+
+    if !enabled || agent.is_none() {
         content = content.push(
-            widget::text("Waiting for telemetry data...").class(theme::MUTED_TEXT),
+            widget::text("Enable telemetry to see real-time hardware metrics.")
+                .class(theme::MUTED_TEXT),
         );
         return content.into();
     }
 
     let agent = agent.unwrap();
+
+    if agent.latest().is_none() {
+        content = content.push(
+            widget::text("Waiting for telemetry data...").class(theme::MUTED_TEXT),
+        );
+        return content.into();
+    }
 
     // -- Gauges row --
     let gauges = widget::row()

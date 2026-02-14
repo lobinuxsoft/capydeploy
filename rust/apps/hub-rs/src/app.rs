@@ -213,7 +213,7 @@ impl Application for Hub {
         let connection_mgr = Arc::new(ConnectionManager::new(hub_identity, token_store));
 
         let tokio_rt = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
+            .worker_threads(1)
             .enable_all()
             .build()
             .expect("failed to create tokio runtime");
@@ -568,6 +568,41 @@ impl Application for Hub {
                 self.config.game_log_dir.clear();
                 self.settings_dirty = true;
             }
+
+            // -- Telemetry --
+            Message::TelemetrySetEnabled(enabled) => {
+                let mgr = self.connection_mgr.clone();
+                let payload = serde_json::json!({ "enabled": enabled });
+                return self.tokio_perform(
+                    async move {
+                        mgr.send_request(MessageType::SetTelemetryEnabled, Some(&payload))
+                            .await
+                    },
+                    move |result| {
+                        cosmic::action::app(Message::TelemetrySetEnabledResult(
+                            result
+                                .map(|_| enabled)
+                                .map_err(|e| e.to_string()),
+                        ))
+                    },
+                );
+            }
+
+            Message::TelemetrySetEnabledResult(result) => match result {
+                Ok(enabled) => {
+                    let msg = if enabled {
+                        "Telemetry enabled"
+                    } else {
+                        "Telemetry disabled"
+                    };
+                    tracing::info!(enabled, "telemetry streaming toggled");
+                    return self.push_toast(msg);
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "failed to toggle telemetry");
+                    return self.push_toast(format!("Telemetry toggle failed: {e}"));
+                }
+            },
 
             // -- Console Log --
             Message::ConsoleToggleLevel(bit) => {
