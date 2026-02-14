@@ -62,6 +62,8 @@ pub enum Message {
     // -- Connection lifecycle --
     /// mDNS discovery started and subscription is active.
     DiscoveryStarted,
+    /// User clicked refresh discovery.
+    RefreshDiscovery,
     /// A connection event arrived from the subscription.
     ConnectionEvent(ConnectionEvent),
     /// User clicked connect on an agent.
@@ -128,6 +130,8 @@ pub enum Message {
     UpdateSetting(SettingField, String),
     /// Save settings to disk.
     SaveSettings,
+    /// Toggle visibility of the SteamGridDB API key field.
+    ToggleApiKeyVisibility,
     /// Open a native folder picker for the game log directory.
     BrowseGameLogDir,
     /// Folder picker result for game log directory.

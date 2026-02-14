@@ -164,12 +164,20 @@ fn log_entry_row(entry: &capydeploy_protocol::console_log::ConsoleLogEntry) -> E
     let ts = format_timestamp(entry.timestamp);
     let level_tag = format!("[{}]", entry.level.to_uppercase());
 
-    let row = widget::row()
+    let mut row = widget::row()
         .push(widget::text::caption(ts).class(theme::MUTED_TEXT))
         .push(widget::text::caption(level_tag).class(color))
-        .push(widget::text::caption(&entry.text))
         .spacing(8)
         .align_y(Alignment::Center);
+
+    if !entry.source.is_empty() {
+        row = row.push(
+            widget::text::caption(format!("[{}]", entry.source))
+                .class(source_color(&entry.source)),
+        );
+    }
+
+    row = row.push(widget::text::caption(&entry.text));
 
     row.into()
 }
@@ -219,3 +227,18 @@ const WARN_COLOR: Color = Color::from_rgb(0.95, 0.77, 0.06);
 const ERROR_COLOR: Color = Color::from_rgb(0.91, 0.30, 0.24);
 const INFO_COLOR: Color = Color::from_rgb(0.30, 0.70, 1.0);
 const DEBUG_COLOR: Color = Color::from_rgb(0.50, 0.50, 0.55);
+
+// Source colors.
+const SOURCE_CONSOLE_COLOR: Color = Color::from_rgb(0.55, 0.75, 0.55);
+const SOURCE_NETWORK_COLOR: Color = Color::from_rgb(0.55, 0.65, 0.85);
+const SOURCE_GAME_COLOR: Color = Color::from_rgb(0.85, 0.65, 0.45);
+
+/// Maps log source string to display color.
+fn source_color(source: &str) -> Color {
+    match source {
+        "console" => SOURCE_CONSOLE_COLOR,
+        "network" => SOURCE_NETWORK_COLOR,
+        "game" => SOURCE_GAME_COLOR,
+        _ => theme::MUTED_TEXT,
+    }
+}

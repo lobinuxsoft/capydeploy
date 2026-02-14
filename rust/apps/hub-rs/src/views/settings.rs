@@ -9,7 +9,7 @@ use crate::message::{Message, SettingField};
 use crate::theme;
 
 /// Renders the settings view.
-pub fn view(config: &HubConfig, dirty: bool) -> Element<'_, Message> {
+pub fn view(config: &HubConfig, dirty: bool, api_key_hidden: bool) -> Element<'_, Message> {
     let mut content = widget::column().spacing(16);
 
     content = content.push(widget::text::title3("Settings"));
@@ -17,10 +17,9 @@ pub fn view(config: &HubConfig, dirty: bool) -> Element<'_, Message> {
     // Settings form.
     let form = widget::column()
         .push(setting_field("Hub Name", &config.name, SettingField::Name))
-        .push(setting_field(
-            "SteamGridDB API Key",
+        .push(api_key_field(
             &config.steamgriddb_api_key,
-            SettingField::SteamGridDbApiKey,
+            api_key_hidden,
         ))
         .push(path_setting_field(
             "Game Log Directory",
@@ -85,6 +84,20 @@ fn setting_field<'a>(
         .push(
             widget::text_input(label, value)
                 .on_input(move |v| Message::UpdateSetting(field.clone(), v)),
+        )
+        .spacing(4)
+        .into()
+}
+
+/// Renders the SteamGridDB API key as a secure (password) input with toggle.
+fn api_key_field(value: &str, hidden: bool) -> Element<'_, Message> {
+    widget::column()
+        .push(
+            widget::text::caption("SteamGridDB API Key").class(theme::MUTED_TEXT),
+        )
+        .push(
+            widget::secure_input("Enter API key...", value, Some(Message::ToggleApiKeyVisibility), hidden)
+                .on_input(|v| Message::UpdateSetting(SettingField::SteamGridDbApiKey, v)),
         )
         .spacing(4)
         .into()

@@ -67,6 +67,7 @@ pub struct Hub {
 
     // Settings state.
     settings_dirty: bool,
+    api_key_hidden: bool,
 
     // Artwork selector dialog.
     artwork_dialog: Option<ArtworkDialog>,
@@ -202,6 +203,7 @@ impl Application for Hub {
             installed_games: Vec::new(),
             games_loading: false,
             settings_dirty: false,
+            api_key_hidden: true,
             artwork_dialog: None,
             game_artwork_app_id: None,
             toasts: Toasts::new(Message::CloseToast),
@@ -244,6 +246,12 @@ impl Application for Hub {
             // -- Connection lifecycle --
             Message::DiscoveryStarted => {
                 tracing::debug!("discovery subscription active");
+            }
+
+            Message::RefreshDiscovery => {
+                self.discovered_agents.clear();
+                self.connection_states
+                    .retain(|_, s| matches!(s, ConnectionState::Connected));
             }
 
             Message::ConnectionEvent(event) => {
@@ -477,6 +485,10 @@ impl Application for Hub {
                     SettingField::SteamGridDbApiKey => self.config.steamgriddb_api_key = value,
                     SettingField::GameLogDir => self.config.game_log_dir = value,
                 }
+            }
+
+            Message::ToggleApiKeyVisibility => {
+                self.api_key_hidden = !self.api_key_hidden;
             }
 
             Message::SaveSettings => {
@@ -1208,6 +1220,7 @@ impl Hub {
             NavPage::Settings => crate::views::settings::view(
                 &self.config,
                 self.settings_dirty,
+                self.api_key_hidden,
             ),
         };
 

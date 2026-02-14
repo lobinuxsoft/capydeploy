@@ -18,7 +18,12 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let mut content = widget::column().spacing(16);
 
-    content = content.push(widget::text::title3("Devices"));
+    content = content.push(
+        widget::row()
+            .push(widget::text::title3("Devices").width(Length::Fill))
+            .push(widget::button::standard("Refresh").on_press(Message::RefreshDiscovery))
+            .align_y(cosmic::iced::Alignment::Center),
+    );
     content = content.push(
         widget::text("Agents discovered on the local network").class(theme::MUTED_TEXT),
     );
