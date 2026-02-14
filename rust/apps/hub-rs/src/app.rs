@@ -10,15 +10,18 @@ use cosmic::widget::{self, container};
 use cosmic::{Application, Element};
 
 use capydeploy_discovery::types::DiscoveredAgent;
+use capydeploy_hub_connection::pairing::default_token_path;
 use capydeploy_hub_connection::{
     ConnectedAgent, ConnectionEvent, ConnectionManager, ConnectionState, HubIdentity, TokenStore,
 };
-use capydeploy_hub_connection::pairing::default_token_path;
+use capydeploy_hub_telemetry::TelemetryHub;
+use capydeploy_protocol::constants::MessageType;
 
 use crate::config::HubConfig;
 use crate::dialogs::pairing::PairingDialog;
 use crate::message::{Message, NavPage};
 use crate::theme;
+use crate::views::TelemetryWidgets;
 
 /// Main Hub application state.
 pub struct Hub {
@@ -34,6 +37,10 @@ pub struct Hub {
 
     // Pairing dialog.
     pairing_dialog: Option<PairingDialog>,
+
+    // Telemetry state.
+    telemetry_hub: TelemetryHub,
+    telemetry_widgets: TelemetryWidgets,
 }
 
 impl Hub {
@@ -97,6 +104,8 @@ impl Application for Hub {
             connected_agent: None,
             connection_states: HashMap::new(),
             pairing_dialog: None,
+            telemetry_hub: TelemetryHub::new(),
+            telemetry_widgets: TelemetryWidgets::new(),
         };
 
         (app, cosmic::app::Task::none())
@@ -286,6 +295,7 @@ impl Hub {
                 tracing::info!(agent = %id, "agent lost");
                 self.discovered_agents.retain(|a| a.info.id != id);
                 self.connection_states.remove(&id);
+                self.telemetry_hub.remove_agent(&id);
                 // If the lost agent was connected, clear connection.
                 if self.connected_agent_id() == Some(&id) {
                     self.connected_agent = None;
@@ -309,14 +319,76 @@ impl Hub {
             }
 
             ConnectionEvent::AgentEvent {
-                agent_id: _,
-                msg_type: _,
-                message: _,
+                agent_id,
+                msg_type,
+                message,
             } => {
-                // Routed to telemetry/console/deploy in later steps.
+                self.route_agent_event(&agent_id, msg_type, &message);
             }
         }
         cosmic::app::Task::none()
+    }
+
+    /// Routes agent events to the appropriate subsystem.
+    fn route_agent_event(
+        &mut self,
+        agent_id: &str,
+        msg_type: MessageType,
+        message: &capydeploy_protocol::envelope::Message,
+    ) {
+        match msg_type {
+            MessageType::TelemetryData => {
+                if let Ok(Some(data)) =
+                    message.parse_payload::<capydeploy_protocol::telemetry::TelemetryData>()
+                {
+                    self.telemetry_hub.process_data(agent_id, &data);
+                    self.update_telemetry_widgets(agent_id);
+                }
+            }
+            MessageType::TelemetryStatus => {
+                if let Ok(Some(event)) =
+                    message.parse_payload::<capydeploy_protocol::telemetry::TelemetryStatusEvent>()
+                {
+                    self.telemetry_hub.process_status(agent_id, &event);
+                }
+            }
+            _ => {
+                // Console log, deploy events, etc. handled in later steps.
+            }
+        }
+    }
+
+    /// Updates canvas widget values from the latest telemetry data.
+    fn update_telemetry_widgets(&mut self, agent_id: &str) {
+        let Some(agent) = self.telemetry_hub.get_agent(agent_id) else {
+            return;
+        };
+
+        // Update gauges from latest snapshot.
+        if let Some(latest) = agent.latest() {
+            if let Some(cpu) = &latest.cpu {
+                self.telemetry_widgets.cpu_gauge.set_value(cpu.usage_percent);
+                self.telemetry_widgets
+                    .cpu_temp_gauge
+                    .set_value(cpu.temp_celsius);
+            }
+            if let Some(gpu) = &latest.gpu {
+                self.telemetry_widgets.gpu_gauge.set_value(gpu.usage_percent);
+            }
+            if let Some(mem) = &latest.memory {
+                self.telemetry_widgets.mem_gauge.set_value(mem.usage_percent);
+            }
+        }
+
+        // Update sparklines from history ring buffers.
+        let cpu_data: Vec<f64> = agent.cpu_usage_history().iter().copied().collect();
+        self.telemetry_widgets.cpu_sparkline.set_data(&cpu_data);
+
+        let gpu_data: Vec<f64> = agent.gpu_usage_history().iter().copied().collect();
+        self.telemetry_widgets.gpu_sparkline.set_data(&gpu_data);
+
+        let mem_data: Vec<f64> = agent.mem_usage_history().iter().copied().collect();
+        self.telemetry_widgets.mem_sparkline.set_data(&mem_data);
     }
 }
 
@@ -400,7 +472,11 @@ impl Hub {
             ),
             NavPage::Deploy => self.view_placeholder("Deploy"),
             NavPage::Games => self.view_placeholder("Games"),
-            NavPage::Telemetry => self.view_placeholder("Telemetry"),
+            NavPage::Telemetry => crate::views::telemetry::view(
+                &self.telemetry_hub,
+                self.connected_agent_id(),
+                &self.telemetry_widgets,
+            ),
             NavPage::Console => self.view_placeholder("Console"),
             NavPage::Settings => self.view_placeholder("Settings"),
         };
