@@ -6,7 +6,7 @@ use std::sync::Arc;
 use cosmic::app::Core;
 use cosmic::iced::widget::container as iced_container;
 use cosmic::iced::{Alignment, Length};
-use cosmic::widget::{self, container};
+use cosmic::widget::{self, container, Toast, Toasts};
 use cosmic::{Application, Element};
 
 use capydeploy_discovery::types::DiscoveredAgent;
@@ -24,6 +24,7 @@ use capydeploy_hub_deploy::{
 use capydeploy_hub_games::{GamesManager, InstalledGame};
 
 use crate::config::HubConfig;
+use crate::dialogs::artwork::{ArtworkDialog, ArtworkTab};
 use crate::dialogs::pairing::PairingDialog;
 use crate::message::{Message, NavPage, SettingField, SetupField};
 use crate::theme;
@@ -64,6 +65,12 @@ pub struct Hub {
 
     // Settings state.
     settings_dirty: bool,
+
+    // Artwork selector dialog.
+    artwork_dialog: Option<ArtworkDialog>,
+
+    // Toast notifications.
+    toasts: Toasts<Message>,
 }
 
 impl Hub {
@@ -87,6 +94,57 @@ impl Hub {
             .insert(id, ConnectionState::Connected);
         self.connected_agent = Some(agent);
         self.pairing_dialog = None;
+    }
+
+    /// Pushes a toast and wraps the resulting task for the cosmic runtime.
+    fn push_toast(&mut self, text: impl Into<String>) -> cosmic::app::Task<Message> {
+        self.toasts
+            .push(Toast::new(text))
+            .map(cosmic::action::app)
+    }
+
+    /// Loads artwork images for a tab from SteamGridDB.
+    fn load_artwork_tab(
+        &mut self,
+        tab: ArtworkTab,
+        game_id: i32,
+    ) -> cosmic::app::Task<Message> {
+        if let Some(dialog) = &mut self.artwork_dialog {
+            dialog.loading.insert(tab, true);
+        }
+        let api_key = self.config.steamgriddb_api_key.clone();
+        cosmic::app::Task::perform(
+            async move {
+                let client = capydeploy_steamgriddb::Client::new(&api_key)?;
+                match tab {
+                    ArtworkTab::Capsule => {
+                        let grids = client.get_grids(game_id, None, 0).await?;
+                        // Filter to portrait (height > width).
+                        Ok(grids
+                            .into_iter()
+                            .filter(|g| g.height > g.width)
+                            .collect())
+                    }
+                    ArtworkTab::Wide => {
+                        let grids = client.get_grids(game_id, None, 0).await?;
+                        // Filter to landscape (width > height).
+                        Ok(grids
+                            .into_iter()
+                            .filter(|g| g.width > g.height)
+                            .collect())
+                    }
+                    ArtworkTab::Hero => client.get_heroes(game_id, None, 0).await,
+                    ArtworkTab::Logo => client.get_logos(game_id, None, 0).await,
+                    ArtworkTab::Icon => client.get_icons(game_id, None, 0).await,
+                }
+            },
+            move |result| {
+                cosmic::action::app(Message::ArtworkImagesLoaded(
+                    tab,
+                    result.map_err(|e| e.to_string()),
+                ))
+            },
+        )
     }
 }
 
@@ -137,6 +195,8 @@ impl Application for Hub {
             installed_games: Vec::new(),
             games_loading: false,
             settings_dirty: false,
+            artwork_dialog: None,
+            toasts: Toasts::new(Message::CloseToast),
         };
 
         (app, cosmic::app::Task::none())
@@ -184,12 +244,15 @@ impl Application for Hub {
 
             Message::ConnectResult(result) => match result {
                 Ok(agent) => {
+                    let name = agent.agent.info.name.clone();
                     self.on_connected(agent);
+                    return self.push_toast(format!("Connected to {name}"));
                 }
                 Err(e) => {
                     // Pairing-required errors are handled via ConnectionEvent::PairingNeeded.
                     if !e.contains("pairing required") {
                         tracing::warn!(error = %e, "connection failed");
+                        return self.push_toast(format!("Connection failed: {e}"));
                     }
                 }
             },
@@ -245,7 +308,9 @@ impl Application for Hub {
 
             Message::PairingResult(result) => match result {
                 Ok(agent) => {
+                    let name = agent.agent.info.name.clone();
                     self.on_connected(agent);
+                    return self.push_toast(format!("Paired with {name}"));
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, "pairing failed");
@@ -253,6 +318,7 @@ impl Application for Hub {
                         dialog.confirming = false;
                         dialog.input.clear();
                     }
+                    return self.push_toast(format!("Pairing failed: {e}"));
                 }
             },
 
@@ -281,10 +347,13 @@ impl Application for Hub {
                 self.games_loading = false;
                 match result {
                     Ok(games) => {
+                        let count = games.len();
                         self.installed_games = games;
+                        return self.push_toast(format!("{count} games loaded"));
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "failed to fetch installed games");
+                        return self.push_toast(format!("Failed to load games: {e}"));
                     }
                 }
             }
@@ -315,9 +384,11 @@ impl Application for Hub {
                 Ok(app_id) => {
                     tracing::info!(app_id, "game deleted");
                     self.installed_games.retain(|g| g.app_id != app_id);
+                    return self.push_toast(format!("Game {app_id} deleted"));
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, "failed to delete game");
+                    return self.push_toast(format!("Delete failed: {e}"));
                 }
             },
 
@@ -336,9 +407,11 @@ impl Application for Hub {
                     Ok(()) => {
                         self.settings_dirty = false;
                         tracing::info!("settings saved");
+                        return self.push_toast("Settings saved");
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "failed to save settings");
+                        return self.push_toast(format!("Save failed: {e}"));
                     }
                 }
             }
@@ -378,10 +451,17 @@ impl Application for Hub {
 
             Message::ConsoleSetEnabledResult(result) => match result {
                 Ok(enabled) => {
+                    let msg = if enabled {
+                        "Console log enabled"
+                    } else {
+                        "Console log disabled"
+                    };
                     tracing::info!(enabled, "console log streaming toggled");
+                    return self.push_toast(msg);
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, "failed to toggle console log");
+                    return self.push_toast(format!("Console toggle failed: {e}"));
                 }
             },
 
@@ -495,21 +575,166 @@ impl Application for Hub {
                         .unwrap_or_default();
 
                     if result.success {
+                        let app_id = result.app_id.unwrap_or(0);
                         self.deploy_status = Some(DeployStatus::Success {
-                            setup_name,
-                            app_id: result.app_id.unwrap_or(0),
+                            setup_name: setup_name.clone(),
+                            app_id,
                         });
+                        return self.push_toast(format!(
+                            "{setup_name} deployed (AppID: {app_id})"
+                        ));
                     } else {
+                        let error =
+                            result.error.unwrap_or_else(|| "unknown error".into());
                         self.deploy_status = Some(DeployStatus::Failed {
-                            setup_name,
-                            error: result.error.unwrap_or_else(|| "unknown error".into()),
+                            setup_name: setup_name.clone(),
+                            error: error.clone(),
                         });
+                        return self.push_toast(format!(
+                            "Deploy failed: {error}"
+                        ));
                     }
                 }
             }
 
             Message::DismissDeployStatus => {
                 self.deploy_status = None;
+            }
+
+            // -- Artwork Selector --
+            Message::OpenArtworkSelector => {
+                if let Some(setup) = &self.editing_setup {
+                    self.artwork_dialog = Some(ArtworkDialog::new(
+                        &setup.name,
+                        setup.griddb_game_id,
+                        &setup.grid_portrait,
+                        &setup.grid_landscape,
+                        &setup.hero_image,
+                        &setup.logo_image,
+                        &setup.icon_image,
+                    ));
+                }
+            }
+
+            Message::ArtworkSearchInput(text) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.search_query = text;
+                }
+            }
+
+            Message::ArtworkSearchSubmit => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    if dialog.search_query.is_empty() {
+                        return cosmic::app::Task::none();
+                    }
+                    dialog.searching = true;
+                    let api_key = self.config.steamgriddb_api_key.clone();
+                    let query = dialog.search_query.clone();
+                    return cosmic::app::Task::perform(
+                        async move {
+                            let client = capydeploy_steamgriddb::Client::new(&api_key)?;
+                            client.search(&query).await
+                        },
+                        |result| {
+                            cosmic::action::app(Message::ArtworkSearchResults(
+                                result.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    );
+                }
+            }
+
+            Message::ArtworkSearchResults(result) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.searching = false;
+                    match result {
+                        Ok(results) => dialog.search_results = results,
+                        Err(e) => {
+                            tracing::warn!(error = %e, "artwork search failed");
+                            return self.push_toast(format!("Search failed: {e}"));
+                        }
+                    }
+                }
+            }
+
+            Message::ArtworkSelectGame(game_id, game_name) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.selected_game_id = Some(game_id);
+                    dialog.selected_game_name = game_name;
+                    dialog.griddb_game_id = game_id;
+                    dialog.images.clear();
+                    // Load images for all tabs in parallel.
+                    return self.load_artwork_tab(ArtworkTab::Capsule, game_id);
+                }
+            }
+
+            Message::ArtworkTabChanged(tab) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.active_tab = tab;
+                    // Load images if not already loaded.
+                    if !dialog.images.contains_key(&tab)
+                        && let Some(game_id) = dialog.selected_game_id
+                    {
+                        return self.load_artwork_tab(tab, game_id);
+                    }
+                }
+            }
+
+            Message::ArtworkImagesLoaded(tab, result) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.loading.insert(tab, false);
+                    match result {
+                        Ok(images) => {
+                            dialog.images.insert(tab, images);
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, tab = ?tab, "artwork load failed");
+                            dialog.images.insert(tab, Vec::new());
+                            return self.push_toast(format!("Load failed: {e}"));
+                        }
+                    }
+                }
+            }
+
+            Message::ArtworkSelectImage(tab, url) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.select_image(tab, &url);
+                }
+            }
+
+            Message::ArtworkClearAll => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.grid_portrait.clear();
+                    dialog.grid_landscape.clear();
+                    dialog.hero_image.clear();
+                    dialog.logo_image.clear();
+                    dialog.icon_image.clear();
+                    dialog.griddb_game_id = 0;
+                }
+            }
+
+            Message::ArtworkSave => {
+                if let Some(dialog) = self.artwork_dialog.take() {
+                    let sel = dialog.selection();
+                    if let Some(setup) = &mut self.editing_setup {
+                        setup.griddb_game_id = sel.griddb_game_id;
+                        setup.grid_portrait = sel.grid_portrait;
+                        setup.grid_landscape = sel.grid_landscape;
+                        setup.hero_image = sel.hero_image;
+                        setup.logo_image = sel.logo_image;
+                        setup.icon_image = sel.icon_image;
+                    }
+                    return self.push_toast("Artwork selection saved");
+                }
+            }
+
+            Message::ArtworkCancel => {
+                self.artwork_dialog = None;
+            }
+
+            // -- Toasts --
+            Message::CloseToast(id) => {
+                self.toasts.remove(id);
             }
 
             // -- System --
@@ -530,16 +755,21 @@ impl Application for Hub {
             .into();
 
         // Overlay pairing dialog if active.
-        if let Some(dialog) = &self.pairing_dialog {
+        let main = if let Some(dialog) = &self.pairing_dialog {
             let overlay = crate::dialogs::pairing::view(dialog);
             cosmic::widget::popover(main)
                 .modal(true)
                 .popup(overlay)
                 .on_close(Message::CancelPairing)
                 .into()
+        } else if let Some(dialog) = &self.artwork_dialog {
+            crate::dialogs::artwork::view(dialog)
         } else {
             main
-        }
+        };
+
+        // Toast notification overlay.
+        cosmic::widget::toaster(&self.toasts, main)
     }
 }
 

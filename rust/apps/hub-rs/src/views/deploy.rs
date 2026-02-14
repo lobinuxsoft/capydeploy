@@ -136,6 +136,26 @@ fn edit_form(setup: &GameSetup) -> Element<'_, Message> {
         .push(form_field("Tags (comma-separated)", &setup.tags, SetupField::Tags))
         .spacing(12);
 
+    // Artwork section.
+    let artwork_count = [
+        &setup.grid_portrait,
+        &setup.grid_landscape,
+        &setup.hero_image,
+        &setup.logo_image,
+        &setup.icon_image,
+    ]
+    .iter()
+    .filter(|s| !s.is_empty())
+    .count();
+
+    let artwork_label = if artwork_count > 0 {
+        format!("Artwork ({artwork_count} selected)")
+    } else {
+        "Select Artwork".to_string()
+    };
+    let artwork_btn = widget::button::standard(artwork_label)
+        .on_press(Message::OpenArtworkSelector);
+
     let can_save = !setup.name.is_empty()
         && !setup.local_path.is_empty()
         && !setup.executable.is_empty();
@@ -149,6 +169,7 @@ fn edit_form(setup: &GameSetup) -> Element<'_, Message> {
 
     let buttons = widget::row()
         .push(cancel_btn)
+        .push(artwork_btn)
         .push(save_btn)
         .spacing(8)
         .align_y(Alignment::Center);

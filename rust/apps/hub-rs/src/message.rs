@@ -1,8 +1,13 @@
 //! Hub message types for the iced/cosmic runtime.
 
+use cosmic::widget::ToastId;
+
 use capydeploy_hub_connection::{ConnectedAgent, ConnectionEvent};
 use capydeploy_hub_deploy::DeployResult;
 use capydeploy_hub_games::InstalledGame;
+use capydeploy_steamgriddb::types::{ImageData, SearchResult};
+
+use crate::dialogs::artwork::ArtworkTab;
 
 /// Navigation pages in the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +128,34 @@ pub enum Message {
     ConsoleSetEnabled(bool),
     /// Result of a console log enable/disable request.
     ConsoleSetEnabledResult(Result<bool, String>),
+
+    // -- Artwork Selector --
+    /// Open the artwork selector for the currently editing setup.
+    OpenArtworkSelector,
+    /// Search input changed.
+    ArtworkSearchInput(String),
+    /// User submitted the search (Enter or button).
+    ArtworkSearchSubmit,
+    /// Search results arrived.
+    ArtworkSearchResults(Result<Vec<SearchResult>, String>),
+    /// User selected a game from search results.
+    ArtworkSelectGame(i32, String),
+    /// User switched artwork tab.
+    ArtworkTabChanged(ArtworkTab),
+    /// Images loaded for a tab.
+    ArtworkImagesLoaded(ArtworkTab, Result<Vec<ImageData>, String>),
+    /// User selected an image URL for a tab.
+    ArtworkSelectImage(ArtworkTab, String),
+    /// Clear all artwork selections.
+    ArtworkClearAll,
+    /// Save artwork selections to the editing setup.
+    ArtworkSave,
+    /// Close the artwork selector without saving.
+    ArtworkCancel,
+
+    // -- Toasts --
+    /// Auto-dismiss or manual close of a toast notification.
+    CloseToast(ToastId),
 
     // -- System --
     /// Periodic tick for animations and timer-based events.
