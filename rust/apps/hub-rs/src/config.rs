@@ -15,6 +15,10 @@ pub struct HubConfig {
     #[serde(default = "default_name")]
     pub name: String,
 
+    /// Stable Hub identifier (auto-generated on first run).
+    #[serde(default = "default_hub_id")]
+    pub hub_id: String,
+
     /// SteamGridDB API key for artwork search.
     #[serde(default)]
     pub steamgriddb_api_key: String,
@@ -35,10 +39,15 @@ fn default_name() -> String {
         .unwrap_or_else(|| "CapyDeploy Hub".into())
 }
 
+fn default_hub_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
 impl Default for HubConfig {
     fn default() -> Self {
         Self {
             name: default_name(),
+            hub_id: default_hub_id(),
             steamgriddb_api_key: String::new(),
             game_log_dir: String::new(),
             game_setups: Vec::new(),
@@ -117,14 +126,34 @@ mod tests {
     fn default_config() {
         let config = HubConfig::default();
         assert!(!config.name.is_empty());
+        assert!(!config.hub_id.is_empty());
         assert!(config.steamgriddb_api_key.is_empty());
         assert!(config.game_setups.is_empty());
+    }
+
+    #[test]
+    fn hub_id_stable_across_deserialize() {
+        let toml_str = r#"
+            name = "Test"
+            hub_id = "fixed-id-123"
+        "#;
+        let config: HubConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.hub_id, "fixed-id-123");
+    }
+
+    #[test]
+    fn hub_id_generated_when_missing() {
+        let toml_str = r#"name = "NoId""#;
+        let config: HubConfig = toml::from_str(toml_str).unwrap();
+        assert!(!config.hub_id.is_empty());
+        assert!(config.hub_id.contains('-')); // UUID format
     }
 
     #[test]
     fn config_roundtrip_toml() {
         let config = HubConfig {
             name: "Test Hub".into(),
+            hub_id: "hub-42".into(),
             steamgriddb_api_key: "abc123".into(),
             game_log_dir: "/tmp/logs".into(),
             game_setups: Vec::new(),

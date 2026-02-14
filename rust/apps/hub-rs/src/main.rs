@@ -1,9 +1,13 @@
 //! CapyDeploy Hub entry point.
 
 mod app;
+mod bridge;
 mod config;
+mod dialogs;
 mod message;
+mod subscriptions;
 mod theme;
+mod views;
 
 use tracing_subscriber::EnvFilter;
 

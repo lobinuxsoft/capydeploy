@@ -1,12 +1,22 @@
 //! Hub application — `cosmic::Application` implementation.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use cosmic::app::Core;
 use cosmic::iced::widget::container as iced_container;
 use cosmic::iced::{Alignment, Length};
 use cosmic::widget::{self, container};
 use cosmic::{Application, Element};
 
+use capydeploy_discovery::types::DiscoveredAgent;
+use capydeploy_hub_connection::{
+    ConnectedAgent, ConnectionEvent, ConnectionManager, ConnectionState, HubIdentity, TokenStore,
+};
+use capydeploy_hub_connection::pairing::default_token_path;
+
 use crate::config::HubConfig;
+use crate::dialogs::pairing::PairingDialog;
 use crate::message::{Message, NavPage};
 use crate::theme;
 
@@ -15,7 +25,39 @@ pub struct Hub {
     core: Core,
     config: HubConfig,
     nav_page: NavPage,
-    is_connected: bool,
+
+    // Connection state.
+    connection_mgr: Arc<ConnectionManager>,
+    discovered_agents: Vec<DiscoveredAgent>,
+    connected_agent: Option<ConnectedAgent>,
+    connection_states: HashMap<String, ConnectionState>,
+
+    // Pairing dialog.
+    pairing_dialog: Option<PairingDialog>,
+}
+
+impl Hub {
+    /// Whether any agent is currently connected.
+    fn is_connected(&self) -> bool {
+        self.connected_agent.is_some()
+    }
+
+    /// The connected agent's ID, if any.
+    fn connected_agent_id(&self) -> Option<&str> {
+        self.connected_agent
+            .as_ref()
+            .map(|a| a.agent.info.id.as_str())
+    }
+
+    /// Handles setting up the connected state after a successful connection.
+    fn on_connected(&mut self, agent: ConnectedAgent) {
+        let id = agent.agent.info.id.clone();
+        tracing::info!(agent = %id, name = %agent.agent.info.name, "connected to agent");
+        self.connection_states
+            .insert(id, ConnectionState::Connected);
+        self.connected_agent = Some(agent);
+        self.pairing_dialog = None;
+    }
 }
 
 impl Application for Hub {
@@ -26,14 +68,35 @@ impl Application for Hub {
     const APP_ID: &'static str = "com.capydeploy.hub";
 
     fn init(mut core: Core, config: HubConfig) -> (Self, cosmic::app::Task<Message>) {
-        // Disable COSMIC CSD header — KDE/other WMs provide their own buttons.
         core.window.show_headerbar = false;
+
+        let hub_identity = HubIdentity {
+            name: config.name.clone(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            platform: std::env::consts::OS.to_string(),
+            hub_id: config.hub_id.clone(),
+        };
+
+        // Load token store for pairing persistence.
+        let token_store = default_token_path()
+            .and_then(|path| {
+                TokenStore::new(path)
+                    .inspect_err(|e| tracing::warn!(error = %e, "failed to load token store"))
+                    .ok()
+            })
+            .map(Arc::new);
+
+        let connection_mgr = Arc::new(ConnectionManager::new(hub_identity, token_store));
 
         let app = Self {
             core,
             config,
             nav_page: NavPage::Devices,
-            is_connected: false,
+            connection_mgr,
+            discovered_agents: Vec::new(),
+            connected_agent: None,
+            connection_states: HashMap::new(),
+            pairing_dialog: None,
         };
 
         (app, cosmic::app::Task::none())
@@ -47,13 +110,113 @@ impl Application for Hub {
         &mut self.core
     }
 
+    fn subscription(&self) -> cosmic::iced::Subscription<Message> {
+        crate::subscriptions::connection_events(self.connection_mgr.clone())
+    }
+
     fn update(&mut self, message: Message) -> cosmic::app::Task<Message> {
         match message {
+            // -- Navigation --
             Message::NavigateTo(page) => {
-                if !page.requires_connection() || self.is_connected {
+                if !page.requires_connection() || self.is_connected() {
                     self.nav_page = page;
                 }
             }
+
+            // -- Connection lifecycle --
+            Message::DiscoveryStarted => {
+                tracing::debug!("discovery subscription active");
+            }
+
+            Message::ConnectionEvent(event) => {
+                return self.handle_connection_event(event);
+            }
+
+            Message::ConnectAgent(agent_id) => {
+                self.connection_states
+                    .insert(agent_id.clone(), ConnectionState::Connecting);
+                let mgr = self.connection_mgr.clone();
+                return cosmic::app::Task::perform(
+                    async move { mgr.connect_agent(&agent_id).await },
+                    |result| cosmic::action::app(Message::ConnectResult(result.map_err(|e| e.to_string()))),
+                );
+            }
+
+            Message::ConnectResult(result) => match result {
+                Ok(agent) => {
+                    self.on_connected(agent);
+                }
+                Err(e) => {
+                    // Pairing-required errors are handled via ConnectionEvent::PairingNeeded.
+                    if !e.contains("pairing required") {
+                        tracing::warn!(error = %e, "connection failed");
+                    }
+                }
+            },
+
+            Message::DisconnectAgent => {
+                if let Some(agent) = self.connected_agent.take() {
+                    let id = agent.agent.info.id.clone();
+                    self.connection_states
+                        .insert(id, ConnectionState::Disconnected);
+                }
+                // Fall back to Devices page if on a connection-dependent page.
+                if self.nav_page.requires_connection() {
+                    self.nav_page = NavPage::Devices;
+                }
+                let mgr = self.connection_mgr.clone();
+                return cosmic::app::Task::perform(
+                    async move { mgr.disconnect_agent().await },
+                    |()| cosmic::action::app(Message::DiscoveryStarted),
+                );
+            }
+
+            // -- Pairing --
+            Message::PairingCodeInput(input) => {
+                if let Some(dialog) = &mut self.pairing_dialog {
+                    dialog.input = input;
+                }
+            }
+
+            Message::ConfirmPairing => {
+                if let Some(dialog) = &mut self.pairing_dialog {
+                    dialog.confirming = true;
+                    let mgr = self.connection_mgr.clone();
+                    let agent_id = dialog.agent_id.clone();
+                    let code = dialog.input.clone();
+                    return cosmic::app::Task::perform(
+                        async move { mgr.confirm_pairing(&agent_id, &code).await },
+                        |result| cosmic::action::app(Message::PairingResult(result.map_err(|e| e.to_string()))),
+                    );
+                }
+            }
+
+            Message::CancelPairing => {
+                if let Some(dialog) = self.pairing_dialog.take() {
+                    self.connection_states
+                        .insert(dialog.agent_id, ConnectionState::Discovered);
+                    let mgr = self.connection_mgr.clone();
+                    return cosmic::app::Task::perform(
+                        async move { mgr.disconnect_agent().await },
+                        |()| cosmic::action::app(Message::DiscoveryStarted),
+                    );
+                }
+            }
+
+            Message::PairingResult(result) => match result {
+                Ok(agent) => {
+                    self.on_connected(agent);
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "pairing failed");
+                    if let Some(dialog) = &mut self.pairing_dialog {
+                        dialog.confirming = false;
+                        dialog.input.clear();
+                    }
+                }
+            },
+
+            // -- System --
             Message::Tick => {}
         }
         cosmic::app::Task::none()
@@ -63,17 +226,105 @@ impl Application for Hub {
         let sidebar = self.view_sidebar();
         let content = self.view_content();
 
-        widget::row()
+        let main: Element<'_, Message> = widget::row()
             .push(sidebar)
             .push(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .into()
+            .into();
+
+        // Overlay pairing dialog if active.
+        if let Some(dialog) = &self.pairing_dialog {
+            let overlay = crate::dialogs::pairing::view(dialog);
+            cosmic::widget::popover(main)
+                .modal(true)
+                .popup(overlay)
+                .on_close(Message::CancelPairing)
+                .into()
+        } else {
+            main
+        }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Connection event routing
+// ---------------------------------------------------------------------------
+
 impl Hub {
-    /// Renders the sidebar with navigation buttons.
+    fn handle_connection_event(&mut self, event: ConnectionEvent) -> cosmic::app::Task<Message> {
+        match event {
+            ConnectionEvent::AgentFound(agent) => {
+                let id = agent.info.id.clone();
+                tracing::info!(agent = %id, name = %agent.info.name, "agent discovered");
+                self.connection_states
+                    .entry(id)
+                    .or_insert(ConnectionState::Discovered);
+                // Insert or update in discovered list.
+                if let Some(existing) = self
+                    .discovered_agents
+                    .iter_mut()
+                    .find(|a| a.info.id == agent.info.id)
+                {
+                    *existing = agent;
+                } else {
+                    self.discovered_agents.push(agent);
+                }
+            }
+
+            ConnectionEvent::AgentUpdated(agent) => {
+                if let Some(existing) = self
+                    .discovered_agents
+                    .iter_mut()
+                    .find(|a| a.info.id == agent.info.id)
+                {
+                    *existing = agent;
+                }
+            }
+
+            ConnectionEvent::AgentLost(id) => {
+                tracing::info!(agent = %id, "agent lost");
+                self.discovered_agents.retain(|a| a.info.id != id);
+                self.connection_states.remove(&id);
+                // If the lost agent was connected, clear connection.
+                if self.connected_agent_id() == Some(&id) {
+                    self.connected_agent = None;
+                    if self.nav_page.requires_connection() {
+                        self.nav_page = NavPage::Devices;
+                    }
+                }
+            }
+
+            ConnectionEvent::StateChanged { agent_id, state } => {
+                self.connection_states.insert(agent_id, state);
+            }
+
+            ConnectionEvent::PairingNeeded {
+                agent_id,
+                code,
+                expires_in,
+            } => {
+                tracing::info!(agent = %agent_id, "pairing required");
+                self.pairing_dialog = Some(PairingDialog::new(agent_id, code, expires_in));
+            }
+
+            ConnectionEvent::AgentEvent {
+                agent_id: _,
+                msg_type: _,
+                message: _,
+            } => {
+                // Routed to telemetry/console/deploy in later steps.
+            }
+        }
+        cosmic::app::Task::none()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// View helpers
+// ---------------------------------------------------------------------------
+
+impl Hub {
     fn view_sidebar(&self) -> Element<'_, Message> {
         let mut nav = widget::column().spacing(4).padding([16, 8]);
 
@@ -86,9 +337,10 @@ impl Hub {
         nav = nav.push(header);
 
         // Nav items.
+        let is_connected = self.is_connected();
         for page in NavPage::ALL {
             let is_active = self.nav_page == page;
-            let disabled = page.requires_connection() && !self.is_connected;
+            let disabled = page.requires_connection() && !is_connected;
 
             let btn = if disabled {
                 let label = widget::text(page.label()).class(theme::MUTED_TEXT);
@@ -118,18 +370,10 @@ impl Hub {
         // Connection status at bottom.
         nav = nav.push(widget::Space::with_height(Length::Fill));
 
-        let status_text = if self.is_connected {
-            "Connected"
+        let (status_text, status_color) = if let Some(agent) = &self.connected_agent {
+            (agent.agent.info.name.as_str(), theme::CONNECTED_COLOR)
         } else {
-            "No agent connected"
-        };
-        let status_color = if self.is_connected {
-            capydeploy_hub_widgets::color_for_ratio(
-                0.0,
-                &capydeploy_hub_widgets::GaugeThresholds::default(),
-            )
-        } else {
-            theme::MUTED_TEXT
+            ("No agent connected", theme::MUTED_TEXT)
         };
         nav = nav.push(
             widget::text::caption(status_text)
@@ -147,10 +391,13 @@ impl Hub {
             .into()
     }
 
-    /// Renders the main content area based on the active nav page.
     fn view_content(&self) -> Element<'_, Message> {
         let content = match self.nav_page {
-            NavPage::Devices => self.view_devices(),
+            NavPage::Devices => crate::views::devices::view(
+                &self.discovered_agents,
+                self.connected_agent_id(),
+                &self.connection_states,
+            ),
             NavPage::Deploy => self.view_placeholder("Deploy"),
             NavPage::Games => self.view_placeholder("Games"),
             NavPage::Telemetry => self.view_placeholder("Telemetry"),
@@ -166,22 +413,10 @@ impl Hub {
             .into()
     }
 
-    /// Placeholder view for pages not yet implemented.
     fn view_placeholder(&self, name: &'static str) -> Element<'_, Message> {
         widget::column()
             .push(widget::text::title3(name))
             .push(widget::text("Coming soon...").class(theme::MUTED_TEXT))
-            .spacing(8)
-            .into()
-    }
-
-    /// Devices page — skeleton for now.
-    fn view_devices(&self) -> Element<'_, Message> {
-        widget::column()
-            .push(widget::text::title3("Devices"))
-            .push(
-                widget::text("Searching for agents on the network...").class(theme::MUTED_TEXT),
-            )
             .spacing(8)
             .into()
     }

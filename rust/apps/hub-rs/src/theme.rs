@@ -22,6 +22,9 @@ pub const MUTED_TEXT: Color = Color::from_rgb(0.50, 0.50, 0.55);
 /// Active/selected nav item highlight.
 pub const NAV_ACTIVE: Color = Color::from_rgba(0.30, 0.70, 1.0, 0.15);
 
+/// Connected agent badge color (green).
+pub const CONNECTED_COLOR: Color = Color::from_rgb(0.18, 0.80, 0.44);
+
 /// Static dark background for canvas containers — avoids Z-fighting that
 /// `Container::Card` causes (Card has hover effects that trigger redraws).
 #[allow(dead_code)] // Used by telemetry and deploy views.

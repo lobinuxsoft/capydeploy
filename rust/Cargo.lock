@@ -722,6 +722,7 @@ name = "capydeploy-hub"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "capydeploy-discovery",
  "capydeploy-hub-connection",
  "capydeploy-hub-console-log",
  "capydeploy-hub-deploy",
@@ -731,6 +732,7 @@ dependencies = [
  "capydeploy-hub-widgets",
  "capydeploy-protocol",
  "capydeploy-steamgriddb",
+ "futures-util",
  "hostname",
  "libcosmic",
  "serde",

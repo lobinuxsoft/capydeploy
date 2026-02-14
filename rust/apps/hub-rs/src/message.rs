@@ -1,5 +1,7 @@
 //! Hub message types for the iced/cosmic runtime.
 
+use capydeploy_hub_connection::{ConnectedAgent, ConnectionEvent};
+
 /// Navigation pages in the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NavPage {
@@ -45,13 +47,35 @@ impl NavPage {
 
 /// Top-level message enum for the Hub application.
 #[derive(Debug, Clone)]
-#[allow(dead_code)] // Variants added incrementally across steps.
 pub enum Message {
     // -- Navigation --
     /// Switch to a sidebar page.
     NavigateTo(NavPage),
 
+    // -- Connection lifecycle --
+    /// mDNS discovery started and subscription is active.
+    DiscoveryStarted,
+    /// A connection event arrived from the subscription.
+    ConnectionEvent(ConnectionEvent),
+    /// User clicked connect on an agent.
+    ConnectAgent(String),
+    /// Connection attempt finished.
+    ConnectResult(Result<ConnectedAgent, String>),
+    /// User clicked disconnect.
+    DisconnectAgent,
+
+    // -- Pairing --
+    /// User is typing the pairing code.
+    PairingCodeInput(String),
+    /// User confirmed the pairing code.
+    ConfirmPairing,
+    /// User cancelled the pairing dialog.
+    CancelPairing,
+    /// Pairing attempt finished.
+    PairingResult(Result<ConnectedAgent, String>),
+
     // -- System --
     /// Periodic tick for animations and timer-based events.
+    #[allow(dead_code)]
     Tick,
 }
