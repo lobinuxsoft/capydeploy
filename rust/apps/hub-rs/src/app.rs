@@ -569,41 +569,6 @@ impl Application for Hub {
                 self.settings_dirty = true;
             }
 
-            // -- Telemetry --
-            Message::TelemetrySetEnabled(enabled) => {
-                let mgr = self.connection_mgr.clone();
-                let payload = serde_json::json!({ "enabled": enabled });
-                return self.tokio_perform(
-                    async move {
-                        mgr.send_request(MessageType::SetTelemetryEnabled, Some(&payload))
-                            .await
-                    },
-                    move |result| {
-                        cosmic::action::app(Message::TelemetrySetEnabledResult(
-                            result
-                                .map(|_| enabled)
-                                .map_err(|e| e.to_string()),
-                        ))
-                    },
-                );
-            }
-
-            Message::TelemetrySetEnabledResult(result) => match result {
-                Ok(enabled) => {
-                    let msg = if enabled {
-                        "Telemetry enabled"
-                    } else {
-                        "Telemetry disabled"
-                    };
-                    tracing::info!(enabled, "telemetry streaming toggled");
-                    return self.push_toast(msg);
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "failed to toggle telemetry");
-                    return self.push_toast(format!("Telemetry toggle failed: {e}"));
-                }
-            },
-
             // -- Console Log --
             Message::ConsoleToggleLevel(bit) => {
                 self.console_level_filter ^= bit;
@@ -1004,33 +969,15 @@ impl Application for Hub {
     }
 
     fn header_end(&self) -> Vec<Element<'_, Self::Message>> {
-        let mut items: Vec<Element<'_, Message>> = Vec::new();
-
-        if let Some(agent) = &self.connected_agent {
-            items.push(
-                widget::text::caption(format!(
-                    "{} — {} ({})",
-                    agent.agent.info.name,
-                    agent.agent.info.platform,
-                    agent.agent.address(),
-                ))
-                .class(theme::CONNECTED_COLOR)
-                .into(),
-            );
-            items.push(
+        if self.connected_agent.is_some() {
+            vec![
                 widget::button::standard("Disconnect")
                     .on_press(Message::DisconnectAgent)
                     .into(),
-            );
+            ]
         } else {
-            items.push(
-                widget::text::caption("No agent connected")
-                    .class(theme::MUTED_TEXT)
-                    .into(),
-            );
+            vec![]
         }
-
-        items
     }
 
     fn view(&self) -> Element<'_, Message> {

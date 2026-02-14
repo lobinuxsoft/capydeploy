@@ -77,7 +77,9 @@ pub struct BatteryMetrics {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PowerMetrics {
+    #[serde(default)]
     pub tdp_watts: f64,
+    #[serde(default)]
     pub power_watts: f64,
 }
 

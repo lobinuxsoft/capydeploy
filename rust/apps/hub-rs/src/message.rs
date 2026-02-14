@@ -139,12 +139,6 @@ pub enum Message {
     /// Clear the game log directory setting.
     ClearGameLogDir,
 
-    // -- Telemetry --
-    /// Enable or disable telemetry streaming on the agent.
-    TelemetrySetEnabled(bool),
-    /// Result of a telemetry enable/disable request.
-    TelemetrySetEnabledResult(Result<bool, String>),
-
     // -- Console Log --
     /// Toggle a log level bit in the UI filter.
     ConsoleToggleLevel(u32),
