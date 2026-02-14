@@ -3,7 +3,7 @@
 use cosmic::widget::ToastId;
 
 use capydeploy_hub_connection::{ConnectedAgent, ConnectionEvent};
-use capydeploy_hub_deploy::DeployResult;
+use capydeploy_hub_deploy::{DeployEvent, DeployResult};
 use capydeploy_hub_games::InstalledGame;
 use capydeploy_steamgriddb::types::{ImageData, SearchResult};
 
@@ -98,6 +98,8 @@ pub enum Message {
     StartDeploy(String),
     /// Deploy completed (one result per agent).
     DeployComplete(Vec<DeployResult>),
+    /// Real-time deploy progress event from the orchestrator.
+    DeployProgress(DeployEvent),
     /// Dismiss the deploy status message.
     DismissDeployStatus,
 

@@ -12,7 +12,11 @@ use crate::theme;
 /// Deploy status shown after a deploy attempt.
 #[derive(Debug, Clone)]
 pub enum DeployStatus {
-    Deploying { setup_name: String },
+    Deploying {
+        setup_name: String,
+        progress: f64,
+        status_msg: String,
+    },
     Success { setup_name: String, app_id: u32 },
     Failed { setup_name: String, error: String },
 }
@@ -23,6 +27,7 @@ pub fn view<'a>(
     editing: Option<&'a GameSetup>,
     deploy_status: Option<&'a DeployStatus>,
     is_connected: bool,
+    deploying: bool,
 ) -> Element<'a, Message> {
     let mut content = widget::column().spacing(16);
 
@@ -59,7 +64,7 @@ pub fn view<'a>(
             );
         } else {
             for setup in setups {
-                content = content.push(setup_card(setup, is_connected));
+                content = content.push(setup_card(setup, is_connected, deploying));
             }
         }
     }
@@ -68,7 +73,7 @@ pub fn view<'a>(
 }
 
 /// Renders a game setup card with info and action buttons.
-fn setup_card<'a>(setup: &'a GameSetup, is_connected: bool) -> Element<'a, Message> {
+fn setup_card<'a>(setup: &'a GameSetup, is_connected: bool, deploying: bool) -> Element<'a, Message> {
     let info = widget::column()
         .push(widget::text::heading(&setup.name))
         .push(
@@ -86,7 +91,6 @@ fn setup_card<'a>(setup: &'a GameSetup, is_connected: bool) -> Element<'a, Messa
     let edit_btn = widget::button::standard("Edit")
         .on_press(Message::EditSetup(setup.id.clone()));
 
-    let deploying = false; // Will be dynamic when progress is added.
     let deploy_btn = if is_connected && !deploying {
         widget::button::suggested("Deploy").on_press(Message::StartDeploy(setup.id.clone()))
     } else {
@@ -188,36 +192,68 @@ fn edit_form(setup: &GameSetup) -> Element<'_, Message> {
 
 /// Renders the deploy status banner.
 fn status_banner(status: &DeployStatus) -> Element<'_, Message> {
-    let (text, color) = match status {
-        DeployStatus::Deploying { setup_name } => {
-            (format!("Deploying {setup_name}..."), theme::CYAN)
+    let mut col = widget::column().spacing(6).padding(12);
+
+    match status {
+        DeployStatus::Deploying {
+            setup_name,
+            progress,
+            status_msg,
+        } => {
+            let pct = (*progress * 100.0) as u32;
+            let header = widget::row()
+                .push(
+                    widget::text(format!("Deploying {setup_name}... {pct}%"))
+                        .class(theme::CYAN)
+                        .width(Length::Fill),
+                )
+                .align_y(Alignment::Center);
+            col = col.push(header);
+
+            col = col.push(widget::progress_bar(0.0..=1.0, *progress as f32));
+
+            if !status_msg.is_empty() {
+                col = col.push(
+                    widget::text::caption(status_msg).class(theme::MUTED_TEXT),
+                );
+            }
         }
         DeployStatus::Success {
             setup_name,
             app_id,
-        } => (
-            format!("{setup_name} deployed (AppID: {app_id})"),
-            theme::CONNECTED_COLOR,
-        ),
-        DeployStatus::Failed { setup_name, error } => {
-            (format!("{setup_name} failed: {error}"), ERROR_COLOR)
+        } => {
+            let row = widget::row()
+                .push(
+                    widget::text(format!("{setup_name} deployed (AppID: {app_id})"))
+                        .class(theme::CONNECTED_COLOR)
+                        .width(Length::Fill),
+                )
+                .push(
+                    widget::button::standard("Dismiss")
+                        .on_press(Message::DismissDeployStatus),
+                )
+                .spacing(12)
+                .align_y(Alignment::Center);
+            col = col.push(row);
         }
-    };
+        DeployStatus::Failed { setup_name, error } => {
+            let row = widget::row()
+                .push(
+                    widget::text(format!("{setup_name} failed: {error}"))
+                        .class(ERROR_COLOR)
+                        .width(Length::Fill),
+                )
+                .push(
+                    widget::button::standard("Dismiss")
+                        .on_press(Message::DismissDeployStatus),
+                )
+                .spacing(12)
+                .align_y(Alignment::Center);
+            col = col.push(row);
+        }
+    }
 
-    let dismiss_btn = if matches!(status, DeployStatus::Deploying { .. }) {
-        widget::button::standard("...")
-    } else {
-        widget::button::standard("Dismiss").on_press(Message::DismissDeployStatus)
-    };
-
-    let row = widget::row()
-        .push(widget::text(text).class(color).width(Length::Fill))
-        .push(dismiss_btn)
-        .spacing(12)
-        .align_y(Alignment::Center)
-        .padding(12);
-
-    container(row)
+    container(col)
         .width(Length::Fill)
         .class(cosmic::theme::Container::Custom(Box::new(theme::canvas_bg)))
         .into()

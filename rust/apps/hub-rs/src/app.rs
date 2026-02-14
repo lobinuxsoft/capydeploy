@@ -1,7 +1,7 @@
 //! Hub application — `cosmic::Application` implementation.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cosmic::app::Core;
 use cosmic::iced::widget::container as iced_container;
@@ -19,7 +19,7 @@ use capydeploy_hub_telemetry::TelemetryHub;
 use capydeploy_protocol::constants::{self, MessageType};
 
 use capydeploy_hub_deploy::{
-    build_artwork_assignment, DeployConfig, DeployOrchestrator, GameSetup,
+    build_artwork_assignment, DeployConfig, DeployEvent, DeployOrchestrator, GameSetup,
 };
 use capydeploy_hub_games::{GamesManager, InstalledGame};
 
@@ -58,6 +58,7 @@ pub struct Hub {
     // Deploy state.
     editing_setup: Option<GameSetup>,
     deploy_status: Option<DeployStatus>,
+    deploy_events_rx: Arc<Mutex<Option<tokio::sync::mpsc::Receiver<DeployEvent>>>>,
 
     // Games state.
     installed_games: Vec<InstalledGame>,
@@ -192,6 +193,7 @@ impl Application for Hub {
             console_search: String::new(),
             editing_setup: None,
             deploy_status: None,
+            deploy_events_rx: Arc::new(Mutex::new(None)),
             installed_games: Vec::new(),
             games_loading: false,
             settings_dirty: false,
@@ -211,7 +213,17 @@ impl Application for Hub {
     }
 
     fn subscription(&self) -> cosmic::iced::Subscription<Message> {
-        crate::subscriptions::connection_events(self.connection_mgr.clone())
+        let mut subs =
+            vec![crate::subscriptions::connection_events(self.connection_mgr.clone())];
+
+        // Stream deploy progress events while a deploy is active.
+        if matches!(self.deploy_status, Some(DeployStatus::Deploying { .. })) {
+            subs.push(crate::subscriptions::deploy_events(
+                self.deploy_events_rx.clone(),
+            ));
+        }
+
+        cosmic::iced::Subscription::batch(subs)
     }
 
     fn update(&mut self, message: Message) -> cosmic::app::Task<Message> {
@@ -542,19 +554,26 @@ impl Application for Hub {
                         .cloned()
                 {
                     let setup_name = setup.name.clone();
-                    self.deploy_status =
-                        Some(DeployStatus::Deploying { setup_name });
+                    self.deploy_status = Some(DeployStatus::Deploying {
+                        setup_name,
+                        progress: 0.0,
+                        status_msg: "Starting...".into(),
+                    });
 
                     let artwork = build_artwork_assignment(&setup);
                     let config = DeployConfig { setup, artwork };
                     let mgr = self.connection_mgr.clone();
 
+                    // Create orchestrator and store events receiver for the subscription.
+                    let mut orch = DeployOrchestrator::new();
+                    if let Some(events_rx) = orch.take_events() {
+                        *self.deploy_events_rx.lock().unwrap() = Some(events_rx);
+                    }
+
                     return cosmic::app::Task::perform(
                         async move {
                             let bridge =
                                 crate::bridge::ConnectionBridge::new(mgr, agent_id);
-                            let mut orch = DeployOrchestrator::new();
-                            let _ = orch.take_events(); // Progress events skipped for now.
                             orch.deploy(config, vec![&bridge]).await
                         },
                         |results| cosmic::action::app(Message::DeployComplete(results)),
@@ -562,13 +581,31 @@ impl Application for Hub {
                 }
             }
 
+            Message::DeployProgress(event) => {
+                if let DeployEvent::Progress {
+                    progress, status, ..
+                } = event
+                    && let Some(DeployStatus::Deploying {
+                        progress: p,
+                        status_msg,
+                        ..
+                    }) = &mut self.deploy_status
+                {
+                    *p = progress;
+                    *status_msg = status;
+                }
+            }
+
             Message::DeployComplete(results) => {
+                // Clear the deploy events receiver.
+                *self.deploy_events_rx.lock().unwrap() = None;
+
                 if let Some(result) = results.into_iter().next() {
                     let setup_name = self
                         .deploy_status
                         .as_ref()
                         .map(|s| match s {
-                            DeployStatus::Deploying { setup_name } => setup_name.clone(),
+                            DeployStatus::Deploying { setup_name, .. } => setup_name.clone(),
                             DeployStatus::Success { setup_name, .. } => setup_name.clone(),
                             DeployStatus::Failed { setup_name, .. } => setup_name.clone(),
                         })
@@ -1002,12 +1039,19 @@ impl Hub {
                 self.connected_agent_id(),
                 &self.connection_states,
             ),
-            NavPage::Deploy => crate::views::deploy::view(
-                &self.config.game_setups,
-                self.editing_setup.as_ref(),
-                self.deploy_status.as_ref(),
-                self.is_connected(),
-            ),
+            NavPage::Deploy => {
+                let deploying = matches!(
+                    self.deploy_status,
+                    Some(DeployStatus::Deploying { .. })
+                );
+                crate::views::deploy::view(
+                    &self.config.game_setups,
+                    self.editing_setup.as_ref(),
+                    self.deploy_status.as_ref(),
+                    self.is_connected(),
+                    deploying,
+                )
+            }
             NavPage::Games => crate::views::games::view(
                 &self.installed_games,
                 self.games_loading,
