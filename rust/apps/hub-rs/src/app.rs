@@ -667,39 +667,7 @@ impl Application for Hub {
                 }
             }
 
-            Message::ConsoleSetEnabled(enabled) => {
-                let mgr = self.connection_mgr.clone();
-                let payload = serde_json::json!({ "enabled": enabled });
-                return self.tokio_perform(
-                    async move {
-                        mgr.send_request(MessageType::SetConsoleLogEnabled, Some(&payload))
-                            .await
-                    },
-                    move |result| {
-                        cosmic::action::app(Message::ConsoleSetEnabledResult(
-                            result
-                                .map(|_| enabled)
-                                .map_err(|e| e.to_string()),
-                        ))
-                    },
-                );
-            }
-
-            Message::ConsoleSetEnabledResult(result) => match result {
-                Ok(enabled) => {
-                    let msg = if enabled {
-                        "Console log enabled"
-                    } else {
-                        "Console log disabled"
-                    };
-                    tracing::info!(enabled, "console log streaming toggled");
-                    return self.push_toast(msg);
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "failed to toggle console log");
-                    return self.push_toast(format!("Console toggle failed: {e}"));
-                }
-            },
+            // ConsoleSetEnabled removed — Decky agent auto-starts console log.
 
             // -- Deploy --
             Message::NewSetup => {

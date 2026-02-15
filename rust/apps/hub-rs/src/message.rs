@@ -152,10 +152,7 @@ pub enum Message {
     ConsoleClear,
     /// Change the source filter for console log entries.
     ConsoleSourceFilter(String),
-    /// Enable or disable console log streaming on the agent.
-    ConsoleSetEnabled(bool),
-    /// Result of a console log enable/disable request.
-    ConsoleSetEnabledResult(Result<bool, String>),
+    // ConsoleSetEnabled removed — Decky agent auto-starts console log.
 
     // -- Artwork Selector --
     /// Open the artwork selector for the currently editing setup.

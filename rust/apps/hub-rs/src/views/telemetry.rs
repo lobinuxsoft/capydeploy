@@ -32,6 +32,15 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
         return content.into();
     }
 
+    // If the agent explicitly disabled telemetry or data went stale, don't
+    // show frozen metrics — that's confusing UX.
+    if agent.is_some_and(|a| !a.enabled() || a.is_stale()) {
+        content = content.push(
+            widget::text("Telemetry disabled on agent.").class(theme::MUTED_TEXT),
+        );
+        return content.into();
+    }
+
     let agent = agent.unwrap();
     let latest = agent.latest().unwrap();
 

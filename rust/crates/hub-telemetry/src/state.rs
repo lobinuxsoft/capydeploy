@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use capydeploy_protocol::telemetry::{TelemetryData, TelemetryStatusEvent};
 
@@ -7,10 +8,14 @@ use crate::buffer::RingBuffer;
 /// Default ring buffer capacity: 300 samples (5 min at 1 s interval).
 const DEFAULT_CAPACITY: usize = 300;
 
+/// Data older than this is considered stale (no active telemetry stream).
+const STALE_THRESHOLD: Duration = Duration::from_secs(5);
+
 /// Per-agent telemetry state with individual metric histories.
 #[derive(Debug, Clone)]
 pub struct AgentTelemetry {
     latest: Option<TelemetryData>,
+    last_received: Option<Instant>,
     enabled: bool,
     interval: i32,
     cpu_usage: RingBuffer<f64>,
@@ -25,6 +30,7 @@ impl AgentTelemetry {
     pub fn new(capacity: usize) -> Self {
         Self {
             latest: None,
+            last_received: None,
             enabled: false,
             interval: 0,
             cpu_usage: RingBuffer::new(capacity),
@@ -49,6 +55,7 @@ impl AgentTelemetry {
             self.mem_usage.push(mem.usage_percent);
         }
         self.latest = Some(data.clone());
+        self.last_received = Some(Instant::now());
     }
 
     /// Update telemetry enabled/interval from a status event.
@@ -65,6 +72,12 @@ impl AgentTelemetry {
     /// Whether the agent has telemetry enabled.
     pub fn enabled(&self) -> bool {
         self.enabled
+    }
+
+    /// Whether telemetry data is stale (no data received recently).
+    pub fn is_stale(&self) -> bool {
+        self.last_received
+            .is_some_and(|t| t.elapsed() > STALE_THRESHOLD)
     }
 
     /// Telemetry reporting interval in seconds.

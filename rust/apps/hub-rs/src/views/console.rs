@@ -27,17 +27,9 @@ pub fn view<'a>(
     let agent = agent_id.and_then(|id| hub.get_agent(id));
 
     // -- Controls bar --
-    let enabled = agent.is_some_and(|a| a.enabled());
-
-    let toggle_label = if enabled { "Enabled" } else { "Disabled" };
-    let toggle = widget::toggler(enabled)
-        .label(toggle_label)
-        .on_toggle(Message::ConsoleSetEnabled);
-
     let clear_btn = widget::button::standard("Clear").on_press(Message::ConsoleClear);
 
     let controls = widget::row()
-        .push(toggle)
         .push(widget::Space::with_width(Length::Fill))
         .push(clear_btn)
         .align_y(Alignment::Center)
