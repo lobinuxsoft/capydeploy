@@ -9,6 +9,7 @@
 //! - Borders: `rgba(71, 85, 105, 0.5)` (slate-600 @ 50%)
 
 use cosmic::iced::widget::container as iced_container;
+use cosmic::iced::widget::progress_bar;
 use cosmic::iced::{Background, Border, Color};
 
 /// CapyDeploy brand cyan — `#06b6d4`.
@@ -63,6 +64,19 @@ pub fn sidebar_bg(_theme: &cosmic::Theme) -> iced_container::Style {
         },
         ..Default::default()
     }
+}
+
+/// Progress bar with a custom bar color over a subtle white-overlay background.
+pub fn colored_progress_bar(color: Color) -> cosmic::theme::ProgressBar {
+    cosmic::theme::ProgressBar::Custom(Box::new(move |_theme| progress_bar::Style {
+        background: Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.08)),
+        bar: Background::Color(color),
+        border: Border {
+            radius: 4.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+    }))
 }
 
 /// Active nav item background.

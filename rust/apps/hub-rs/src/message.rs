@@ -55,6 +55,9 @@ impl NavPage {
 /// Top-level message enum for the Hub application.
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// No-op — used when a background task is cancelled.
+    Noop,
+
     // -- Navigation --
     /// Switch to a sidebar page.
     NavigateTo(NavPage),

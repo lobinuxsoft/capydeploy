@@ -17,7 +17,7 @@ pub enum DeployStatus {
         progress: f64,
         status_msg: String,
     },
-    Success { setup_name: String, app_id: u32 },
+    Success { setup_name: String, app_id: Option<u32> },
     Failed { setup_name: String, error: String },
 }
 
@@ -217,9 +217,13 @@ fn status_banner(status: &DeployStatus) -> Element<'_, Message> {
             setup_name,
             app_id,
         } => {
+            let msg = match app_id {
+                Some(id) if *id > 0 => format!("{setup_name} deployed (AppID: {id})"),
+                _ => format!("{setup_name} deployed successfully"),
+            };
             let row = widget::row()
                 .push(
-                    widget::text(format!("{setup_name} deployed (AppID: {app_id})"))
+                    widget::text(msg)
                         .class(theme::CONNECTED_COLOR)
                         .width(Length::Fill),
                 )

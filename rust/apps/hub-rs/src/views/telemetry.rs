@@ -1,4 +1,4 @@
-//! Telemetry dashboard — progress-bar gauges and system info.
+//! Telemetry dashboard — grouped metric cards with colored progress bars.
 
 use cosmic::iced::widget::horizontal_space;
 use cosmic::iced::{Color, Length};
@@ -6,6 +6,9 @@ use cosmic::widget::{self, container};
 use cosmic::Element;
 
 use capydeploy_hub_telemetry::TelemetryHub;
+use capydeploy_protocol::telemetry::{
+    BatteryMetrics, CpuMetrics, FanMetrics, GpuMetrics, MemoryMetrics, PowerMetrics, SteamStatus,
+};
 
 use crate::message::Message;
 use crate::theme;
@@ -15,7 +18,7 @@ const GREEN: Color = Color::from_rgb(0.18, 0.80, 0.44);
 const YELLOW: Color = Color::from_rgb(0.90, 0.75, 0.10);
 const RED: Color = Color::from_rgb(0.90, 0.25, 0.20);
 
-/// Renders the telemetry dashboard.
+/// Renders the telemetry dashboard with grouped metric cards.
 pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Message> {
     let mut content = widget::column().spacing(12);
 
@@ -44,181 +47,34 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
     let agent = agent.unwrap();
     let latest = agent.latest().unwrap();
 
-    // -- Metric cards (flex_row grid) --
     let mut cards: Vec<Element<'a, Message>> = Vec::new();
 
-    // CPU usage.
     if let Some(cpu) = &latest.cpu {
-        cards.push(metric_card(
-            "CPU",
-            &format!("{:.1}%", cpu.usage_percent),
-            cpu.usage_percent / 100.0,
-            usage_color(cpu.usage_percent),
-        ));
+        cards.push(cpu_card(cpu));
     }
 
-    // GPU usage.
     if let Some(gpu) = &latest.gpu {
-        cards.push(metric_card(
-            "GPU",
-            &format!("{:.1}%", gpu.usage_percent),
-            gpu.usage_percent / 100.0,
-            usage_color(gpu.usage_percent),
-        ));
+        cards.push(gpu_card(gpu));
     }
 
-    // CPU temperature.
-    if let Some(cpu) = &latest.cpu {
-        cards.push(metric_card(
-            "CPU Temp",
-            &format!("{:.0}°C", cpu.temp_celsius),
-            cpu.temp_celsius / 100.0,
-            temp_color(cpu.temp_celsius),
-        ));
-    }
-
-    // GPU temperature.
-    if let Some(gpu) = &latest.gpu {
-        cards.push(metric_card(
-            "GPU Temp",
-            &format!("{:.0}°C", gpu.temp_celsius),
-            gpu.temp_celsius / 100.0,
-            temp_color(gpu.temp_celsius),
-        ));
-    }
-
-    // RAM usage.
     if let Some(mem) = &latest.memory {
-        let total_gb = mem.total_bytes as f64 / 1_073_741_824.0;
-        let avail_gb = mem.available_bytes as f64 / 1_073_741_824.0;
-        let used_gb = total_gb - avail_gb;
-        cards.push(metric_card(
-            "RAM",
-            &format!("{:.1}/{:.1} GB", used_gb, total_gb),
-            mem.usage_percent / 100.0,
-            usage_color(mem.usage_percent),
-        ));
+        cards.push(memory_card(mem));
     }
 
-    // VRAM.
-    if let Some(gpu) = &latest.gpu
-        && gpu.vram_total_bytes > 0
-    {
-        let used_mb = gpu.vram_used_bytes as f64 / 1_048_576.0;
-        let total_mb = gpu.vram_total_bytes as f64 / 1_048_576.0;
-        let ratio = used_mb / total_mb;
-        let pct = ratio * 100.0;
-        cards.push(metric_card(
-            "VRAM",
-            &format!("{:.0}/{:.0} MB", used_mb, total_mb),
-            ratio,
-            usage_color(pct),
-        ));
+    if let Some(card) = system_card(&latest.power, &latest.battery, &latest.fan) {
+        cards.push(card);
     }
 
-    // Battery.
-    if let Some(bat) = &latest.battery {
-        let cap = bat.capacity as f64;
-        let color = if cap > 50.0 {
-            GREEN
-        } else if cap > 20.0 {
-            YELLOW
-        } else {
-            RED
-        };
-        cards.push(metric_card(
-            "Battery",
-            &format!("{}% ({})", bat.capacity, bat.status),
-            cap / 100.0,
-            color,
-        ));
-    }
-
-    // Power / TDP.
-    if let Some(power) = &latest.power {
-        if power.tdp_watts > 0.0 {
-            let ratio = power.power_watts / power.tdp_watts;
-            cards.push(metric_card(
-                "Power",
-                &format!("{:.1}W / {:.1}W", power.power_watts, power.tdp_watts),
-                ratio,
-                usage_color(ratio * 100.0),
-            ));
-        } else if power.power_watts > 0.0 {
-            // No TDP reference — show bar at fixed 50% just as visual indicator.
-            cards.push(metric_card(
-                "Power",
-                &format!("{:.1}W", power.power_watts),
-                0.5,
-                GREEN,
-            ));
-        }
-    }
-
-    // Fan RPM (no natural max — show as text-only card).
-    if let Some(fan) = &latest.fan {
-        cards.push(text_card("Fan", &format!("{} RPM", fan.rpm)));
+    if let Some(steam) = &latest.steam {
+        cards.push(steam_card(steam));
     }
 
     if !cards.is_empty() {
         content = content.push(
             widget::flex_row(cards)
                 .column_spacing(12)
-                .row_spacing(12),
-        );
-    }
-
-    // -- System info (frequencies, swap, Steam status) --
-    let mut info_entries: Vec<Element<'_, Message>> = Vec::new();
-
-    if let Some(cpu) = &latest.cpu {
-        info_entries.push(info_entry("CPU Freq", &format_freq(cpu.freq_m_hz)));
-    }
-
-    if let Some(gpu) = &latest.gpu {
-        info_entries.push(info_entry("GPU Freq", &format_freq(gpu.freq_m_hz)));
-        if gpu.mem_freq_m_hz > 0.0 {
-            info_entries.push(info_entry(
-                "VRAM Freq",
-                &format_freq(gpu.mem_freq_m_hz),
-            ));
-        }
-    }
-
-    if let Some(mem) = &latest.memory
-        && mem.swap_total_bytes > 0
-    {
-        let swap_total = mem.swap_total_bytes as f64 / 1_073_741_824.0;
-        let swap_free = mem.swap_free_bytes as f64 / 1_073_741_824.0;
-        let swap_used = swap_total - swap_free;
-        info_entries.push(info_entry(
-            "Swap",
-            &format!("{:.1} / {:.1} GB", swap_used, swap_total),
-        ));
-    }
-
-    if let Some(steam) = &latest.steam {
-        let status = if steam.gaming_mode {
-            "Gaming Mode"
-        } else if steam.running {
-            "Running"
-        } else {
-            "Not running"
-        };
-        info_entries.push(info_entry("Steam", status));
-    }
-
-    if !info_entries.is_empty() {
-        let mut info_col = widget::column().spacing(4);
-        for entry in info_entries {
-            info_col = info_col.push(entry);
-        }
-        content = content.push(
-            container(info_col.padding(12))
-                .width(Length::Fill)
-                .class(cosmic::theme::Container::Custom(Box::new(
-                    theme::canvas_bg,
-                ))),
+                .row_spacing(12)
+                .min_item_width(280.0),
         );
     }
 
@@ -226,11 +82,202 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
 }
 
 // ---------------------------------------------------------------------------
-// Metric card (progress bar based)
+// Grouped cards
 // ---------------------------------------------------------------------------
 
-/// Builds a metric card with big value text, a colored progress bar, and label.
-fn metric_card(
+fn cpu_card(cpu: &CpuMetrics) -> Element<'static, Message> {
+    let col = widget::column()
+        .spacing(8)
+        .push(card_header("CPU"))
+        .push(metric_row_bar(
+            "Usage",
+            &format!("{:.1}%", cpu.usage_percent),
+            cpu.usage_percent / 100.0,
+            usage_color(cpu.usage_percent),
+        ))
+        .push(metric_row_text(
+            "Temperature",
+            &format!("{:.0}°C", cpu.temp_celsius),
+            temp_color(cpu.temp_celsius),
+        ))
+        .push(metric_row_text(
+            "Frequency",
+            &format_freq(cpu.freq_m_hz),
+            Color::WHITE,
+        ));
+
+    card_container(col.into())
+}
+
+fn gpu_card(gpu: &GpuMetrics) -> Element<'static, Message> {
+    let mut col = widget::column()
+        .spacing(8)
+        .push(card_header("GPU"))
+        .push(metric_row_bar(
+            "Usage",
+            &format!("{:.1}%", gpu.usage_percent),
+            gpu.usage_percent / 100.0,
+            usage_color(gpu.usage_percent),
+        ))
+        .push(metric_row_text(
+            "Temperature",
+            &format!("{:.0}°C", gpu.temp_celsius),
+            temp_color(gpu.temp_celsius),
+        ))
+        .push(metric_row_text(
+            "Core Freq",
+            &format_freq(gpu.freq_m_hz),
+            Color::WHITE,
+        ));
+
+    if gpu.mem_freq_m_hz > 0.0 {
+        col = col.push(metric_row_text(
+            "Mem Freq",
+            &format_freq(gpu.mem_freq_m_hz),
+            Color::WHITE,
+        ));
+    }
+
+    if gpu.vram_total_bytes > 0 {
+        let used_mb = gpu.vram_used_bytes as f64 / 1_048_576.0;
+        let total_mb = gpu.vram_total_bytes as f64 / 1_048_576.0;
+        let ratio = used_mb / total_mb;
+        col = col.push(metric_row_bar(
+            "VRAM",
+            &format!("{:.0}/{:.0} MB", used_mb, total_mb),
+            ratio,
+            usage_color(ratio * 100.0),
+        ));
+    }
+
+    card_container(col.into())
+}
+
+fn memory_card(mem: &MemoryMetrics) -> Element<'static, Message> {
+    let total_gb = mem.total_bytes as f64 / 1_073_741_824.0;
+    let avail_gb = mem.available_bytes as f64 / 1_073_741_824.0;
+    let used_gb = total_gb - avail_gb;
+
+    let mut col = widget::column()
+        .spacing(8)
+        .push(card_header("Memory"))
+        .push(metric_row_bar(
+            "Usage",
+            &format!("{:.1}%", mem.usage_percent),
+            mem.usage_percent / 100.0,
+            usage_color(mem.usage_percent),
+        ))
+        .push(metric_row_text(
+            "Used / Total",
+            &format!("{:.1} / {:.1} GB", used_gb, total_gb),
+            Color::WHITE,
+        ));
+
+    if mem.swap_total_bytes > 0 {
+        let swap_total = mem.swap_total_bytes as f64 / 1_073_741_824.0;
+        let swap_free = mem.swap_free_bytes as f64 / 1_073_741_824.0;
+        let swap_used = swap_total - swap_free;
+        let swap_ratio = if swap_total > 0.0 {
+            swap_used / swap_total
+        } else {
+            0.0
+        };
+        col = col.push(metric_row_bar(
+            "Swap",
+            &format!("{:.1} / {:.1} GB", swap_used, swap_total),
+            swap_ratio,
+            usage_color(swap_ratio * 100.0),
+        ));
+    }
+
+    card_container(col.into())
+}
+
+fn system_card(
+    power: &Option<PowerMetrics>,
+    battery: &Option<BatteryMetrics>,
+    fan: &Option<FanMetrics>,
+) -> Option<Element<'static, Message>> {
+    let has_power = power.as_ref().is_some_and(|p| p.power_watts > 0.0);
+    let has_battery = battery.is_some();
+    let has_fan = fan.is_some();
+
+    if !has_power && !has_battery && !has_fan {
+        return None;
+    }
+
+    let mut col = widget::column().spacing(8).push(card_header("System"));
+
+    if let Some(power) = power {
+        if power.tdp_watts > 0.0 {
+            let ratio = power.power_watts / power.tdp_watts;
+            col = col.push(metric_row_bar(
+                "Power",
+                &format!("{:.1} / {:.1} W", power.power_watts, power.tdp_watts),
+                ratio,
+                usage_color(ratio * 100.0),
+            ));
+        } else if power.power_watts > 0.0 {
+            col = col.push(metric_row_text(
+                "Power",
+                &format!("{:.1} W", power.power_watts),
+                Color::WHITE,
+            ));
+        }
+    }
+
+    if let Some(bat) = battery {
+        let cap = bat.capacity as f64;
+        col = col.push(metric_row_bar(
+            "Battery",
+            &format!("{}% ({})", bat.capacity, bat.status),
+            cap / 100.0,
+            battery_color(cap),
+        ));
+    }
+
+    if let Some(fan) = fan {
+        col = col.push(metric_row_text(
+            "Fan",
+            &format!("{} RPM", fan.rpm),
+            Color::WHITE,
+        ));
+    }
+
+    Some(card_container(col.into()))
+}
+
+fn steam_card(steam: &SteamStatus) -> Element<'static, Message> {
+    let (status_text, status_color) = if steam.running {
+        ("Running", GREEN)
+    } else {
+        ("Not Running", theme::MUTED_TEXT)
+    };
+
+    let mut col = widget::column()
+        .spacing(8)
+        .push(card_header("Steam"))
+        .push(metric_row_text("Status", status_text, status_color));
+
+    if steam.gaming_mode {
+        col = col.push(metric_row_text("Mode", "Gaming Mode", theme::CYAN));
+    }
+
+    card_container(col.into())
+}
+
+// ---------------------------------------------------------------------------
+// Reusable helpers
+// ---------------------------------------------------------------------------
+
+fn card_header(title: &str) -> Element<'static, Message> {
+    widget::text::title4(title.to_string())
+        .class(theme::CYAN)
+        .into()
+}
+
+/// Row with label + value text + colored progress bar underneath.
+fn metric_row_bar(
     label: &str,
     value_text: &str,
     ratio: f64,
@@ -238,58 +285,49 @@ fn metric_card(
 ) -> Element<'static, Message> {
     let clamped = (ratio as f32).clamp(0.0, 1.0);
 
-    let col = widget::column()
+    widget::column()
         .push(
-            widget::text::title3(value_text.to_string())
-                .class(color),
+            widget::row()
+                .push(widget::text::body(label.to_string()).class(theme::MUTED_TEXT))
+                .push(horizontal_space())
+                .push(widget::text::body(value_text.to_string())),
         )
-        .push(widget::progress_bar(0.0..=1.0, clamped).height(8))
         .push(
-            widget::text::caption(label.to_string())
-                .class(theme::MUTED_TEXT),
+            widget::progress_bar(0.0..=1.0, clamped)
+                .height(6)
+                .class(theme::colored_progress_bar(color)),
         )
-        .spacing(6)
-        .align_x(cosmic::iced::Alignment::Center);
-
-    container(col.padding(12))
-        .width(Length::Fixed(160.0))
-        .class(cosmic::theme::Container::Custom(Box::new(
-            theme::canvas_bg,
-        )))
+        .spacing(4)
         .into()
 }
 
-/// Builds a text-only card (no progress bar) for metrics without a natural range.
-fn text_card(label: &str, value_text: &str) -> Element<'static, Message> {
-    let col = widget::column()
-        .push(widget::text::title3(value_text.to_string()))
-        .push(
-            widget::text::caption(label.to_string())
-                .class(theme::MUTED_TEXT),
-        )
-        .spacing(6)
-        .align_x(cosmic::iced::Alignment::Center);
-
-    container(col.padding(12))
-        .width(Length::Fixed(160.0))
-        .class(cosmic::theme::Container::Custom(Box::new(
-            theme::canvas_bg,
-        )))
-        .into()
-}
-
-// ---------------------------------------------------------------------------
-// Info helpers
-// ---------------------------------------------------------------------------
-
-/// A label: value row for system info entries.
-fn info_entry(label: &str, value: &str) -> Element<'static, Message> {
+/// Row with label + colored value text (no progress bar).
+fn metric_row_text(
+    label: &str,
+    value_text: &str,
+    value_color: Color,
+) -> Element<'static, Message> {
     widget::row()
-        .push(widget::text::caption(label.to_string()).class(theme::MUTED_TEXT))
+        .push(widget::text::body(label.to_string()).class(theme::MUTED_TEXT))
         .push(horizontal_space())
-        .push(widget::text::caption(value.to_string()))
+        .push(widget::text::body(value_text.to_string()).class(value_color))
         .into()
 }
+
+/// Wraps content in a card container with `canvas_bg` styling.
+fn card_container(content: Element<'static, Message>) -> Element<'static, Message> {
+    container(content)
+        .padding(16)
+        .width(Length::Fill)
+        .class(cosmic::theme::Container::Custom(Box::new(
+            theme::canvas_bg,
+        )))
+        .into()
+}
+
+// ---------------------------------------------------------------------------
+// Color helpers
+// ---------------------------------------------------------------------------
 
 fn format_freq(mhz: f64) -> String {
     if mhz >= 1000.0 {
@@ -302,7 +340,7 @@ fn format_freq(mhz: f64) -> String {
 fn usage_color(percent: f64) -> Color {
     if percent < 60.0 {
         GREEN
-    } else if percent <= 80.0 {
+    } else if percent < 85.0 {
         YELLOW
     } else {
         RED
@@ -315,6 +353,16 @@ fn temp_color(celsius: f64) -> Color {
     } else if celsius < 60.0 {
         GREEN
     } else if celsius <= 80.0 {
+        YELLOW
+    } else {
+        RED
+    }
+}
+
+fn battery_color(percent: f64) -> Color {
+    if percent > 50.0 {
+        GREEN
+    } else if percent > 20.0 {
         YELLOW
     } else {
         RED

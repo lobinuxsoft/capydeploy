@@ -98,12 +98,18 @@ impl Hub {
         let handle = self.tokio_rt.handle().clone();
         cosmic::app::Task::perform(
             async move {
-                handle
-                    .spawn(future)
-                    .await
-                    .expect("tokio task panicked")
+                match handle.spawn(future).await {
+                    Ok(val) => Some(val),
+                    Err(e) => {
+                        tracing::warn!("tokio task cancelled: {e}");
+                        None
+                    }
+                }
             },
-            f,
+            move |result| match result {
+                Some(val) => f(val),
+                None => cosmic::action::app(Message::Noop),
+            },
         )
     }
 
@@ -313,6 +319,8 @@ impl Application for Hub {
 
     fn update(&mut self, message: Message) -> cosmic::app::Task<Message> {
         match message {
+            Message::Noop => {}
+
             // -- Navigation --
             Message::NavigateTo(page) => {
                 if !page.requires_connection() || self.is_connected() {
@@ -824,14 +832,16 @@ impl Application for Hub {
                         .unwrap_or_default();
 
                     if result.success {
-                        let app_id = result.app_id.unwrap_or(0);
+                        let app_id = result.app_id.filter(|&id| id > 0);
                         self.deploy_status = Some(DeployStatus::Success {
                             setup_name: setup_name.clone(),
                             app_id,
                         });
-                        return self.push_toast(format!(
-                            "{setup_name} deployed (AppID: {app_id})"
-                        ));
+                        let toast_msg = match app_id {
+                            Some(id) => format!("{setup_name} deployed (AppID: {id})"),
+                            None => format!("{setup_name} deployed successfully"),
+                        };
+                        return self.push_toast(toast_msg);
                     } else {
                         let error =
                             result.error.unwrap_or_else(|| "unknown error".into());

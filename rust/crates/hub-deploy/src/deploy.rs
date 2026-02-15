@@ -198,10 +198,8 @@ mod tests {
 
         vec![
             Message::new("1", MessageType::UploadInitResponse, Some(&init)).unwrap(),
-            // chunk metadata ack
-            Message::new::<()>("2", MessageType::UploadChunkResponse, None).unwrap(),
             // complete
-            Message::new("3", MessageType::OperationResult, Some(&complete)).unwrap(),
+            Message::new("2", MessageType::OperationResult, Some(&complete)).unwrap(),
         ]
     }
 

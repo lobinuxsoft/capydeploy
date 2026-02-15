@@ -10,7 +10,7 @@ use std::pin::Pin;
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages::{
     CompleteUploadRequestFull, CompleteUploadResponseFull, FileEntry, InitUploadRequestFull,
-    InitUploadResponseFull, UploadChunkRequestFull,
+    InitUploadResponseFull,
 };
 use capydeploy_protocol::types::{ShortcutConfig, UploadConfig};
 use capydeploy_transfer::ChunkReader;
@@ -225,29 +225,14 @@ impl<'a> AgentDeploy<'a> {
                     break;
                 };
 
-                let req = UploadChunkRequestFull {
-                    upload_id: init_result.upload_id.clone(),
-                    file_path: file_entry.relative_path.clone(),
-                    offset: chunk_data.offset,
-                    size: chunk_data.size as i32,
-                    checksum: chunk_data.checksum.clone(),
-                };
-
-                let payload = serde_json::to_value(&req)?;
-                let _resp = self
-                    .conn
-                    .send_request(
-                        capydeploy_protocol::constants::MessageType::UploadChunk,
-                        &payload,
-                    )
-                    .await?;
-
-                // Binary data sent separately — agent matches by upload_id + file_path.
+                // Send chunk as a single binary message (matching Go Hub behavior).
+                // The agent routes binary messages without "type" to the upload
+                // chunk handler, which matches by uploadId + filePath.
                 let header = serde_json::json!({
                     "uploadId": init_result.upload_id,
                     "filePath": file_entry.relative_path,
                     "offset": chunk_data.offset,
-                    "size": chunk_data.size,
+                    "checksum": chunk_data.checksum,
                 });
                 let _resp = self.conn.send_binary(&header, &chunk_data.data).await?;
 
@@ -274,6 +259,7 @@ impl<'a> AgentDeploy<'a> {
     ) {
         for art in artwork {
             let header = serde_json::json!({
+                "type": "artwork_image",
                 "appId": app_id,
                 "artworkType": art.art_type,
                 "contentType": art.content_type,
@@ -469,15 +455,6 @@ mod tests {
         .unwrap()
     }
 
-    fn make_chunk_response() -> Message {
-        Message::new::<()>(
-            "chunk-resp",
-            capydeploy_protocol::constants::MessageType::UploadChunkResponse,
-            None,
-        )
-        .unwrap()
-    }
-
     fn make_complete_response(success: bool) -> Message {
         let resp = CompleteUploadResponseFull {
             success,
@@ -518,8 +495,6 @@ mod tests {
         let mock = MockAgent::new("agent-1");
         // Init response.
         mock.push_response(make_init_response("upload-1"));
-        // Chunk metadata response.
-        mock.push_response(make_chunk_response());
         // Complete response.
         mock.push_response(make_complete_response(true));
 
@@ -535,7 +510,7 @@ mod tests {
 
         assert!(result.success);
         assert_eq!(result.app_id, 12345);
-        assert_eq!(mock.request_count(), 3); // init + chunk + complete
+        assert_eq!(mock.request_count(), 2); // init + complete
         assert_eq!(mock.binary_count(), 1); // chunk binary data
 
         // Verify we got progress events.
@@ -575,8 +550,6 @@ mod tests {
         let mock = MockAgent::new("agent-1");
         // Init response.
         mock.push_response(make_init_response("upload-1"));
-        // Chunk metadata response.
-        mock.push_response(make_chunk_response());
         // Complete response with failure.
         mock.push_response(make_complete_response(false));
 
@@ -615,9 +588,6 @@ mod tests {
         )
         .unwrap();
         mock.push_response(init_msg);
-
-        // Chunk response (only remaining 5 bytes).
-        mock.push_response(make_chunk_response());
 
         // Complete.
         mock.push_response(make_complete_response(true));
