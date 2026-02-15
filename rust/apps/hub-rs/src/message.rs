@@ -72,6 +72,8 @@ pub enum Message {
     ConnectResult(Result<ConnectedAgent, String>),
     /// User clicked disconnect.
     DisconnectAgent,
+    /// User clicked cancel on an active reconnect.
+    CancelReconnect(String),
     /// Connected agent restored after a successful reconnect.
     ReconnectRestored(Option<ConnectedAgent>),
 

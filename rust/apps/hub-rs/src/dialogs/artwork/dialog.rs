@@ -198,10 +198,10 @@ impl ArtworkDialog {
         if let Some(h) = self.thumb_cache.get(url) {
             return Some(h);
         }
-        if let Some(thumb) = self.url_to_thumb.get(url) {
-            if let Some(h) = self.thumb_cache.get(thumb) {
-                return Some(h);
-            }
+        if let Some(thumb) = self.url_to_thumb.get(url)
+            && let Some(h) = self.thumb_cache.get(thumb)
+        {
+            return Some(h);
         }
         None
     }

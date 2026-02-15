@@ -95,7 +95,7 @@ pub struct ReconnectConfig {
 impl Default for ReconnectConfig {
     fn default() -> Self {
         Self {
-            initial_delay: Duration::from_secs(1),
+            initial_delay: Duration::from_millis(500),
             max_delay: Duration::from_secs(30),
             backoff_factor: 2.0,
         }
@@ -121,6 +121,9 @@ pub struct HubIdentity {
     pub hub_id: String,
 }
 
+/// Maximum reconnect attempts without mDNS visibility before giving up.
+const MAX_NO_MDNS_ATTEMPTS: u32 = 10;
+
 /// Shared state passed to free functions for WebSocket callback setup
 /// and reconnection. Avoids threading 12 separate Arc parameters.
 #[derive(Clone)]
@@ -135,6 +138,7 @@ struct WsContext {
     reconnect_cancel: Arc<std::sync::Mutex<Option<(String, CancellationToken)>>>,
     manual_disconnect: Arc<AtomicBool>,
     reconnect_config: ReconnectConfig,
+    last_known_addr: Arc<Mutex<Option<(String, DiscoveredAgent)>>>,
 }
 
 /// Connection manager for discovering and connecting to Agents.
@@ -158,6 +162,8 @@ pub struct ConnectionManager {
     manual_disconnect: Arc<AtomicBool>,
     /// Reconnection backoff configuration.
     reconnect_config: ReconnectConfig,
+    /// Last successfully connected WebSocket URL for reconnect fallback.
+    last_known_addr: Arc<Mutex<Option<(String, DiscoveredAgent)>>>,
 }
 
 impl ConnectionManager {
@@ -182,6 +188,7 @@ impl ConnectionManager {
             reconnect_cancel: Arc::new(std::sync::Mutex::new(None)),
             manual_disconnect: Arc::new(AtomicBool::new(false)),
             reconnect_config: ReconnectConfig::default(),
+            last_known_addr: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -235,9 +242,15 @@ impl ConnectionManager {
                                         EventType::Lost => {
                                             let id = e.agent.info.id.clone();
                                             discovered.write().await.remove(&id);
-                                            state.write().await.remove(&id);
-                                            // Cancel any active reconnect for this agent.
-                                            cancel_reconnect_for(&reconnect_cancel, &id);
+                                            // Don't kill reconnect or remove state while reconnecting —
+                                            // the reconnect loop uses last_known_address as fallback.
+                                            let is_reconnecting = state.read().await
+                                                .get(&id)
+                                                .is_some_and(|s| matches!(s, ConnectionState::Reconnecting { .. }));
+                                            if !is_reconnecting {
+                                                state.write().await.remove(&id);
+                                                cancel_reconnect_for(&reconnect_cancel, &id);
+                                            }
                                             let _ = events_tx.send(ConnectionEvent::AgentLost(id)).await;
                                         }
                                     }
@@ -358,6 +371,7 @@ impl ConnectionManager {
                 *self.ws_client.lock().await = Some(client);
                 *self.connected.write().await =
                     Some((agent_id.to_string(), connected_agent.clone()));
+                *self.last_known_addr.lock().await = Some((ws_url, agent.clone()));
                 self.set_state(agent_id, ConnectionState::Connected).await;
 
                 info!("connected to agent {}", agent_id);
@@ -429,6 +443,18 @@ impl ConnectionManager {
     /// Disconnects from the current Agent (user-initiated).
     pub async fn disconnect_agent(&self) {
         self.disconnect_agent_inner(true).await;
+    }
+
+    /// Cancels any active reconnect loop and sets the agent to Disconnected.
+    pub async fn cancel_all_reconnects(&self) {
+        cancel_any_reconnect(&self.reconnect_cancel);
+        // Set any Reconnecting agents to Disconnected.
+        let mut states = self.state.write().await;
+        for (_, state) in states.iter_mut() {
+            if matches!(state, ConnectionState::Reconnecting { .. }) {
+                *state = ConnectionState::Disconnected;
+            }
+        }
     }
 
     /// Internal disconnect. When `set_manual` is true, sets the manual
@@ -503,6 +529,7 @@ impl ConnectionManager {
             reconnect_cancel: self.reconnect_cancel.clone(),
             manual_disconnect: self.manual_disconnect.clone(),
             reconnect_config: self.reconnect_config.clone(),
+            last_known_addr: self.last_known_addr.clone(),
         }
     }
 
@@ -535,10 +562,10 @@ impl ConnectionManager {
 fn cancel_any_reconnect(
     reconnect_cancel: &std::sync::Mutex<Option<(String, CancellationToken)>>,
 ) {
-    if let Ok(mut guard) = reconnect_cancel.lock() {
-        if let Some((_, token)) = guard.take() {
-            token.cancel();
-        }
+    if let Ok(mut guard) = reconnect_cancel.lock()
+        && let Some((_, token)) = guard.take()
+    {
+        token.cancel();
     }
 }
 
@@ -549,10 +576,10 @@ fn cancel_reconnect_for(
 ) {
     if let Ok(mut guard) = reconnect_cancel.lock() {
         let matches = guard.as_ref().is_some_and(|(id, _)| id == agent_id);
-        if matches {
-            if let Some((_, token)) = guard.take() {
-                token.cancel();
-            }
+        if matches
+            && let Some((_, token)) = guard.take()
+        {
+            token.cancel();
         }
     }
 }
@@ -628,7 +655,18 @@ fn reconnect_loop(
     cancel: CancellationToken,
 ) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
     Box::pin(async move {
+    // Inline mDNS refresh — catch quick agent restarts before the continuous
+    // discovery loop notices them. Only updates the cache, no UI events.
+    let refresh_client = DiscoveryClient::new();
+    if let Ok(agents) = refresh_client.discover(Duration::from_secs(2)).await {
+        let mut disc = ctx.discovered.write().await;
+        for agent in agents {
+            disc.insert(agent.info.id.clone(), agent);
+        }
+    }
+
     let mut attempt: u32 = 0;
+    let mut no_mdns_count: u32 = 0;
 
     loop {
         attempt = attempt.saturating_add(1);
@@ -670,26 +708,50 @@ fn reconnect_loop(
             return;
         }
 
-        // Check if agent is still visible via mDNS.
-        let agent = ctx.discovered.read().await.get(&agent_id).cloned();
-        let Some(agent) = agent else {
-            info!(agent = %agent_id, "agent no longer discoverable, stopping reconnect");
-            ctx.state
-                .write()
-                .await
-                .insert(agent_id.clone(), ConnectionState::Disconnected);
-            let _ = ctx
-                .events_tx
-                .send(ConnectionEvent::StateChanged {
-                    agent_id: agent_id.clone(),
-                    state: ConnectionState::Disconnected,
-                })
-                .await;
-            break;
+        // Resolve the WebSocket URL: prefer mDNS, fall back to last known address.
+        let discovered_agent = ctx.discovered.read().await.get(&agent_id).cloned();
+        let (ws_url, fallback_agent) = if let Some(agent) = discovered_agent {
+            no_mdns_count = 0;
+            (agent.websocket_address(), agent)
+        } else {
+            no_mdns_count += 1;
+            if no_mdns_count > MAX_NO_MDNS_ATTEMPTS {
+                info!(agent = %agent_id, "too many attempts without mDNS, stopping reconnect");
+                ctx.state
+                    .write()
+                    .await
+                    .insert(agent_id.clone(), ConnectionState::Disconnected);
+                let _ = ctx
+                    .events_tx
+                    .send(ConnectionEvent::StateChanged {
+                        agent_id: agent_id.clone(),
+                        state: ConnectionState::Disconnected,
+                    })
+                    .await;
+                break;
+            }
+            match ctx.last_known_addr.lock().await.clone() {
+                Some((addr, agent)) => {
+                    debug!(agent = %agent_id, no_mdns_count, "using last known address");
+                    (addr, agent)
+                }
+                None => {
+                    info!(agent = %agent_id, "no mDNS and no last known address, stopping reconnect");
+                    ctx.state
+                        .write()
+                        .await
+                        .insert(agent_id.clone(), ConnectionState::Disconnected);
+                    let _ = ctx
+                        .events_tx
+                        .send(ConnectionEvent::StateChanged {
+                            agent_id: agent_id.clone(),
+                            state: ConnectionState::Disconnected,
+                        })
+                        .await;
+                    break;
+                }
+            }
         };
-
-        // Attempt to connect with fresh address and stored token.
-        let ws_url = agent.websocket_address();
         let token = ctx
             .token_store
             .as_ref()
@@ -710,13 +772,14 @@ fn reconnect_loop(
                 setup_ws_callbacks(&client, &agent_id, ctx.clone()).await;
 
                 let connected_agent = ConnectedAgent {
-                    agent: agent.clone(),
+                    agent: fallback_agent.clone(),
                     status,
                 };
 
                 *ctx.ws_client.lock().await = Some(client);
                 *ctx.connected.write().await =
                     Some((agent_id.clone(), connected_agent));
+                *ctx.last_known_addr.lock().await = Some((ws_url, fallback_agent));
                 ctx.state
                     .write()
                     .await
@@ -873,7 +936,7 @@ mod tests {
     #[test]
     fn reconnect_config_defaults() {
         let config = ReconnectConfig::default();
-        assert_eq!(config.initial_delay, Duration::from_secs(1));
+        assert_eq!(config.initial_delay, Duration::from_millis(500));
         assert_eq!(config.max_delay, Duration::from_secs(30));
         assert!((config.backoff_factor - 2.0).abs() < f64::EPSILON);
     }
@@ -881,14 +944,15 @@ mod tests {
     #[test]
     fn reconnect_config_delay_backoff() {
         let config = ReconnectConfig::default();
-        // 1s, 2s, 4s, 8s, 16s, 30s (capped), 30s...
-        assert_eq!(config.delay_for_attempt(1), Duration::from_secs(1));
-        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(2));
-        assert_eq!(config.delay_for_attempt(3), Duration::from_secs(4));
-        assert_eq!(config.delay_for_attempt(4), Duration::from_secs(8));
-        assert_eq!(config.delay_for_attempt(5), Duration::from_secs(16));
-        assert_eq!(config.delay_for_attempt(6), Duration::from_secs(30));
+        // 500ms, 1s, 2s, 4s, 8s, 16s, 30s (capped), 30s...
+        assert_eq!(config.delay_for_attempt(1), Duration::from_millis(500));
+        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(1));
+        assert_eq!(config.delay_for_attempt(3), Duration::from_secs(2));
+        assert_eq!(config.delay_for_attempt(4), Duration::from_secs(4));
+        assert_eq!(config.delay_for_attempt(5), Duration::from_secs(8));
+        assert_eq!(config.delay_for_attempt(6), Duration::from_secs(16));
         assert_eq!(config.delay_for_attempt(7), Duration::from_secs(30));
+        assert_eq!(config.delay_for_attempt(8), Duration::from_secs(30));
     }
 
     #[test]

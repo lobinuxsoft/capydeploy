@@ -134,12 +134,18 @@ pub fn get_local_ips() -> Vec<IpAddr> {
     ips
 }
 
-/// Returns the local hostname or "unknown".
+/// Returns the local hostname suffixed with `.local.` as required by mDNS.
 pub fn get_hostname() -> String {
-    hostname::get()
+    let mut name = hostname::get()
         .ok()
         .and_then(|h| h.into_string().ok())
-        .unwrap_or_else(|| "unknown".into())
+        .unwrap_or_else(|| "unknown".into());
+
+    if !name.ends_with(".local.") {
+        name = name.trim_end_matches('.').to_string();
+        name.push_str(".local.");
+    }
+    name
 }
 
 #[cfg(test)]

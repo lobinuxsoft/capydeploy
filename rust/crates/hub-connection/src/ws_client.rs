@@ -101,7 +101,8 @@ impl WsClient {
             let on_event = on_event.clone();
             let on_disconnect = on_disconnect.clone();
             let cancel = cancel.clone();
-            tokio::spawn(read_pump(read, pending, on_event, on_disconnect, cancel))
+            let write_tx = write_tx.clone();
+            tokio::spawn(read_pump(read, pending, on_event, on_disconnect, write_tx, cancel))
         };
 
         let ping_handle = {
@@ -315,45 +316,50 @@ async fn read_pump<S>(
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<Message>>>>,
     on_event: Arc<Mutex<Option<EventCallback>>>,
     on_disconnect: DisconnectCallback,
+    write_tx: mpsc::Sender<tungstenite::Message>,
     cancel: tokio_util::sync::CancellationToken,
 ) where
     S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>> + Unpin,
 {
-    // Pong deadline: if no pong arrives within WS_PONG_WAIT, connection is dead.
-    let mut pong_deadline = tokio::time::interval(WS_PONG_WAIT);
-    pong_deadline.reset();
-    let mut got_pong = true; // Start optimistically.
+    // Pong deadline: any incoming message (not just Pong) resets the timer,
+    // matching Go's SetReadDeadline behavior. If nothing arrives within
+    // WS_PONG_WAIT the connection is considered dead.
+    let pong_deadline = tokio::time::sleep(WS_PONG_WAIT);
+    tokio::pin!(pong_deadline);
 
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
 
-            _ = pong_deadline.tick() => {
-                if !got_pong {
-                    warn!("pong timeout — connection dead, closing");
-                    break;
-                }
-                got_pong = false;
+            () = &mut pong_deadline => {
+                warn!("pong timeout — connection dead, closing");
+                break;
             }
 
             msg = read.next() => {
                 match msg {
-                    Some(Ok(tungstenite::Message::Text(text))) => {
-                        handle_text_message(&text, &pending, &on_event).await;
+                    Some(Ok(msg)) => {
+                        // ANY incoming message resets the deadline (matches Go behavior).
+                        pong_deadline.as_mut().reset(tokio::time::Instant::now() + WS_PONG_WAIT);
+
+                        match msg {
+                            tungstenite::Message::Text(text) => {
+                                handle_text_message(&text, &pending, &on_event).await;
+                            }
+                            tungstenite::Message::Ping(data) => {
+                                trace!("received ping, sending pong");
+                                let _ = write_tx.send(tungstenite::Message::Pong(data)).await;
+                            }
+                            tungstenite::Message::Pong(_) => {
+                                trace!("received pong");
+                            }
+                            tungstenite::Message::Close(_) => {
+                                debug!("received close frame");
+                                break;
+                            }
+                            _ => {} // Binary — ignore
+                        }
                     }
-                    Some(Ok(tungstenite::Message::Ping(_))) => {
-                        trace!("received ping");
-                    }
-                    Some(Ok(tungstenite::Message::Pong(_))) => {
-                        trace!("received pong");
-                        got_pong = true;
-                        pong_deadline.reset();
-                    }
-                    Some(Ok(tungstenite::Message::Close(_))) => {
-                        debug!("received close frame");
-                        break;
-                    }
-                    Some(Ok(_)) => {} // Binary — ignore
                     Some(Err(e)) => {
                         warn!("WebSocket read error: {e}");
                         break;
@@ -550,9 +556,10 @@ mod tests {
             }))));
 
         let cancel = tokio_util::sync::CancellationToken::new();
+        let (write_tx, _write_rx) = mpsc::channel(16);
         let empty = stream::empty::<Result<tungstenite::Message, tungstenite::Error>>();
 
-        read_pump(empty, pending, on_event, on_disconnect, cancel).await;
+        read_pump(empty, pending, on_event, on_disconnect, write_tx, cancel).await;
 
         assert!(*disconnected.lock().unwrap());
     }
@@ -632,6 +639,88 @@ mod tests {
         assert_eq!(binary_data, b"hello binary");
 
         send_handle.abort();
+    }
+
+    #[tokio::test]
+    async fn read_pump_timeout_on_silence() {
+        // With no messages arriving, the pong deadline should fire and
+        // trigger a disconnect within WS_PONG_WAIT.
+        tokio::time::pause();
+
+        let pending = Arc::new(Mutex::new(HashMap::new()));
+        let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
+        let disconnected = Arc::new(std::sync::Mutex::new(false));
+        let dc = disconnected.clone();
+        let on_disconnect: DisconnectCallback =
+            Arc::new(Mutex::new(Some(Box::new(move || {
+                *dc.lock().unwrap() = true;
+            }))));
+
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let (write_tx, _write_rx) = mpsc::channel(16);
+
+        // A stream that never yields (pending forever) — simulates silence.
+        let stream = stream::pending::<Result<tungstenite::Message, tungstenite::Error>>();
+
+        read_pump(stream, pending, on_event, on_disconnect, write_tx, cancel).await;
+
+        assert!(*disconnected.lock().unwrap(), "should disconnect on pong timeout");
+    }
+
+    #[tokio::test]
+    async fn read_pump_resets_deadline_on_any_message() {
+        // Sending a Text message just before the deadline should extend it.
+        tokio::time::pause();
+
+        let pending = Arc::new(Mutex::new(HashMap::new()));
+        let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
+        let disconnected = Arc::new(std::sync::Mutex::new(false));
+        let dc = disconnected.clone();
+        let on_disconnect: DisconnectCallback =
+            Arc::new(Mutex::new(Some(Box::new(move || {
+                *dc.lock().unwrap() = true;
+            }))));
+
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let (write_tx, _write_rx) = mpsc::channel(16);
+
+        // Build a stream that yields one Text message after (PONG_WAIT - 1s),
+        // then nothing until the extended deadline expires.
+        let wait_before_msg = WS_PONG_WAIT - std::time::Duration::from_secs(1);
+        let msg = Message::new::<()>("msg-1", MessageType::Pong, None).unwrap();
+        let json = serde_json::to_string(&msg).unwrap();
+        let text_msg: Result<tungstenite::Message, tungstenite::Error> =
+            Ok(tungstenite::Message::Text(json.into()));
+
+        // Delayed message followed by infinite pending. Box::pin for Unpin.
+        let delayed = stream::once(async move {
+            tokio::time::sleep(wait_before_msg).await;
+            text_msg
+        });
+        let combined = Box::pin(delayed.chain(stream::pending()));
+
+        let handle = tokio::spawn(async move {
+            read_pump(combined, pending, on_event, on_disconnect, write_tx, cancel).await;
+        });
+
+        // Advance past the original deadline — should NOT have timed out
+        // because the message resets the deadline.
+        tokio::time::advance(WS_PONG_WAIT + std::time::Duration::from_secs(1)).await;
+        // Yield multiple times so the spawned task processes the message and resets.
+        for _ in 0..10 {
+            tokio::task::yield_now().await;
+        }
+        assert!(!*disconnected.lock().unwrap(), "should not disconnect — deadline was reset");
+
+        // Now advance past the reset deadline (from the message time).
+        tokio::time::advance(WS_PONG_WAIT).await;
+        for _ in 0..10 {
+            tokio::task::yield_now().await;
+        }
+
+        // With paused time the spawned task should have completed.
+        handle.await.unwrap();
+        assert!(*disconnected.lock().unwrap(), "should disconnect after extended deadline");
     }
 
     #[tokio::test]

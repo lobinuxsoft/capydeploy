@@ -326,14 +326,18 @@ impl Application for Hub {
             }
 
             Message::RefreshDiscovery => {
-                self.discovered_agents.clear();
-                self.connection_states
-                    .retain(|_, s| matches!(s, ConnectionState::Connected));
-
-                // Force a fresh mDNS query. Results arrive via ConnectionEvent.
+                // Cancel any active reconnect loops and reset Reconnecting states.
+                for (_, state) in self.connection_states.iter_mut() {
+                    if matches!(state, ConnectionState::Reconnecting { .. }) {
+                        *state = ConnectionState::Disconnected;
+                    }
+                }
                 let mgr = self.connection_mgr.clone();
                 return self.tokio_perform(
-                    async move { mgr.refresh_discovery().await },
+                    async move {
+                        mgr.cancel_all_reconnects().await;
+                        mgr.refresh_discovery().await;
+                    },
                     |_| cosmic::action::app(Message::DiscoveryStarted),
                 );
             }
@@ -359,6 +363,12 @@ impl Application for Hub {
                     return self.push_toast(format!("Connected to {name}"));
                 }
                 Err(e) => {
+                    // Reset any Connecting states back to Disconnected.
+                    for (_, state) in self.connection_states.iter_mut() {
+                        if matches!(state, ConnectionState::Connecting) {
+                            *state = ConnectionState::Disconnected;
+                        }
+                    }
                     // Pairing-required errors are handled via ConnectionEvent::PairingNeeded.
                     if !e.contains("pairing required") {
                         tracing::warn!(error = %e, "connection failed");
@@ -387,8 +397,24 @@ impl Application for Hub {
                 }
                 let mgr = self.connection_mgr.clone();
                 return self.tokio_perform(
-                    async move { mgr.disconnect_agent().await },
-                    |()| cosmic::action::app(Message::DiscoveryStarted),
+                    async move {
+                        mgr.disconnect_agent().await;
+                        mgr.refresh_discovery().await;
+                    },
+                    |_| cosmic::action::app(Message::DiscoveryStarted),
+                );
+            }
+
+            Message::CancelReconnect(agent_id) => {
+                self.connection_states
+                    .insert(agent_id, ConnectionState::Disconnected);
+                let mgr = self.connection_mgr.clone();
+                return self.tokio_perform(
+                    async move {
+                        mgr.cancel_all_reconnects().await;
+                        mgr.refresh_discovery().await;
+                    },
+                    |_| cosmic::action::app(Message::DiscoveryStarted),
                 );
             }
 
@@ -1220,6 +1246,15 @@ impl Hub {
             }
 
             ConnectionEvent::StateChanged { agent_id, state } => {
+                // On disconnect, clear connected_agent so UI shows correct buttons.
+                if state == ConnectionState::Disconnected
+                    && self.connected_agent_id() == Some(&agent_id)
+                {
+                    self.connected_agent = None;
+                    if self.nav_page.requires_connection() {
+                        self.nav_page = NavPage::Devices;
+                    }
+                }
                 // If we transitioned to Connected (e.g. after reconnect), restore
                 // connected_agent from the manager's state.
                 if state == ConnectionState::Connected && self.connected_agent.is_none() {

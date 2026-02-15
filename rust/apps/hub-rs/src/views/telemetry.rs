@@ -92,19 +92,19 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
     }
 
     // VRAM.
-    if let Some(gpu) = &latest.gpu {
-        if gpu.vram_total_bytes > 0 {
-            let used_mb = gpu.vram_used_bytes as f64 / 1_048_576.0;
-            let total_mb = gpu.vram_total_bytes as f64 / 1_048_576.0;
-            let ratio = used_mb / total_mb;
-            let pct = ratio * 100.0;
-            cards.push(metric_card(
-                "VRAM",
-                &format!("{:.0}/{:.0} MB", used_mb, total_mb),
-                ratio,
-                usage_color(pct),
-            ));
-        }
+    if let Some(gpu) = &latest.gpu
+        && gpu.vram_total_bytes > 0
+    {
+        let used_mb = gpu.vram_used_bytes as f64 / 1_048_576.0;
+        let total_mb = gpu.vram_total_bytes as f64 / 1_048_576.0;
+        let ratio = used_mb / total_mb;
+        let pct = ratio * 100.0;
+        cards.push(metric_card(
+            "VRAM",
+            &format!("{:.0}/{:.0} MB", used_mb, total_mb),
+            ratio,
+            usage_color(pct),
+        ));
     }
 
     // Battery.
@@ -176,16 +176,16 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
         }
     }
 
-    if let Some(mem) = &latest.memory {
-        if mem.swap_total_bytes > 0 {
-            let swap_total = mem.swap_total_bytes as f64 / 1_073_741_824.0;
-            let swap_free = mem.swap_free_bytes as f64 / 1_073_741_824.0;
-            let swap_used = swap_total - swap_free;
-            info_entries.push(info_entry(
-                "Swap",
-                &format!("{:.1} / {:.1} GB", swap_used, swap_total),
-            ));
-        }
+    if let Some(mem) = &latest.memory
+        && mem.swap_total_bytes > 0
+    {
+        let swap_total = mem.swap_total_bytes as f64 / 1_073_741_824.0;
+        let swap_free = mem.swap_free_bytes as f64 / 1_073_741_824.0;
+        let swap_used = swap_total - swap_free;
+        info_entries.push(info_entry(
+            "Swap",
+            &format!("{:.1} / {:.1} GB", swap_used, swap_total),
+        ));
     }
 
     if let Some(steam) = &latest.steam {

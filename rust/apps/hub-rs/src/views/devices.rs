@@ -100,11 +100,12 @@ fn agent_card<'a>(
         widget::button::destructive("Disconnect")
             .on_press(Message::DisconnectAgent)
             .into()
+    } else if matches!(state, Some(ConnectionState::Reconnecting { .. })) {
+        widget::button::destructive("Cancel")
+            .on_press(Message::CancelReconnect(agent_id))
+            .into()
     } else {
-        let busy = matches!(
-            state,
-            Some(ConnectionState::Connecting) | Some(ConnectionState::Reconnecting { .. })
-        );
+        let busy = matches!(state, Some(ConnectionState::Connecting));
         let btn = widget::button::suggested("Connect");
         if busy {
             btn.into()
