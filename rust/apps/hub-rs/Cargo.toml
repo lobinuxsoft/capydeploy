@@ -22,7 +22,6 @@ capydeploy-hub-games = { workspace = true }
 capydeploy-hub-telemetry = { workspace = true }
 capydeploy-hub-console-log = { workspace = true }
 capydeploy-hub-settings = { workspace = true }
-capydeploy-hub-widgets = { workspace = true }
 capydeploy-steamgriddb = { workspace = true }
 
 # Core
@@ -36,7 +35,7 @@ hostname = { workspace = true }
 futures-util = { workspace = true }
 capydeploy-discovery = { workspace = true }
 rfd = "0.15"
-toml = "0.8"
+sha2 = { workspace = true }
 anyhow = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 

@@ -83,11 +83,14 @@ fn agent_card<'a>(
 
     // Status badge.
     let (badge_text, badge_color) = match state {
-        Some(ConnectionState::Connected) => ("Connected", theme::CONNECTED_COLOR),
-        Some(ConnectionState::Connecting) => ("Connecting...", theme::CYAN),
-        Some(ConnectionState::PairingRequired) => ("Pairing required", theme::ORANGE),
-        Some(ConnectionState::Disconnected) => ("Disconnected", theme::MUTED_TEXT),
-        Some(ConnectionState::Discovered) | None => ("Available", theme::MUTED_TEXT),
+        Some(ConnectionState::Connected) => ("Connected".to_string(), theme::CONNECTED_COLOR),
+        Some(ConnectionState::Connecting) => ("Connecting...".to_string(), theme::CYAN),
+        Some(ConnectionState::Reconnecting { attempt }) => {
+            (format!("Reconnecting ({attempt})..."), theme::ORANGE)
+        }
+        Some(ConnectionState::PairingRequired) => ("Pairing required".to_string(), theme::ORANGE),
+        Some(ConnectionState::Disconnected) => ("Disconnected".to_string(), theme::MUTED_TEXT),
+        Some(ConnectionState::Discovered) | None => ("Available".to_string(), theme::MUTED_TEXT),
     };
 
     let badge = widget::text::caption(badge_text).class(badge_color);
@@ -98,9 +101,12 @@ fn agent_card<'a>(
             .on_press(Message::DisconnectAgent)
             .into()
     } else {
-        let connecting = matches!(state, Some(ConnectionState::Connecting));
+        let busy = matches!(
+            state,
+            Some(ConnectionState::Connecting) | Some(ConnectionState::Reconnecting { .. })
+        );
         let btn = widget::button::suggested("Connect");
-        if connecting {
+        if busy {
             btn.into()
         } else {
             btn.on_press(Message::ConnectAgent(agent_id)).into()

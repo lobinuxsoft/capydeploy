@@ -1,34 +1,65 @@
 //! Hub configuration management.
 //!
-//! Configuration is stored as TOML:
-//! - Linux: `~/.config/capydeploy/hub.toml`
-//! - Windows: `%APPDATA%/capydeploy/hub.toml`
+//! Reads the same JSON files as the Go Hub for backward compatibility:
+//! - Hub identity: `~/.config/capydeploy-hub/config.json`
+//! - App config:   `~/.config/capydeploy/config.json`
 
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// Hub configuration.
+// ---------------------------------------------------------------------------
+// Hub identity (capydeploy-hub/config.json)
+// ---------------------------------------------------------------------------
+
+/// Hub identity — mirrors Go's `apps/hub/config.Config`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct HubIdentityFile {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    platform: String,
+}
+
+// ---------------------------------------------------------------------------
+// App config (capydeploy/config.json)
+// ---------------------------------------------------------------------------
+
+/// App config — mirrors Go's `pkg/config.AppConfig`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AppConfigFile {
+    #[serde(default)]
+    game_setups: Vec<capydeploy_hub_deploy::GameSetup>,
+    #[serde(default)]
+    steamgriddb_api_key: String,
+    #[serde(default)]
+    image_cache_enabled: bool,
+    #[serde(default)]
+    game_log_directory: String,
+}
+
+// ---------------------------------------------------------------------------
+// Unified HubConfig
+// ---------------------------------------------------------------------------
+
+/// Hub configuration — unified view of both JSON files.
+#[derive(Debug, Clone)]
 pub struct HubConfig {
-    /// Display name of this Hub (hostname by default).
-    #[serde(default = "default_name")]
+    /// Display name of this Hub.
     pub name: String,
 
-    /// Stable Hub identifier (auto-generated on first run).
-    #[serde(default = "default_hub_id")]
+    /// Stable Hub identifier (from capydeploy-hub/config.json).
     pub hub_id: String,
 
     /// SteamGridDB API key for artwork search.
-    #[serde(default)]
     pub steamgriddb_api_key: String,
 
     /// Directory for game log files.
-    #[serde(default)]
     pub game_log_dir: String,
 
     /// Saved game installation setups.
-    #[serde(default)]
     pub game_setups: Vec<capydeploy_hub_deploy::GameSetup>,
 }
 
@@ -40,7 +71,17 @@ fn default_name() -> String {
 }
 
 fn default_hub_id() -> String {
-    uuid::Uuid::new_v4().to_string()
+    // Match Go's generateID: sha256(hostname-platform-hub)[:8]
+    use std::fmt::Write;
+    let hostname = default_name();
+    let platform = std::env::consts::OS;
+    let data = format!("{hostname}-{platform}-hub");
+    let digest = <sha2::Sha256 as sha2::Digest>::digest(data.as_bytes());
+    let mut hex = String::with_capacity(8);
+    for byte in &digest[..4] {
+        let _ = write!(hex, "{byte:02x}");
+    }
+    hex
 }
 
 impl Default for HubConfig {
@@ -56,65 +97,131 @@ impl Default for HubConfig {
 }
 
 impl HubConfig {
-    /// Loads configuration from disk, or creates a default if not found.
+    /// Loads configuration from the Go Hub's JSON files.
+    ///
+    /// Reads both `capydeploy-hub/config.json` (identity) and
+    /// `capydeploy/config.json` (app config). Missing files are
+    /// silently ignored and defaults are used.
     pub fn load() -> anyhow::Result<Self> {
-        let path = config_path()?;
+        let mut config = HubConfig::default();
 
-        if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
-            let config: HubConfig = toml::from_str(&content)?;
-            Ok(config)
-        } else {
-            let config = HubConfig::default();
-            config.save()?;
-            Ok(config)
+        // 1. Hub identity file.
+        let identity_path = hub_identity_path()?;
+        if identity_path.exists() {
+            let content = std::fs::read_to_string(&identity_path)?;
+            if let Ok(identity) = serde_json::from_str::<HubIdentityFile>(&content) {
+                if !identity.id.is_empty() {
+                    config.hub_id = identity.id;
+                }
+                if !identity.name.is_empty() {
+                    config.name = identity.name;
+                }
+            } else {
+                tracing::warn!(
+                    path = %identity_path.display(),
+                    "failed to parse hub identity, using defaults"
+                );
+            }
         }
+
+        // 2. App config file.
+        let app_path = app_config_path()?;
+        if app_path.exists() {
+            let content = std::fs::read_to_string(&app_path)?;
+            if let Ok(app) = serde_json::from_str::<AppConfigFile>(&content) {
+                config.steamgriddb_api_key = app.steamgriddb_api_key;
+                config.game_log_dir = app.game_log_directory;
+                config.game_setups = app.game_setups;
+            } else {
+                tracing::warn!(
+                    path = %app_path.display(),
+                    "failed to parse app config, using defaults"
+                );
+            }
+        }
+
+        Ok(config)
     }
 
-    /// Saves the current configuration to disk.
+    /// Saves configuration back to both JSON files.
     pub fn save(&self) -> anyhow::Result<()> {
-        let path = config_path()?;
-
-        if let Some(parent) = path.parent() {
+        // Save hub identity.
+        let identity_path = hub_identity_path()?;
+        if let Some(parent) = identity_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
+        let identity = HubIdentityFile {
+            id: self.hub_id.clone(),
+            name: self.name.clone(),
+            platform: std::env::consts::OS.into(),
+        };
+        let identity_json = serde_json::to_string_pretty(&identity)?;
+        std::fs::write(&identity_path, &identity_json)?;
+        set_permissions_0600(&identity_path);
 
-        let content = toml::to_string_pretty(self)?;
-        std::fs::write(&path, content)?;
-
-        // Restrict permissions on Unix (may contain API key).
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        // Save app config.
+        let app_path = app_config_path()?;
+        if let Some(parent) = app_path.parent() {
+            std::fs::create_dir_all(parent)?;
         }
+        let app = AppConfigFile {
+            game_setups: self.game_setups.clone(),
+            steamgriddb_api_key: self.steamgriddb_api_key.clone(),
+            image_cache_enabled: true,
+            game_log_directory: self.game_log_dir.clone(),
+        };
+        let app_json = serde_json::to_string_pretty(&app)?;
+        std::fs::write(&app_path, &app_json)?;
+        set_permissions_0600(&app_path);
 
-        tracing::debug!(path = %path.display(), "configuration saved");
+        tracing::debug!("configuration saved");
         Ok(())
     }
 }
 
-/// Returns the platform-specific configuration file path.
-fn config_path() -> anyhow::Result<PathBuf> {
+/// Restricts file permissions to owner-only on Unix.
+fn set_permissions_0600(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+}
+
+/// Hub identity file: `~/.config/capydeploy-hub/config.json`
+fn hub_identity_path() -> anyhow::Result<PathBuf> {
+    let config_dir = config_base_dir()?;
+    Ok(config_dir.join("capydeploy-hub").join("config.json"))
+}
+
+/// App config file: `~/.config/capydeploy/config.json`
+fn app_config_path() -> anyhow::Result<PathBuf> {
+    let config_dir = config_base_dir()?;
+    Ok(config_dir.join("capydeploy").join("config.json"))
+}
+
+/// Platform-specific config base directory.
+fn config_base_dir() -> anyhow::Result<PathBuf> {
     #[cfg(target_os = "linux")]
     {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-        Ok(PathBuf::from(home)
-            .join(".config")
-            .join("capydeploy")
-            .join("hub.toml"))
+        Ok(PathBuf::from(home).join(".config"))
     }
 
     #[cfg(target_os = "windows")]
     {
         let appdata =
             std::env::var("APPDATA").unwrap_or_else(|_| "C:\\Users\\Default\\AppData".into());
-        Ok(PathBuf::from(appdata).join("capydeploy").join("hub.toml"))
+        Ok(PathBuf::from(appdata))
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
-        Ok(PathBuf::from("/tmp/capydeploy/hub.toml"))
+        Ok(PathBuf::from("/tmp"))
     }
 }
 
@@ -127,75 +234,100 @@ mod tests {
         let config = HubConfig::default();
         assert!(!config.name.is_empty());
         assert!(!config.hub_id.is_empty());
+        assert_eq!(config.hub_id.len(), 8); // SHA256[:8] hex
         assert!(config.steamgriddb_api_key.is_empty());
         assert!(config.game_setups.is_empty());
     }
 
     #[test]
-    fn hub_id_stable_across_deserialize() {
-        let toml_str = r#"
-            name = "Test"
-            hub_id = "fixed-id-123"
-        "#;
-        let config: HubConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.hub_id, "fixed-id-123");
+    fn parse_hub_identity_json() {
+        let json = r#"{"id":"a1b2c3d4","name":"MyHub","platform":"linux"}"#;
+        let identity: HubIdentityFile = serde_json::from_str(json).unwrap();
+        assert_eq!(identity.id, "a1b2c3d4");
+        assert_eq!(identity.name, "MyHub");
+        assert_eq!(identity.platform, "linux");
     }
 
     #[test]
-    fn hub_id_generated_when_missing() {
-        let toml_str = r#"name = "NoId""#;
-        let config: HubConfig = toml::from_str(toml_str).unwrap();
-        assert!(!config.hub_id.is_empty());
-        assert!(config.hub_id.contains('-')); // UUID format
+    fn parse_app_config_json() {
+        let json = r#"{
+            "game_setups": [
+                {
+                    "id": "game_1",
+                    "name": "Portal 2",
+                    "local_path": "/games/portal2",
+                    "executable": "portal2.exe",
+                    "install_path": ""
+                }
+            ],
+            "steamgriddb_api_key": "abc123",
+            "image_cache_enabled": true,
+            "game_log_directory": "/tmp/logs"
+        }"#;
+        let app: AppConfigFile = serde_json::from_str(json).unwrap();
+        assert_eq!(app.game_setups.len(), 1);
+        assert_eq!(app.game_setups[0].name, "Portal 2");
+        assert_eq!(app.steamgriddb_api_key, "abc123");
+        assert_eq!(app.game_log_directory, "/tmp/logs");
+        assert!(app.image_cache_enabled);
     }
 
     #[test]
-    fn config_roundtrip_toml() {
-        let config = HubConfig {
-            name: "Test Hub".into(),
-            hub_id: "hub-42".into(),
-            steamgriddb_api_key: "abc123".into(),
-            game_log_dir: "/tmp/logs".into(),
-            game_setups: Vec::new(),
-        };
-
-        let toml_str = toml::to_string_pretty(&config).unwrap();
-        let parsed: HubConfig = toml::from_str(&toml_str).unwrap();
-
-        assert_eq!(parsed.name, "Test Hub");
-        assert_eq!(parsed.steamgriddb_api_key, "abc123");
-        assert_eq!(parsed.game_log_dir, "/tmp/logs");
+    fn parse_app_config_empty() {
+        let json = "{}";
+        let app: AppConfigFile = serde_json::from_str(json).unwrap();
+        assert!(app.game_setups.is_empty());
+        assert!(app.steamgriddb_api_key.is_empty());
     }
 
     #[test]
-    fn config_partial_toml() {
-        let toml_str = r#"name = "MyHub""#;
-        let config: HubConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.name, "MyHub");
-        assert!(config.steamgriddb_api_key.is_empty());
+    fn hub_id_is_stable_sha256() {
+        let id1 = default_hub_id();
+        let id2 = default_hub_id();
+        assert_eq!(id1, id2);
+        assert_eq!(id1.len(), 8);
     }
 
     #[test]
-    fn config_path_not_empty() {
-        let path = config_path().unwrap();
-        assert!(path.to_string_lossy().contains("capydeploy"));
-    }
-
-    #[test]
-    fn config_save_and_load_manual() {
+    fn save_and_load_roundtrip() {
         let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("hub.toml");
+        let identity_dir = tmp.path().join("capydeploy-hub");
+        let app_dir = tmp.path().join("capydeploy");
+        std::fs::create_dir_all(&identity_dir).unwrap();
+        std::fs::create_dir_all(&app_dir).unwrap();
 
-        let config = HubConfig {
-            name: "SaveTest".into(),
-            ..HubConfig::default()
+        // Write identity.
+        let identity = HubIdentityFile {
+            id: "test-id".into(),
+            name: "Test Hub".into(),
+            platform: "linux".into(),
         };
+        std::fs::write(
+            identity_dir.join("config.json"),
+            serde_json::to_string_pretty(&identity).unwrap(),
+        )
+        .unwrap();
 
-        let content = toml::to_string_pretty(&config).unwrap();
-        std::fs::write(&path, &content).unwrap();
+        // Write app config.
+        let app = AppConfigFile {
+            game_setups: Vec::new(),
+            steamgriddb_api_key: "key123".into(),
+            image_cache_enabled: true,
+            game_log_directory: "/logs".into(),
+        };
+        std::fs::write(
+            app_dir.join("config.json"),
+            serde_json::to_string_pretty(&app).unwrap(),
+        )
+        .unwrap();
 
-        let loaded_content = std::fs::read_to_string(&path).unwrap();
-        let loaded: HubConfig = toml::from_str(&loaded_content).unwrap();
-        assert_eq!(loaded.name, "SaveTest");
+        // Parse them manually (can't use load() since it uses real paths).
+        let id_content = std::fs::read_to_string(identity_dir.join("config.json")).unwrap();
+        let parsed_id: HubIdentityFile = serde_json::from_str(&id_content).unwrap();
+        assert_eq!(parsed_id.id, "test-id");
+
+        let app_content = std::fs::read_to_string(app_dir.join("config.json")).unwrap();
+        let parsed_app: AppConfigFile = serde_json::from_str(&app_content).unwrap();
+        assert_eq!(parsed_app.steamgriddb_api_key, "key123");
     }
 }

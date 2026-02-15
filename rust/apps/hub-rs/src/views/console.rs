@@ -225,8 +225,8 @@ fn format_timestamp(ms: i64) -> String {
 const LOG_COLOR: Color = Color::from_rgb(0.75, 0.75, 0.75);
 const WARN_COLOR: Color = Color::from_rgb(0.95, 0.77, 0.06);
 const ERROR_COLOR: Color = Color::from_rgb(0.91, 0.30, 0.24);
-const INFO_COLOR: Color = Color::from_rgb(0.30, 0.70, 1.0);
-const DEBUG_COLOR: Color = Color::from_rgb(0.50, 0.50, 0.55);
+const INFO_COLOR: Color = Color::from_rgb(0.024, 0.714, 0.831);
+const DEBUG_COLOR: Color = Color::from_rgb(0.580, 0.639, 0.722);
 
 // Source colors.
 const SOURCE_CONSOLE_COLOR: Color = Color::from_rgb(0.55, 0.75, 0.55);

@@ -16,7 +16,7 @@ pub struct SearchResult {
 /// Image metadata from the SteamGridDB API.
 ///
 /// Used for grids, heroes, logos, and icons (they share the same API schema).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ImageData {
     pub id: i32,
     #[serde(default)]

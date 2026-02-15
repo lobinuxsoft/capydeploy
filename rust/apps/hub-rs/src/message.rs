@@ -72,6 +72,8 @@ pub enum Message {
     ConnectResult(Result<ConnectedAgent, String>),
     /// User clicked disconnect.
     DisconnectAgent,
+    /// Connected agent restored after a successful reconnect.
+    ReconnectRestored(Option<ConnectedAgent>),
 
     // -- Pairing --
     /// User is typing the pairing code.
@@ -172,6 +174,22 @@ pub enum Message {
     ArtworkSelectImage(ArtworkTab, String),
     /// Load more images for the current artwork tab (next page).
     ArtworkLoadMore,
+    /// Batch of thumbnails fetched from remote URLs.
+    ArtworkThumbnailsBatch(Vec<(String, Vec<u8>)>),
+    /// User wants to pick a local artwork file.
+    ArtworkSelectLocalFile,
+    /// Local file picker returned a path.
+    ArtworkLocalFileResult(Option<String>),
+    /// Toggle a filter option (style, dimension, MIME, animation type).
+    ArtworkToggleFilter(ArtworkFilterField, String),
+    /// Toggle NSFW filter on/off.
+    ArtworkToggleNsfw,
+    /// Toggle Humor filter on/off.
+    ArtworkToggleHumor,
+    /// Reset all filters to defaults.
+    ArtworkResetFilters,
+    /// Toggle the filter panel visibility.
+    ArtworkShowFilters,
     /// Clear all artwork selections.
     ArtworkClearAll,
     /// Save artwork selections to the editing setup.
@@ -195,9 +213,17 @@ pub enum SetupField {
     Name,
     LocalPath,
     Executable,
-    InstallPath,
     LaunchOptions,
     Tags,
+}
+
+/// Filter fields in the artwork selector.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArtworkFilterField {
+    Style,
+    Dimension,
+    MimeType,
+    ImageType,
 }
 
 /// Fields in settings that can be edited.

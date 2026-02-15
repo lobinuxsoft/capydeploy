@@ -306,6 +306,10 @@ impl Drop for WsClient {
 // ---------------------------------------------------------------------------
 
 /// Reads messages from the WebSocket and dispatches them.
+///
+/// Uses a pong deadline to detect dead connections: if no pong arrives
+/// within [`WS_PONG_WAIT`] after a ping was sent, the connection is
+/// considered dead and the loop exits (triggering reconnect).
 async fn read_pump<S>(
     mut read: S,
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<Message>>>>,
@@ -315,9 +319,23 @@ async fn read_pump<S>(
 ) where
     S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>> + Unpin,
 {
+    // Pong deadline: if no pong arrives within WS_PONG_WAIT, connection is dead.
+    let mut pong_deadline = tokio::time::interval(WS_PONG_WAIT);
+    pong_deadline.reset();
+    let mut got_pong = true; // Start optimistically.
+
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
+
+            _ = pong_deadline.tick() => {
+                if !got_pong {
+                    warn!("pong timeout — connection dead, closing");
+                    break;
+                }
+                got_pong = false;
+            }
+
             msg = read.next() => {
                 match msg {
                     Some(Ok(tungstenite::Message::Text(text))) => {
@@ -328,6 +346,8 @@ async fn read_pump<S>(
                     }
                     Some(Ok(tungstenite::Message::Pong(_))) => {
                         trace!("received pong");
+                        got_pong = true;
+                        pong_deadline.reset();
                     }
                     Some(Ok(tungstenite::Message::Close(_))) => {
                         debug!("received close frame");
@@ -436,7 +456,7 @@ async fn ping_pump(
         }
     }
 
-    let _ = WS_PONG_WAIT; // Used by server-side; client relies on read errors.
+    // WS_PONG_WAIT is used by read_pump's pong deadline.
 }
 
 #[cfg(test)]

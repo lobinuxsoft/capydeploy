@@ -76,12 +76,7 @@ pub fn view<'a>(
 fn setup_card<'a>(setup: &'a GameSetup, is_connected: bool, deploying: bool) -> Element<'a, Message> {
     let info = widget::column()
         .push(widget::text::heading(&setup.name))
-        .push(
-            widget::row()
-                .push(widget::text::caption(&setup.local_path).class(theme::MUTED_TEXT))
-                .push(widget::text::caption(" → ").class(theme::MUTED_TEXT))
-                .push(widget::text::caption(&setup.install_path).class(theme::MUTED_TEXT)),
-        )
+        .push(widget::text::caption(&setup.local_path).class(theme::MUTED_TEXT))
         .push(
             widget::text::caption(format!("Exe: {}", setup.executable))
                 .class(theme::MUTED_TEXT),
@@ -132,11 +127,6 @@ fn edit_form(setup: &GameSetup) -> Element<'_, Message> {
             Message::BrowseLocalPath,
         ))
         .push(form_field("Executable", &setup.executable, SetupField::Executable))
-        .push(form_field(
-            "Install Path (on agent)",
-            &setup.install_path,
-            SetupField::InstallPath,
-        ))
         .push(form_field(
             "Launch Options",
             &setup.launch_options,

@@ -111,13 +111,11 @@ pub fn view(dialog: &PairingDialog) -> Element<'_, Message> {
 /// Dialog box background.
 fn dialog_bg(_theme: &cosmic::Theme) -> cosmic::iced::widget::container::Style {
     cosmic::iced::widget::container::Style {
-        background: Some(cosmic::iced::Background::Color(cosmic::iced::Color::from_rgb(
-            0.14, 0.14, 0.16,
-        ))),
+        background: Some(cosmic::iced::Background::Color(theme::DARK_BG)),
         border: cosmic::iced::Border {
             radius: 12.0.into(),
             width: 1.0,
-            color: cosmic::iced::Color::from_rgba(1.0, 1.0, 1.0, 0.1),
+            color: cosmic::iced::Color::from_rgba(0.278, 0.333, 0.412, 0.5),
         },
         ..Default::default()
     }

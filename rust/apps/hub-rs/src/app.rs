@@ -29,7 +29,7 @@ use crate::dialogs::pairing::PairingDialog;
 use crate::message::{Message, NavPage, SettingField, SetupField};
 use crate::theme;
 use crate::views::deploy::DeployStatus;
-use crate::views::TelemetryWidgets;
+
 
 /// Main Hub application state.
 pub struct Hub {
@@ -52,7 +52,6 @@ pub struct Hub {
 
     // Telemetry state.
     telemetry_hub: TelemetryHub,
-    telemetry_widgets: TelemetryWidgets,
 
     // Console log state.
     console_log_hub: ConsoleLogHub,
@@ -144,6 +143,10 @@ impl Hub {
         game_id: i32,
         page: i32,
     ) -> cosmic::app::Task<Message> {
+        let filters = self
+            .artwork_dialog
+            .as_ref()
+            .map(|d| d.filters.clone());
         if let Some(dialog) = &mut self.artwork_dialog {
             dialog.loading.insert(tab, true);
         }
@@ -151,9 +154,10 @@ impl Hub {
         self.tokio_perform(
             async move {
                 let client = capydeploy_steamgriddb::Client::new(&api_key)?;
+                let f = filters.as_ref();
                 match tab {
                     ArtworkTab::Capsule => {
-                        let grids = client.get_grids(game_id, None, page).await?;
+                        let grids = client.get_grids(game_id, f, page).await?;
                         // Filter to portrait (height > width).
                         Ok(grids
                             .into_iter()
@@ -161,16 +165,16 @@ impl Hub {
                             .collect())
                     }
                     ArtworkTab::Wide => {
-                        let grids = client.get_grids(game_id, None, page).await?;
+                        let grids = client.get_grids(game_id, f, page).await?;
                         // Filter to landscape (width > height).
                         Ok(grids
                             .into_iter()
                             .filter(|g| g.width > g.height)
                             .collect())
                     }
-                    ArtworkTab::Hero => client.get_heroes(game_id, None, page).await,
-                    ArtworkTab::Logo => client.get_logos(game_id, None, page).await,
-                    ArtworkTab::Icon => client.get_icons(game_id, None, page).await,
+                    ArtworkTab::Hero => client.get_heroes(game_id, f, page).await,
+                    ArtworkTab::Logo => client.get_logos(game_id, f, page).await,
+                    ArtworkTab::Icon => client.get_icons(game_id, f, page).await,
                 }
             },
             move |result| {
@@ -179,6 +183,41 @@ impl Hub {
                     result.map_err(|e| e.to_string()),
                 ))
             },
+        )
+    }
+
+    /// Fetches thumbnail images from remote URLs concurrently.
+    fn fetch_thumbnails(&self, urls: Vec<String>) -> cosmic::app::Task<Message> {
+        self.tokio_perform(
+            async move {
+                let client = reqwest::Client::new();
+                let mut results = Vec::new();
+                // Fetch up to 24 thumbnails concurrently.
+                let futures: Vec<_> = urls
+                    .into_iter()
+                    .take(24)
+                    .map(|url| {
+                        let client = client.clone();
+                        async move {
+                            match client.get(&url).send().await {
+                                Ok(resp) if resp.status().is_success() => {
+                                    match resp.bytes().await {
+                                        Ok(bytes) => Some((url, bytes.to_vec())),
+                                        Err(_) => None,
+                                    }
+                                }
+                                _ => None,
+                            }
+                        }
+                    })
+                    .collect();
+                let fetched = futures_util::future::join_all(futures).await;
+                for item in fetched.into_iter().flatten() {
+                    results.push(item);
+                }
+                results
+            },
+            |batch| cosmic::action::app(Message::ArtworkThumbnailsBatch(batch)),
         )
     }
 }
@@ -229,7 +268,6 @@ impl Application for Hub {
             connection_states: HashMap::new(),
             pairing_dialog: None,
             telemetry_hub: TelemetryHub::new(),
-            telemetry_widgets: TelemetryWidgets::new(),
             console_log_hub: ConsoleLogHub::new(),
             console_level_filter: constants::LOG_LEVEL_DEFAULT | constants::LOG_LEVEL_DEBUG,
             console_source_filter: String::new(),
@@ -291,6 +329,13 @@ impl Application for Hub {
                 self.discovered_agents.clear();
                 self.connection_states
                     .retain(|_, s| matches!(s, ConnectionState::Connected));
+
+                // Force a fresh mDNS query. Results arrive via ConnectionEvent.
+                let mgr = self.connection_mgr.clone();
+                return self.tokio_perform(
+                    async move { mgr.refresh_discovery().await },
+                    |_| cosmic::action::app(Message::DiscoveryStarted),
+                );
             }
 
             Message::ConnectionEvent(event) => {
@@ -321,6 +366,14 @@ impl Application for Hub {
                     }
                 }
             },
+
+            Message::ReconnectRestored(agent) => {
+                if let Some(agent) = agent {
+                    let name = agent.agent.info.name.clone();
+                    self.on_connected(agent);
+                    return self.push_toast(format!("Reconnected to {name}"));
+                }
+            }
 
             Message::DisconnectAgent => {
                 if let Some(agent) = self.connected_agent.take() {
@@ -682,7 +735,6 @@ impl Application for Hub {
                         SetupField::Name => setup.name = value,
                         SetupField::LocalPath => setup.local_path = value,
                         SetupField::Executable => setup.executable = value,
-                        SetupField::InstallPath => setup.install_path = value,
                         SetupField::LaunchOptions => setup.launch_options = value,
                         SetupField::Tags => setup.tags = value,
                     }
@@ -816,6 +868,14 @@ impl Application for Hub {
                         &setup.logo_image,
                         &setup.icon_image,
                     ));
+
+                    // Fetch previews for pre-existing remote selections.
+                    if let Some(dialog) = &self.artwork_dialog {
+                        let urls = dialog.uncached_selection_urls();
+                        if !urls.is_empty() {
+                            return self.fetch_thumbnails(urls);
+                        }
+                    }
                 }
             }
 
@@ -889,12 +949,20 @@ impl Application for Hub {
                     dialog.loading.insert(tab, false);
                     match result {
                         Ok(new_images) => {
+                            // Collect uncached thumb URLs before extending.
+                            let urls_to_fetch = dialog.uncached_thumb_urls(&new_images);
+
                             // Append to existing images (pagination support).
                             dialog
                                 .images
                                 .entry(tab)
                                 .or_default()
                                 .extend(new_images);
+
+                            // Fetch thumbnails in background.
+                            if !urls_to_fetch.is_empty() {
+                                return self.fetch_thumbnails(urls_to_fetch);
+                            }
                         }
                         Err(e) => {
                             tracing::warn!(error = %e, tab = ?tab, "artwork load failed");
@@ -919,6 +987,97 @@ impl Application for Hub {
                     let next_page = dialog.pages.get(&tab).copied().unwrap_or(0) + 1;
                     dialog.pages.insert(tab, next_page);
                     return self.load_artwork_tab(tab, game_id, next_page);
+                }
+            }
+
+            Message::ArtworkThumbnailsBatch(batch) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.insert_thumbnails(batch);
+                }
+            }
+
+            Message::ArtworkSelectLocalFile => {
+                if self.artwork_dialog.is_some() {
+                    return self.tokio_perform(
+                        async {
+                            rfd::AsyncFileDialog::new()
+                                .set_title("Select Artwork Image")
+                                .add_filter(
+                                    "Images",
+                                    &["png", "jpg", "jpeg", "webp", "gif", "bmp"],
+                                )
+                                .pick_file()
+                                .await
+                                .map(|f| f.path().to_string_lossy().to_string())
+                        },
+                        |path| cosmic::action::app(Message::ArtworkLocalFileResult(path)),
+                    );
+                }
+            }
+
+            Message::ArtworkLocalFileResult(Some(path)) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    let file_url = format!("file://{path}");
+                    dialog.select_image(dialog.active_tab, &file_url);
+                }
+            }
+
+            Message::ArtworkLocalFileResult(None) => {
+                // User cancelled file picker.
+            }
+
+            Message::ArtworkToggleFilter(field, value) => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.toggle_filter(&field, &value);
+                    // Reload current tab with new filters.
+                    if let Some(game_id) = dialog.selected_game_id {
+                        let tab = dialog.active_tab;
+                        dialog.images.remove(&tab);
+                        dialog.pages.remove(&tab);
+                        return self.load_artwork_tab(tab, game_id, 0);
+                    }
+                }
+            }
+
+            Message::ArtworkToggleNsfw => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.filters.show_nsfw = !dialog.filters.show_nsfw;
+                    if let Some(game_id) = dialog.selected_game_id {
+                        let tab = dialog.active_tab;
+                        dialog.images.remove(&tab);
+                        dialog.pages.remove(&tab);
+                        return self.load_artwork_tab(tab, game_id, 0);
+                    }
+                }
+            }
+
+            Message::ArtworkToggleHumor => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.filters.show_humor = !dialog.filters.show_humor;
+                    if let Some(game_id) = dialog.selected_game_id {
+                        let tab = dialog.active_tab;
+                        dialog.images.remove(&tab);
+                        dialog.pages.remove(&tab);
+                        return self.load_artwork_tab(tab, game_id, 0);
+                    }
+                }
+            }
+
+            Message::ArtworkResetFilters => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.reset_filters();
+                    if let Some(game_id) = dialog.selected_game_id {
+                        let tab = dialog.active_tab;
+                        dialog.images.remove(&tab);
+                        dialog.pages.remove(&tab);
+                        return self.load_artwork_tab(tab, game_id, 0);
+                    }
+                }
+            }
+
+            Message::ArtworkShowFilters => {
+                if let Some(dialog) = &mut self.artwork_dialog {
+                    dialog.show_filters = !dialog.show_filters;
                 }
             }
 
@@ -1061,7 +1220,27 @@ impl Hub {
             }
 
             ConnectionEvent::StateChanged { agent_id, state } => {
+                // If we transitioned to Connected (e.g. after reconnect), restore
+                // connected_agent from the manager's state.
+                if state == ConnectionState::Connected && self.connected_agent.is_none() {
+                    let mgr = self.connection_mgr.clone();
+                    self.connection_states.insert(agent_id, state);
+                    return self.tokio_perform(
+                        async move { mgr.get_connected().await },
+                        |agent| cosmic::action::app(Message::ReconnectRestored(agent)),
+                    );
+                }
                 self.connection_states.insert(agent_id, state);
+            }
+
+            ConnectionEvent::Reconnecting {
+                agent_id,
+                attempt,
+                ..
+            } => {
+                tracing::debug!(agent = %agent_id, attempt, "reconnecting to agent");
+                self.connection_states
+                    .insert(agent_id, ConnectionState::Reconnecting { attempt });
             }
 
             ConnectionEvent::PairingNeeded {
@@ -1097,7 +1276,6 @@ impl Hub {
                     message.parse_payload::<capydeploy_protocol::telemetry::TelemetryData>()
                 {
                     self.telemetry_hub.process_data(agent_id, &data);
-                    self.update_telemetry_widgets(agent_id);
                 }
             }
             MessageType::TelemetryStatus => {
@@ -1127,38 +1305,6 @@ impl Hub {
         }
     }
 
-    /// Updates canvas widget values from the latest telemetry data.
-    fn update_telemetry_widgets(&mut self, agent_id: &str) {
-        let Some(agent) = self.telemetry_hub.get_agent(agent_id) else {
-            return;
-        };
-
-        // Update gauges from latest snapshot.
-        if let Some(latest) = agent.latest() {
-            if let Some(cpu) = &latest.cpu {
-                self.telemetry_widgets.cpu_gauge.set_value(cpu.usage_percent);
-                self.telemetry_widgets
-                    .cpu_temp_gauge
-                    .set_value(cpu.temp_celsius);
-            }
-            if let Some(gpu) = &latest.gpu {
-                self.telemetry_widgets.gpu_gauge.set_value(gpu.usage_percent);
-            }
-            if let Some(mem) = &latest.memory {
-                self.telemetry_widgets.mem_gauge.set_value(mem.usage_percent);
-            }
-        }
-
-        // Update sparklines from history ring buffers.
-        let cpu_data: Vec<f64> = agent.cpu_usage_history().iter().copied().collect();
-        self.telemetry_widgets.cpu_sparkline.set_data(&cpu_data);
-
-        let gpu_data: Vec<f64> = agent.gpu_usage_history().iter().copied().collect();
-        self.telemetry_widgets.gpu_sparkline.set_data(&gpu_data);
-
-        let mem_data: Vec<f64> = agent.mem_usage_history().iter().copied().collect();
-        self.telemetry_widgets.mem_sparkline.set_data(&mem_data);
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1259,7 +1405,6 @@ impl Hub {
             NavPage::Telemetry => crate::views::telemetry::view(
                 &self.telemetry_hub,
                 self.connected_agent_id(),
-                &self.telemetry_widgets,
             ),
             NavPage::Console => crate::views::console::view(
                 &self.console_log_hub,
