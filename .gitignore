@@ -40,7 +40,7 @@ ehthumbs.db
 *.md5
 
 # Rust
-rust/target/
+target/
 
 # Config files (user-specific)
 config.json

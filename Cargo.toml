@@ -17,7 +17,7 @@ members = [
     "crates/hub-telemetry",
     "crates/hub-console-log",
     "crates/hub-settings",
-    "apps/agent-tauri/src-tauri",
+    "apps/agents/agent-tauri/src-tauri",
     "apps/hub-tauri/src-tauri",
     "tests/wire_compat",
 ]
