@@ -70,11 +70,23 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
     }
 
     if !cards.is_empty() {
+        // Manual 2-column layout so cards take their natural height
+        // instead of stretching to match the tallest in the row.
+        let mut left = widget::column().spacing(12).width(Length::Fill);
+        let mut right = widget::column().spacing(12).width(Length::Fill);
+        for (i, card) in cards.into_iter().enumerate() {
+            if i % 2 == 0 {
+                left = left.push(card);
+            } else {
+                right = right.push(card);
+            }
+        }
         content = content.push(
-            widget::flex_row(cards)
-                .column_spacing(12)
-                .row_spacing(12)
-                .min_item_width(280.0),
+            widget::row()
+                .spacing(12)
+                .push(left)
+                .push(right)
+                .align_y(cosmic::iced::Alignment::Start),
         );
     }
 
@@ -86,7 +98,7 @@ pub fn view<'a>(hub: &'a TelemetryHub, agent_id: Option<&str>) -> Element<'a, Me
 // ---------------------------------------------------------------------------
 
 fn cpu_card(cpu: &CpuMetrics) -> Element<'static, Message> {
-    let col = widget::column()
+    let mut col = widget::column()
         .spacing(8)
         .push(card_header("CPU"))
         .push(metric_row_bar(
@@ -94,41 +106,54 @@ fn cpu_card(cpu: &CpuMetrics) -> Element<'static, Message> {
             &format!("{:.1}%", cpu.usage_percent),
             cpu.usage_percent / 100.0,
             usage_color(cpu.usage_percent),
-        ))
-        .push(metric_row_text(
+        ));
+
+    if cpu.temp_celsius >= 0.0 {
+        col = col.push(metric_row_text(
             "Temperature",
             &format!("{:.0}°C", cpu.temp_celsius),
             temp_color(cpu.temp_celsius),
-        ))
-        .push(metric_row_text(
+        ));
+    }
+
+    if cpu.freq_m_hz >= 0.0 {
+        col = col.push(metric_row_text(
             "Frequency",
             &format_freq(cpu.freq_m_hz),
             Color::WHITE,
         ));
+    }
 
     card_container(col.into())
 }
 
 fn gpu_card(gpu: &GpuMetrics) -> Element<'static, Message> {
-    let mut col = widget::column()
-        .spacing(8)
-        .push(card_header("GPU"))
-        .push(metric_row_bar(
+    let mut col = widget::column().spacing(8).push(card_header("GPU"));
+
+    if gpu.usage_percent >= 0.0 {
+        col = col.push(metric_row_bar(
             "Usage",
             &format!("{:.1}%", gpu.usage_percent),
             gpu.usage_percent / 100.0,
             usage_color(gpu.usage_percent),
-        ))
-        .push(metric_row_text(
+        ));
+    }
+
+    if gpu.temp_celsius >= 0.0 {
+        col = col.push(metric_row_text(
             "Temperature",
             &format!("{:.0}°C", gpu.temp_celsius),
             temp_color(gpu.temp_celsius),
-        ))
-        .push(metric_row_text(
+        ));
+    }
+
+    if gpu.freq_m_hz >= 0.0 {
+        col = col.push(metric_row_text(
             "Core Freq",
             &format_freq(gpu.freq_m_hz),
             Color::WHITE,
         ));
+    }
 
     if gpu.mem_freq_m_hz > 0.0 {
         col = col.push(metric_row_text(
@@ -182,6 +207,7 @@ fn memory_card(mem: &MemoryMetrics) -> Element<'static, Message> {
         } else {
             0.0
         };
+        col = col.push(divider());
         col = col.push(metric_row_bar(
             "Swap",
             &format!("{:.1} / {:.1} GB", swap_used, swap_total),
@@ -207,36 +233,55 @@ fn system_card(
     }
 
     let mut col = widget::column().spacing(8).push(card_header("System"));
+    let mut has_prev_section = false;
 
-    if let Some(power) = power {
+    if let Some(power) = power
+        && power.power_watts > 0.0
+    {
+        col = col.push(metric_row_text(
+            "Power Draw",
+            &format!("{:.1} W", power.power_watts),
+            Color::WHITE,
+        ));
         if power.tdp_watts > 0.0 {
             let ratio = power.power_watts / power.tdp_watts;
-            col = col.push(metric_row_bar(
-                "Power",
-                &format!("{:.1} / {:.1} W", power.power_watts, power.tdp_watts),
-                ratio,
-                usage_color(ratio * 100.0),
-            ));
-        } else if power.power_watts > 0.0 {
+            col = col.push(
+                widget::progress_bar(0.0..=1.0, (ratio as f32).clamp(0.0, 1.0))
+                    .height(6)
+                    .class(theme::colored_progress_bar(usage_color(ratio * 100.0))),
+            );
             col = col.push(metric_row_text(
-                "Power",
-                &format!("{:.1} W", power.power_watts),
+                "TDP Limit",
+                &format!("{:.1} W", power.tdp_watts),
                 Color::WHITE,
             ));
         }
+        has_prev_section = true;
     }
 
     if let Some(bat) = battery {
+        if has_prev_section {
+            col = col.push(divider());
+        }
         let cap = bat.capacity as f64;
-        col = col.push(metric_row_bar(
+        col = col.push(metric_row_text(
             "Battery",
-            &format!("{}% ({})", bat.capacity, bat.status),
-            cap / 100.0,
-            battery_color(cap),
+            &format!("{}%", bat.capacity),
+            Color::WHITE,
         ));
+        col = col.push(
+            widget::progress_bar(0.0..=1.0, (cap as f32 / 100.0).clamp(0.0, 1.0))
+                .height(6)
+                .class(theme::colored_progress_bar(usage_color(100.0 - cap))),
+        );
+        col = col.push(metric_row_text("Status", &bat.status, Color::WHITE));
+        has_prev_section = true;
     }
 
     if let Some(fan) = fan {
+        if has_prev_section {
+            col = col.push(divider());
+        }
         col = col.push(metric_row_text(
             "Fan",
             &format!("{} RPM", fan.rpm),
@@ -314,6 +359,20 @@ fn metric_row_text(
         .into()
 }
 
+/// Horizontal divider line between card sections.
+fn divider() -> Element<'static, Message> {
+    use cosmic::iced::Background;
+    container(widget::vertical_space().height(1))
+        .width(Length::Fill)
+        .class(cosmic::theme::Container::Custom(Box::new(
+            |_theme: &cosmic::Theme| cosmic::iced::widget::container::Style {
+                background: Some(Background::Color(Color::from_rgba(0.278, 0.333, 0.412, 0.5))),
+                ..Default::default()
+            },
+        )))
+        .into()
+}
+
 /// Wraps content in a card container with `canvas_bg` styling.
 fn card_container(content: Element<'static, Message>) -> Element<'static, Message> {
     container(content)
@@ -359,12 +418,3 @@ fn temp_color(celsius: f64) -> Color {
     }
 }
 
-fn battery_color(percent: f64) -> Color {
-    if percent > 50.0 {
-        GREEN
-    } else if percent > 20.0 {
-        YELLOW
-    } else {
-        RED
-    }
-}
