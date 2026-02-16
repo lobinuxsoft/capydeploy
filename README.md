@@ -6,8 +6,8 @@
   **Deploy games to your handheld devices with the chill energy of a capybara.**
 
   [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-  [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://go.dev/)
-  [![Wails](https://img.shields.io/badge/Wails-v2-red)](https://wails.io/)
+  [![Rust](https://img.shields.io/badge/Rust-stable-DEA584?logo=rust)](https://www.rust-lang.org/)
+  [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri)](https://tauri.app/)
 </div>
 
 ## Overview
@@ -75,24 +75,23 @@ See the [Installation Guide](https://lobinuxsoft.github.io/capydeploy/install) f
 ## Building from Source (for contributors)
 
 ### Requirements
-- Go 1.24+
+- Rust (stable): https://rustup.rs
 - Bun: https://bun.sh
-- Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 
 ### Platform Dependencies
 
 | Platform | Dependencies |
 |----------|--------------|
-| Fedora/Bazzite | `rpm-ostree install webkit2gtk4.0-devel gtk3-devel` |
-| Ubuntu/Debian | `apt install libwebkit2gtk-4.0-dev libgtk-3-dev` |
-| Arch | `pacman -S webkit2gtk gtk3` |
+| Fedora/Bazzite | `rpm-ostree install webkit2gtk4.1-devel gtk3-devel` |
+| Ubuntu/Debian | `apt install libwebkit2gtk-4.1-dev libgtk-3-dev` |
+| Arch | `pacman -S webkit2gtk-4.1 gtk3` |
 | Windows | WebView2 (pre-installed on Win10/11) |
 
 ### Build
 
 ```bash
-# Clone (includes Decky plugin submodule)
-git clone --recurse-submodules https://github.com/lobinuxsoft/capydeploy
+# Clone
+git clone https://github.com/lobinuxsoft/capydeploy
 cd capydeploy
 
 # Build everything at once
@@ -104,9 +103,9 @@ build_all.bat               # Windows
 ./build_all.sh --parallel   # Build components in parallel
 
 # Or build individually
-cd apps/hub && ./build.sh                # Hub (your PC)
-cd apps/agents/desktop && ./build.sh     # Agent (handheld - desktop mode)
-cd apps/agents/decky && ./build.sh       # Decky Plugin (handheld - gaming mode)
+cd apps/hub-tauri && ./build.sh           # Hub (your PC)
+cd apps/agents/agent-tauri && ./build.sh  # Agent (handheld - desktop mode)
+cd apps/agents/decky && ./build.sh        # Decky Plugin (handheld - gaming mode)
 ```
 
 ### Decky Plugin
@@ -119,7 +118,7 @@ cd apps/agents/decky && ./build.sh
 # Install via Decky Settings > Install from ZIP
 ```
 
-| Feature | Agent (Wails) | Decky Plugin |
+| Feature | Agent (Tauri) | Decky Plugin |
 |---------|---------------|--------------|
 | Shortcuts | `shortcuts.vdf` (restart Steam) | `SteamClient.Apps.AddShortcut()` (instant) |
 | Artwork | File copy to `grid/` | `SteamClient.Apps.SetCustomArtworkForApp()` |
@@ -135,10 +134,10 @@ For easy distribution on Linux, AppImage packaging is integrated into each app's
 
 ```bash
 # Build Hub with AppImage
-cd apps/hub && ./build.sh
+cd apps/hub-tauri && ./build.sh
 
 # Build Agent with AppImage
-cd apps/agents/desktop && ./build.sh
+cd apps/agents/agent-tauri && ./build.sh
 ```
 
 Output: `dist/` directory with `CapyDeploy_Hub.AppImage` and `CapyDeploy_Agent.AppImage`
@@ -271,7 +270,7 @@ All communication happens over WebSocket at `ws://agent:<port>/ws`
 
 CapyDeploy uses [SemVer](https://semver.org/) with a single `VERSION` file at the repository root as the source of truth. Version injection is automated:
 
-- **Go apps** (Hub, Agent): Version injected via `-ldflags` at build time
+- **Rust apps** (Hub, Agent): Version read from `Cargo.toml` workspace, synced with `VERSION`
 - **Decky plugin**: `plugin.json` updated by `build.sh` from `VERSION`
 - **Releases**: Managed by [release-please](https://github.com/googleapis/release-please), triggered by [Conventional Commits](https://www.conventionalcommits.org/)
 
@@ -279,48 +278,42 @@ CapyDeploy uses [SemVer](https://semver.org/) with a single `VERSION` file at th
 
 ```
 capydeploy/
-├── VERSION                     # Single source of truth for version
+├── Cargo.toml                  # Workspace root
+├── VERSION                     # Single source of truth for version (release-please)
 ├── apps/
-│   ├── hub/                    # Hub application (PC)
-│   │   ├── app.go              # Wails bindings (main)
-│   │   ├── app_connection.go   # Connection management
-│   │   ├── app_discovery.go    # mDNS discovery
-│   │   ├── app_games.go        # Game management
-│   │   ├── app_upload.go       # Upload logic
-│   │   ├── app_settings.go     # Settings management
-│   │   ├── app_steamgriddb.go  # SteamGridDB integration
-│   │   ├── auth/               # Hub-side auth (AuthorizedHub)
-│   │   ├── wsclient/           # WebSocket client
-│   │   ├── modules/            # Platform modules
+│   ├── hub-tauri/              # Hub application (Tauri + Svelte)
+│   │   ├── src-tauri/          # Rust backend (commands, state, events)
 │   │   └── frontend/           # Svelte 5 UI
 │   └── agents/
-│       ├── desktop/            # Agent (Handheld - desktop mode)
-│       │   ├── app.go          # Wails bindings
-│       │   ├── server/         # HTTP + WebSocket server
-│       │   ├── shortcuts/      # Steam shortcut manager
-│       │   ├── artwork/        # Artwork handler
-│       │   ├── steam/          # Steam controller + CEF/CDP client
-│       │   ├── telemetry/      # Hardware telemetry collector (sysfs/procfs)
-│       │   ├── consolelog/     # Console log collector + streaming
-│       │   ├── auth/           # Pairing & token auth
+│       ├── agent-tauri/        # Agent (Tauri + Svelte)
+│       │   ├── src-tauri/      # Rust backend (server, pairing, uploads)
 │       │   └── frontend/       # Svelte 5 UI
 │       └── decky/              # Decky Loader plugin (git submodule)
 │           ├── main.py         # Python backend (WS server, pairing, uploads)
 │           ├── telemetry.py    # Hardware telemetry (sysfs/procfs)
 │           ├── console_log.py  # Console log collector
 │           ├── game_log.py     # Game log file tailer
-│           ├── bin/            # Game wrapper script
 │           ├── src/            # React/TypeScript frontend
-│           ├── plugin.json     # Decky plugin manifest
 │           └── build.sh        # Build + bundle script
-├── pkg/
+├── crates/                     # Shared Rust crates
 │   ├── protocol/               # WebSocket protocol types
 │   ├── discovery/              # mDNS discovery
-│   ├── steam/                  # Steam paths/users
+│   ├── steam/                  # Steam paths/users/controller
 │   ├── steamgriddb/            # SteamGridDB API client
-│   ├── config/                 # Configuration management
-│   ├── version/                # Version info (LDFLAGS target)
-│   └── transfer/               # Chunked file transfer
+│   ├── transfer/               # Chunked file transfer
+│   ├── telemetry/              # Hardware telemetry collector
+│   ├── console-log/            # Console log collector
+│   ├── game-log/               # Game log wrapper
+│   ├── file-ops/               # File operations
+│   ├── tray/                   # System tray
+│   ├── agent-server/           # Agent WebSocket server
+│   ├── hub-connection/         # Hub WebSocket client
+│   ├── hub-deploy/             # Hub deploy logic
+│   ├── hub-games/              # Hub game management
+│   ├── hub-telemetry/          # Hub telemetry state
+│   ├── hub-console-log/        # Hub console log state
+│   └── hub-settings/           # Hub configuration
+├── tests/wire_compat/          # Wire compatibility tests
 └── docs/                       # Documentation website (GitHub Pages)
 ```
 
@@ -372,7 +365,7 @@ If you find CapyDeploy useful, consider supporting development:
 
 ## Credits
 
-- Built with [Wails](https://wails.io/) + [Svelte 5](https://svelte.dev/)
+- Built with [Tauri](https://tauri.app/) + [Svelte 5](https://svelte.dev/)
 - Decky plugin with [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) + React
 - Steam shortcut management via native CEF API integration
 - Artwork from [SteamGridDB](https://www.steamgriddb.com/)

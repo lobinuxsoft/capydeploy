@@ -8,13 +8,6 @@ dist/
 *.dll
 *.so
 *.dylib
-capydeploy-hub
-capydeploy-agent
-
-# Deprecated Go apps
-deprecated/**/node_modules/
-deprecated/**/dist/
-deprecated/**/.svelte-kit/
 
 # Docs
 docs/node_modules/
@@ -36,7 +29,7 @@ ehthumbs.db
 # Logs
 *.log
 
-# Wails temp files
+# Build checksum caches
 *.md5
 
 # Rust
