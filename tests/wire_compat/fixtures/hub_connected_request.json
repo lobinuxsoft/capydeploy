@@ -1,0 +1,7 @@
+{
+  "name": "CapyDeploy Hub",
+  "version": "0.6.0",
+  "platform": "windows",
+  "hubId": "hub-123",
+  "token": "auth-token-abc"
+}

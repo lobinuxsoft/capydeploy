@@ -1,0 +1,48 @@
+[package]
+name = "capydeploy-hub-tauri"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CapyDeploy Hub — Tauri v2 desktop app"
+
+[lib]
+name = "capydeploy_hub_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "capydeploy-hub-tauri"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+# Tauri
+tauri = { workspace = true }
+tauri-plugin-shell = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+
+# Workspace crates
+capydeploy-protocol = { workspace = true }
+capydeploy-discovery = { workspace = true }
+capydeploy-hub-connection = { workspace = true }
+capydeploy-hub-deploy = { workspace = true }
+capydeploy-hub-games = { workspace = true }
+capydeploy-hub-telemetry = { workspace = true }
+capydeploy-hub-console-log = { workspace = true }
+capydeploy-hub-settings = { workspace = true }
+capydeploy-steamgriddb = { workspace = true }
+
+# Core
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+hostname = { workspace = true }
+sha2 = { workspace = true }
+anyhow = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+base64 = { workspace = true }
+open = "5"

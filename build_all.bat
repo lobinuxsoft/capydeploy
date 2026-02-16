@@ -11,9 +11,6 @@ set "ROOT_DIR=%~dp0"
 set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 set "DIST_DIR=%ROOT_DIR%\dist"
 
-:: Initialize submodules (decky plugin)
-git submodule update --init --recursive
-
 :: Parse arguments
 set SKIP_DEPS=0
 
@@ -37,8 +34,8 @@ echo   --skip-deps       Skip frontend dependency installation
 echo   --help, -h        Show this help message
 echo.
 echo Builds:
-echo   - Hub (Wails + Go)
-echo   - Desktop Agent (Wails + Go)
+echo   - Hub (Tauri + Rust)
+echo   - Desktop Agent (Tauri + Rust)
 echo   - Decky Plugin (TypeScript frontend only)
 echo.
 echo Output: dist\
@@ -48,194 +45,142 @@ exit /b 0
 
 :: Track results
 set HUB_RESULT=failed
-set DESKTOP_RESULT=failed
+set AGENT_RESULT=failed
 set DECKY_RESULT=failed
 
 :: ============================================
-:: Check required tools
+:: [1/5] Check required tools
 :: ============================================
 
 echo [1/5] Checking required tools...
 echo.
 
-where go >nul 2>nul
+where cargo >nul 2>nul
 if %errorlevel% neq 0 (
-    echo   [ERROR] Go not found. Install from https://go.dev/dl/
+    echo   [ERROR] cargo not found. Install Rust from https://rustup.rs/
     exit /b 1
 )
-for /f "tokens=3" %%v in ('go version') do set "GO_VER=%%v"
-echo   Go: %GO_VER%
+for /f "tokens=2" %%v in ('cargo --version') do set "CARGO_VER=%%v"
+echo   cargo: %CARGO_VER%
 
 where bun >nul 2>nul
 if %errorlevel% neq 0 (
-    echo   [ERROR] Bun not found. Install from https://bun.sh
+    echo   [ERROR] bun not found. Install from https://bun.sh
     exit /b 1
 )
 for /f %%v in ('bun --version 2^>nul') do set "BUN_VER=%%v"
-echo   Bun: %BUN_VER%
-
-where wails >nul 2>nul
-if %errorlevel% neq 0 (
-    echo   [WARN] Wails CLI not found. Installing...
-    go install github.com/wailsapp/wails/v2/cmd/wails@latest
-    where wails >nul 2>nul
-    if !errorlevel! neq 0 (
-        echo   [ERROR] Wails install failed. Add %%GOPATH%%\bin to PATH.
-        exit /b 1
-    )
-)
-echo   Wails: OK
+echo   bun: %BUN_VER%
 
 echo.
 echo   All tools OK!
 echo.
 
 :: ============================================
-:: Version info
+:: [2/5] Init submodules
 :: ============================================
 
-echo [2/5] Collecting version info...
+echo [2/5] Initializing submodules...
+git submodule update --init --recursive
+echo   Done.
 echo.
-
-set "BASE_VERSION=0.1.0"
-
-for /f %%h in ('git rev-parse --short HEAD 2^>nul') do set "COMMIT=%%h"
-if not defined COMMIT set "COMMIT=unknown"
-
-for /f "tokens=*" %%d in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ' -AsUTC"') do set "BUILD_DATE=%%d"
-
-set "VERSION=%BASE_VERSION%-dev+%COMMIT%"
-for /f %%t in ('git describe --tags --exact-match 2^>nul') do (
-    set "EXACT_TAG=%%t"
-    :: Strip 'v' prefix for release version
-    set "VERSION=!EXACT_TAG:~1!"
-)
-
-echo   Version:    %VERSION%
-echo   Commit:     %COMMIT%
-echo   Build Date: %BUILD_DATE%
-echo.
-
-set "LDFLAGS=-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=%VERSION% -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=%COMMIT% -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=%BUILD_DATE%"
 
 :: ============================================
-:: Build Hub
+:: [3/5] Build frontends
 :: ============================================
 
-echo [3/5] Building Hub...
+echo [3/5] Building frontends...
 echo.
 
+:: Hub frontend
+echo   [Hub] Installing dependencies ^& building...
+pushd "%ROOT_DIR%\apps\hub-tauri\frontend"
 if %SKIP_DEPS%==0 (
-    echo   Installing frontend dependencies...
-    pushd "%ROOT_DIR%\apps\hub\frontend"
     call bun install
     if !errorlevel! neq 0 (
         echo   [ERROR] Failed to install Hub frontend deps
         popd
-        goto :build_desktop
+        goto :build_rust
     )
-    popd
 )
-
-:: Generate icons
-where python >nul 2>nul
-if %errorlevel%==0 (
-    echo   Generating icons...
-    pushd "%ROOT_DIR%\apps\hub"
-    python "..\..\scripts\generate-icons.py" 2>nul
-    popd
-) else (
-    echo   [WARN] Python not found, skipping icon generation
-)
-
-:: Build Hub with Wails
-echo   Building Hub (Wails)...
-pushd "%ROOT_DIR%\apps\hub"
-wails build -clean -ldflags "%LDFLAGS%"
+call bun run build
 if !errorlevel! neq 0 (
-    echo   [ERROR] Hub build failed
+    echo   [ERROR] Hub frontend build failed
     popd
-    goto :build_desktop
+    goto :build_rust
 )
 popd
+echo   [Hub] Frontend ready
 
-if not exist "%DIST_DIR%\windows" mkdir "%DIST_DIR%\windows"
-copy /y "%ROOT_DIR%\apps\hub\build\bin\capydeploy-hub.exe" "%DIST_DIR%\windows\" >nul
-echo   Hub: OK
-set HUB_RESULT=success
-echo.
-
-:: ============================================
-:: Build Desktop Agent
-:: ============================================
-
-:build_desktop
-echo [4/5] Building Desktop Agent...
-echo.
-
+:: Agent frontend
+echo   [Agent] Installing dependencies ^& building...
+pushd "%ROOT_DIR%\apps\agents\agent-tauri\frontend"
 if %SKIP_DEPS%==0 (
-    echo   Installing frontend dependencies...
-    pushd "%ROOT_DIR%\apps\agents\desktop\frontend"
     call bun install
     if !errorlevel! neq 0 (
         echo   [ERROR] Failed to install Agent frontend deps
         popd
-        goto :build_decky
+        goto :build_rust
     )
-    popd
 )
-
-:: Generate icons
-where python >nul 2>nul
-if %errorlevel%==0 (
-    echo   Generating icons...
-    pushd "%ROOT_DIR%\apps\agents\desktop"
-    python "..\..\scripts\generate-icons.py" 2>nul
-    popd
-) else (
-    echo   [WARN] Python not found, skipping icon generation
-)
-
-:: Build Agent with Wails
-echo   Building Desktop Agent (Wails)...
-pushd "%ROOT_DIR%\apps\agents\desktop"
-wails build -clean -ldflags "%LDFLAGS%"
+call bun run build
 if !errorlevel! neq 0 (
-    echo   [ERROR] Desktop Agent build failed
+    echo   [ERROR] Agent frontend build failed
+    popd
+    goto :build_rust
+)
+popd
+echo   [Agent] Frontend ready
+echo.
+
+:: ============================================
+:: [4/5] Build Windows binaries (cargo)
+:: ============================================
+
+:build_rust
+echo [4/5] Building Windows binaries (cargo release)...
+echo.
+
+pushd "%ROOT_DIR%"
+cargo build --release -p capydeploy-hub-tauri -p capydeploy-agent-tauri
+if !errorlevel! neq 0 (
+    echo   [ERROR] Cargo build failed
     popd
     goto :build_decky
 )
 popd
 
 if not exist "%DIST_DIR%\windows" mkdir "%DIST_DIR%\windows"
-copy /y "%ROOT_DIR%\apps\agents\desktop\build\bin\capydeploy-agent.exe" "%DIST_DIR%\windows\" >nul
-echo   Desktop Agent: OK
-set DESKTOP_RESULT=success
+copy /y "%ROOT_DIR%\target\release\capydeploy-hub-tauri.exe" "%DIST_DIR%\windows\" >nul
+copy /y "%ROOT_DIR%\target\release\capydeploy-agent-tauri.exe" "%DIST_DIR%\windows\" >nul
+set HUB_RESULT=success
+set AGENT_RESULT=success
+echo   Windows binaries ready
 echo.
 
 :: ============================================
-:: Build Decky Plugin (frontend only)
+:: [5/5] Build Decky plugin (frontend only)
 :: ============================================
 
 :build_decky
-echo [5/5] Building Decky Plugin (frontend)...
+echo [5/5] Building Decky plugin (frontend only)...
 echo.
 
+where npm >nul 2>nul
+if %errorlevel% neq 0 (
+    echo   [WARN] npm not found, skipping Decky frontend build
+    goto :summary
+)
+
+pushd "%ROOT_DIR%\apps\agents\decky"
 if %SKIP_DEPS%==0 (
-    echo   Installing dependencies...
-    pushd "%ROOT_DIR%\apps\agents\decky"
-    call bun install
+    call npm install
     if !errorlevel! neq 0 (
         echo   [ERROR] Failed to install Decky deps
         popd
         goto :summary
     )
-    popd
 )
-
-echo   Building frontend...
-pushd "%ROOT_DIR%\apps\agents\decky"
-call bun run build
+call npm run build
 if !errorlevel! neq 0 (
     echo   [ERROR] Decky frontend build failed
     popd
@@ -243,7 +188,7 @@ if !errorlevel! neq 0 (
 )
 popd
 
-echo   Decky Plugin: OK (full package requires Linux/Deck)
+echo   Decky: OK (full package requires Linux)
 set DECKY_RESULT=success
 echo.
 
@@ -262,27 +207,27 @@ echo.
 
 echo Windows:
 if "%HUB_RESULT%"=="success" (
-    if exist "%DIST_DIR%\windows\capydeploy-hub.exe" (
-        for %%F in ("%DIST_DIR%\windows\capydeploy-hub.exe") do set /a "SIZE_MB=%%~zF / 1048576"
+    if exist "%DIST_DIR%\windows\capydeploy-hub-tauri.exe" (
+        for %%F in ("%DIST_DIR%\windows\capydeploy-hub-tauri.exe") do set /a "SIZE_MB=%%~zF / 1048576"
         echo   [OK] Hub: !SIZE_MB! MB
     )
 ) else (
     echo   [FAIL] Hub
 )
 
-if "%DESKTOP_RESULT%"=="success" (
-    if exist "%DIST_DIR%\windows\capydeploy-agent.exe" (
-        for %%F in ("%DIST_DIR%\windows\capydeploy-agent.exe") do set /a "SIZE_MB=%%~zF / 1048576"
-        echo   [OK] Desktop Agent: !SIZE_MB! MB
+if "%AGENT_RESULT%"=="success" (
+    if exist "%DIST_DIR%\windows\capydeploy-agent-tauri.exe" (
+        for %%F in ("%DIST_DIR%\windows\capydeploy-agent-tauri.exe") do set /a "SIZE_MB=%%~zF / 1048576"
+        echo   [OK] Agent: !SIZE_MB! MB
     )
 ) else (
-    echo   [FAIL] Desktop Agent
+    echo   [FAIL] Agent
 )
 
 echo.
 echo Decky:
 if "%DECKY_RESULT%"=="success" (
-    echo   [OK] Frontend built (full ZIP requires Linux/Deck)
+    echo   [OK] Frontend built (full ZIP requires Linux)
 ) else (
     echo   [FAIL] Plugin
 )

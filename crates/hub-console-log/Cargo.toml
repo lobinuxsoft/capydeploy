@@ -1,0 +1,11 @@
+[package]
+name = "capydeploy-hub-console-log"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hub console log state: per-agent log buffering, dropped tracking, query API"
+
+[dependencies]
+capydeploy-protocol = { workspace = true }
+capydeploy-hub-telemetry = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "capydeploy-game-log"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Game log wrapper: inject launch options, tail log files, stream to Hub"
+
+[dependencies]
+capydeploy-protocol = { workspace = true }
+capydeploy-steam = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+notify = "8"
+notify-debouncer-mini = "0.6"
+
+[dev-dependencies]
+tempfile = "3"
