@@ -210,33 +210,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capydeploy-agent"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capydeploy-agent-server",
- "capydeploy-console-log",
- "capydeploy-discovery",
- "capydeploy-file-ops",
- "capydeploy-game-log",
- "capydeploy-protocol",
- "capydeploy-steam",
- "capydeploy-telemetry",
- "capydeploy-transfer",
- "capydeploy-tray",
- "hostname",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tokio-util",
- "toml 0.8.2",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "capydeploy-agent-server"
 version = "0.1.0"
 dependencies = [

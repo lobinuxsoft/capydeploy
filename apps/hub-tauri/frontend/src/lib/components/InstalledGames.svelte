@@ -76,10 +76,10 @@
 			await UpdateGameArtwork(
 				editingGame.appId || 0,
 				selection.gridPortrait,
-				selection.gridLandscape,
 				selection.heroImage,
 				selection.logoImage,
-				selection.iconImage
+				selection.iconImage,
+				selection.gridDBGameID
 			);
 			toast.success('Artwork updated', editingGame.name);
 			statusMessage = `Artwork updated for ${editingGame.name}`;

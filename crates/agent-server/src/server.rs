@@ -192,11 +192,9 @@ impl<H: Handler> AgentServer<H> {
         // Store the connection.
         let mut lock = self.hub_conn.lock().await;
         // Double-check: another task may have connected between our check and now.
-        if let Some(existing) = lock.as_ref() {
-            if existing.sender().is_connected() {
-                conn.close();
-                return Err(ServerError::HubAlreadyConnected);
-            }
+        if lock.as_ref().is_some_and(|c| c.sender().is_connected()) {
+            conn.close();
+            return Err(ServerError::HubAlreadyConnected);
         }
         *lock = Some(conn);
 

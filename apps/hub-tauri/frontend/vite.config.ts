@@ -2,7 +2,6 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
-// @ts-expect-error process is not defined in the browser
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
