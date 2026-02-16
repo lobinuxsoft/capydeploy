@@ -6,8 +6,8 @@
 use std::path::Path;
 
 use capydeploy_protocol::types::ArtworkConfig;
-use capydeploy_steamgriddb::types::{ImageData, ImageFilters, SearchResult};
 use capydeploy_steamgriddb::Client as SteamGridDbClient;
+use capydeploy_steamgriddb::types::{ImageData, ImageFilters, SearchResult};
 
 use crate::error::DeployError;
 use crate::types::{ArtworkAssignment, ArtworkSource, GameSetup, LocalArtwork};

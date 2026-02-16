@@ -5,10 +5,7 @@ use crate::types::ArtworkFileResultDto;
 #[tauri::command]
 pub async fn select_folder(app: tauri::AppHandle) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
-    let path = app
-        .dialog()
-        .file()
-        .blocking_pick_folder();
+    let path = app.dialog().file().blocking_pick_folder();
 
     match path {
         Some(p) => Ok(p.to_string()),

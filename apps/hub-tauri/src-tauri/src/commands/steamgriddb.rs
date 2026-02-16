@@ -91,7 +91,10 @@ pub async fn get_artwork_preview(
     url: String,
 ) -> Result<String, String> {
     let client = get_client(&state).await?;
-    let data = client.download_image(&url).await.map_err(|e| e.to_string())?;
+    let data = client
+        .download_image(&url)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Detect content type from URL extension.
     let content_type = if url.ends_with(".png") {

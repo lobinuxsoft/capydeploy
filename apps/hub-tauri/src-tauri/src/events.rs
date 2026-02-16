@@ -7,14 +7,13 @@ use tauri::{AppHandle, Emitter, Manager};
 use tracing::{debug, warn};
 
 use capydeploy_hub_connection::{ConnectionEvent, ConnectionManager, ConnectionState};
-use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::console_log::ConsoleLogBatch;
+use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::telemetry::TelemetryStatusEvent;
 
 use crate::state::HubState;
 use crate::types::{
-    ConnectionStatusDto, DiscoveredAgentDto, PairingRequiredDto, ReconnectingDto,
-    UploadProgressDto,
+    ConnectionStatusDto, DiscoveredAgentDto, PairingRequiredDto, ReconnectingDto, UploadProgressDto,
 };
 
 /// Main event loop that bridges Rust events to the Tauri frontend.
@@ -72,16 +71,8 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                         // Clean up hub state when an agent fully disconnects.
                         if matches!(state, ConnectionState::Disconnected) {
                             let hub_state = handle.state::<HubState>();
-                            hub_state
-                                .telemetry_hub
-                                .lock()
-                                .await
-                                .remove_agent(&agent_id);
-                            hub_state
-                                .console_hub
-                                .lock()
-                                .await
-                                .remove_agent(&agent_id);
+                            hub_state.telemetry_hub.lock().await.remove_agent(&agent_id);
+                            hub_state.console_hub.lock().await.remove_agent(&agent_id);
                         }
 
                         let mut dto = ConnectionStatusDto::disconnected();
@@ -127,10 +118,8 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
 
                 match msg_type {
                     MessageType::TelemetryData => {
-                        if let Some(data) = message
-                            .parse_payload::<serde_json::Value>()
-                            .ok()
-                            .flatten()
+                        if let Some(data) =
+                            message.parse_payload::<serde_json::Value>().ok().flatten()
                         {
                             state
                                 .telemetry_hub

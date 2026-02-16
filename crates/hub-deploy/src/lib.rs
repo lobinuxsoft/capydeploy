@@ -23,9 +23,8 @@ pub mod types;
 // Re-export primary types for convenience.
 pub use agent::AgentConnection;
 pub use artwork_selector::{
-    ArtworkSelector, build_artwork_assignment, build_remote_artwork_config,
-    build_shortcut_config, classify_artwork_source, collect_local_artwork,
-    detect_content_type, parse_tags,
+    ArtworkSelector, build_artwork_assignment, build_remote_artwork_config, build_shortcut_config,
+    classify_artwork_source, collect_local_artwork, detect_content_type, parse_tags,
 };
 pub use deploy::DeployOrchestrator;
 pub use error::DeployError;

@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use tracing_subscriber::EnvFilter;
 
-use capydeploy_hub_connection::pairing::TokenStore;
 use capydeploy_hub_connection::ConnectionManager;
+use capydeploy_hub_connection::pairing::TokenStore;
 use capydeploy_hub_telemetry::TelemetryHub;
 
 use config::HubConfig;

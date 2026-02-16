@@ -5,7 +5,6 @@ use tauri::{Emitter, State};
 use crate::state::AgentState;
 use crate::types::AuthorizedHubDto;
 
-
 #[tauri::command]
 pub async fn get_authorized_hubs(
     state: State<'_, Arc<AgentState>>,

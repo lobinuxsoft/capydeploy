@@ -109,10 +109,7 @@ impl Handler for TauriAgentHandler {
                     self.accept_hub(&sender, &msg, &req).await;
                     return;
                 }
-                tracing::info!(
-                    "Hub {} provided invalid token, requiring pairing",
-                    req.name
-                );
+                tracing::info!("Hub {} provided invalid token, requiring pairing", req.name);
             }
 
             // Hub not authorized — require pairing
@@ -135,9 +132,7 @@ impl Handler for TauriAgentHandler {
                         code,
                         expires_in: 60,
                     };
-                    if let Ok(reply) =
-                        msg.reply(MessageType::PairingRequired, Some(&resp))
-                    {
+                    if let Ok(reply) = msg.reply(MessageType::PairingRequired, Some(&resp)) {
                         let _ = sender.send_msg(reply);
                     }
                 }
@@ -284,9 +279,7 @@ impl Handler for TauriAgentHandler {
                             last_login_at: 0,
                         })
                         .collect();
-                    let resp = messages::SteamUsersResponse {
-                        users: proto_users,
-                    };
+                    let resp = messages::SteamUsersResponse { users: proto_users };
                     if let Ok(reply) = msg.reply(MessageType::SteamUsersResponse, Some(&resp)) {
                         let _ = sender.send_msg(reply);
                     }
@@ -361,7 +354,8 @@ impl Handler for TauriAgentHandler {
                     return;
                 }
                 Err(e) => {
-                    let _ = sender.send_error(&msg, 500, &format!("failed to get Steam users: {e}"));
+                    let _ =
+                        sender.send_error(&msg, 500, &format!("failed to get Steam users: {e}"));
                     return;
                 }
             };
@@ -371,7 +365,11 @@ impl Handler for TauriAgentHandler {
             let sm = match capydeploy_steam::ShortcutManager::new() {
                 Ok(sm) => sm,
                 Err(e) => {
-                    let _ = sender.send_error(&msg, 500, &format!("failed to init ShortcutManager: {e}"));
+                    let _ = sender.send_error(
+                        &msg,
+                        500,
+                        &format!("failed to init ShortcutManager: {e}"),
+                    );
                     return;
                 }
             };
@@ -413,7 +411,14 @@ impl Handler for TauriAgentHandler {
             }
 
             // Remove shortcut via Steam CEF API (instant, no restart needed).
-            self.emit_operation(&sender, "delete", "progress", &game_name, 20.0, "Eliminando shortcut...");
+            self.emit_operation(
+                &sender,
+                "delete",
+                "progress",
+                &game_name,
+                20.0,
+                "Eliminando shortcut...",
+            );
             let cef_timeout = std::time::Duration::from_secs(15);
             let cef_result = tokio::time::timeout(cef_timeout, async {
                 let cef_client = capydeploy_steam::CefClient::new();
@@ -443,7 +448,14 @@ impl Handler for TauriAgentHandler {
             }
 
             // Delete game directory (best-effort with safety checks).
-            self.emit_operation(&sender, "delete", "progress", &game_name, 50.0, "Eliminando archivos...");
+            self.emit_operation(
+                &sender,
+                "delete",
+                "progress",
+                &game_name,
+                50.0,
+                "Eliminando archivos...",
+            );
             if !game_dir.is_empty() {
                 let expanded = expand_path(&game_dir);
                 if let Err(e) = delete_game_directory(&expanded) {
@@ -452,7 +464,14 @@ impl Handler for TauriAgentHandler {
             }
 
             // Delete artwork files from Steam grid folder (best-effort).
-            self.emit_operation(&sender, "delete", "progress", &game_name, 80.0, "Eliminando artwork...");
+            self.emit_operation(
+                &sender,
+                "delete",
+                "progress",
+                &game_name,
+                80.0,
+                "Eliminando artwork...",
+            );
             if let Err(e) = sm.delete_artwork(user_id, req.app_id) {
                 tracing::warn!("failed to delete artwork: {e}");
             }
@@ -465,7 +484,14 @@ impl Handler for TauriAgentHandler {
             );
 
             // Notify completion.
-            self.emit_operation(&sender, "delete", "complete", &game_name, 100.0, "Eliminado");
+            self.emit_operation(
+                &sender,
+                "delete",
+                "complete",
+                &game_name,
+                100.0,
+                "Eliminado",
+            );
 
             // Refresh shortcuts list in the local agent UI.
             let _ = self.app_handle.emit("shortcuts:changed", &());
@@ -533,7 +559,11 @@ impl Handler for TauriAgentHandler {
                 active: true,
             };
 
-            self.state.uploads.lock().await.insert(upload_id.clone(), session);
+            self.state
+                .uploads
+                .lock()
+                .await
+                .insert(upload_id.clone(), session);
 
             tracing::info!(
                 "Upload session created: {} for game '{}' ({} bytes, {} files)",
@@ -581,7 +611,10 @@ impl Handler for TauriAgentHandler {
             let session = match uploads.get_mut(&header.upload_id) {
                 Some(s) if s.active => s,
                 _ => {
-                    tracing::warn!("binary chunk for unknown/inactive upload: {}", header.upload_id);
+                    tracing::warn!(
+                        "binary chunk for unknown/inactive upload: {}",
+                        header.upload_id
+                    );
                     return;
                 }
             };
@@ -635,7 +668,11 @@ impl Handler for TauriAgentHandler {
                 bytes_written: chunk_len,
                 total_written: transferred,
             };
-            if let Ok(reply) = Message::new(header.id.clone(), MessageType::UploadChunkResponse, Some(&resp)) {
+            if let Ok(reply) = Message::new(
+                header.id.clone(),
+                MessageType::UploadChunkResponse,
+                Some(&resp),
+            ) {
                 let _ = sender.send_msg(reply);
             }
         })
@@ -666,7 +703,11 @@ impl Handler for TauriAgentHandler {
             drop(config);
             let game_path = PathBuf::from(&base_path).join(&session.game_name);
 
-            tracing::info!("Upload completed: {} -> {}", req.upload_id, game_path.display());
+            tracing::info!(
+                "Upload completed: {} -> {}",
+                req.upload_id,
+                game_path.display()
+            );
 
             self.emit_operation(
                 &sender,
@@ -715,12 +756,15 @@ impl Handler for TauriAgentHandler {
                     let cef = capydeploy_steam::CefClient::new();
                     let cef_timeout = std::time::Duration::from_secs(15);
 
-                    match tokio::time::timeout(cef_timeout, cef.add_shortcut(
-                        &shortcut_cfg.name,
-                        &full_exe,
-                        &start_dir,
-                        &shortcut_cfg.launch_options,
-                    ))
+                    match tokio::time::timeout(
+                        cef_timeout,
+                        cef.add_shortcut(
+                            &shortcut_cfg.name,
+                            &full_exe,
+                            &start_dir,
+                            &shortcut_cfg.launch_options,
+                        ),
+                    )
                     .await
                     {
                         Ok(Ok(app_id)) => {
@@ -766,17 +810,13 @@ impl Handler for TauriAgentHandler {
                         Ok(Err(e)) => {
                             tracing::error!("CEF AddShortcut failed: {e}");
                             // Fallback: use calculated app_id for artwork.
-                            resp.app_id = capydeploy_steam::generate_app_id(
-                                &full_exe,
-                                &shortcut_cfg.name,
-                            );
+                            resp.app_id =
+                                capydeploy_steam::generate_app_id(&full_exe, &shortcut_cfg.name);
                         }
                         Err(_) => {
                             tracing::error!("CEF AddShortcut timed out (15s)");
-                            resp.app_id = capydeploy_steam::generate_app_id(
-                                &full_exe,
-                                &shortcut_cfg.name,
-                            );
+                            resp.app_id =
+                                capydeploy_steam::generate_app_id(&full_exe, &shortcut_cfg.name);
                         }
                     }
 
@@ -816,10 +856,17 @@ impl Handler for TauriAgentHandler {
 
                 // Clean up partial files
                 if let Err(e) = std::fs::remove_dir_all(&game_path) {
-                    tracing::warn!("failed to clean up partial upload at {}: {e}", game_path.display());
+                    tracing::warn!(
+                        "failed to clean up partial upload at {}: {e}",
+                        game_path.display()
+                    );
                 }
 
-                tracing::info!("Upload cancelled: {} (cleaned {})", req.upload_id, game_path.display());
+                tracing::info!(
+                    "Upload cancelled: {} (cleaned {})",
+                    req.upload_id,
+                    game_path.display()
+                );
             }
             drop(uploads);
 
@@ -857,11 +904,15 @@ impl Handler for TauriAgentHandler {
 
             if header.app_id == 0 {
                 // Store for later — applied during complete_upload with real AppID
-                self.state.pending_artwork.lock().await.push(PendingArtwork {
-                    artwork_type: header.artwork_type.clone(),
-                    content_type: header.content_type.clone(),
-                    data,
-                });
+                self.state
+                    .pending_artwork
+                    .lock()
+                    .await
+                    .push(PendingArtwork {
+                        artwork_type: header.artwork_type.clone(),
+                        content_type: header.content_type.clone(),
+                        data,
+                    });
                 tracing::info!("Stored pending artwork: type={}", header.artwork_type);
 
                 let resp = messages::ArtworkImageResponse {
@@ -869,7 +920,11 @@ impl Handler for TauriAgentHandler {
                     artwork_type: header.artwork_type,
                     error: String::new(),
                 };
-                if let Ok(reply) = Message::new(header.id.clone(), MessageType::ArtworkImageResponse, Some(&resp)) {
+                if let Ok(reply) = Message::new(
+                    header.id.clone(),
+                    MessageType::ArtworkImageResponse,
+                    Some(&resp),
+                ) {
                     let _ = sender.send_msg(reply);
                 }
                 return;
@@ -884,7 +939,11 @@ impl Handler for TauriAgentHandler {
                         artwork_type: header.artwork_type,
                         error: "unknown artwork type".into(),
                     };
-                    if let Ok(reply) = Message::new(header.id.clone(), MessageType::ArtworkImageResponse, Some(&resp)) {
+                    if let Ok(reply) = Message::new(
+                        header.id.clone(),
+                        MessageType::ArtworkImageResponse,
+                        Some(&resp),
+                    ) {
                         let _ = sender.send_msg(reply);
                     }
                     return;
@@ -895,7 +954,9 @@ impl Handler for TauriAgentHandler {
 
             let result = (|| -> Result<(), String> {
                 let users = capydeploy_steam::get_users().map_err(|e| e.to_string())?;
-                let user = users.first().ok_or_else(|| "no Steam users found".to_string())?;
+                let user = users
+                    .first()
+                    .ok_or_else(|| "no Steam users found".to_string())?;
                 let sm = capydeploy_steam::ShortcutManager::new().map_err(|e| e.to_string())?;
                 sm.save_artwork(&user.id, header.app_id, art_type, &data, ext)
                     .map_err(|e| e.to_string())
@@ -908,7 +969,11 @@ impl Handler for TauriAgentHandler {
                         artwork_type: header.artwork_type,
                         error: String::new(),
                     };
-                    if let Ok(reply) = Message::new(header.id.clone(), MessageType::ArtworkImageResponse, Some(&resp)) {
+                    if let Ok(reply) = Message::new(
+                        header.id.clone(),
+                        MessageType::ArtworkImageResponse,
+                        Some(&resp),
+                    ) {
                         let _ = sender.send_msg(reply);
                     }
                 }
@@ -919,7 +984,11 @@ impl Handler for TauriAgentHandler {
                         artwork_type: header.artwork_type,
                         error: e,
                     };
-                    if let Ok(reply) = Message::new(header.id.clone(), MessageType::ArtworkImageResponse, Some(&resp)) {
+                    if let Ok(reply) = Message::new(
+                        header.id.clone(),
+                        MessageType::ArtworkImageResponse,
+                        Some(&resp),
+                    ) {
                         let _ = sender.send_msg(reply);
                     }
                 }
@@ -1234,7 +1303,10 @@ impl TauriAgentHandler {
                 };
                 let ext = ext_from_content_type(&pa.content_type);
                 if let Err(e) = sm.save_artwork(&users[0].id, app_id, art_type, &pa.data, ext) {
-                    tracing::warn!("filesystem artwork fallback failed for {}: {e}", pa.artwork_type);
+                    tracing::warn!(
+                        "filesystem artwork fallback failed for {}: {e}",
+                        pa.artwork_type
+                    );
                 }
             }
         });
@@ -1310,6 +1382,5 @@ fn delete_game_directory(path: &str) -> Result<(), String> {
         }
     }
 
-    std::fs::remove_dir_all(abs_path)
-        .map_err(|e| format!("failed to remove directory: {e}"))
+    std::fs::remove_dir_all(abs_path).map_err(|e| format!("failed to remove directory: {e}"))
 }

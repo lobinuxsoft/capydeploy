@@ -27,9 +27,7 @@ pub struct ServerConfig {
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self {
-            port: 0,
-        }
+        Self { port: 0 }
     }
 }
 
@@ -171,8 +169,7 @@ impl<H: Handler> AgentServer<H> {
         }
 
         // WebSocket upgrade with size limits matching our protocol constants.
-        let mut ws_config =
-            tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
+        let mut ws_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
         ws_config.max_message_size = Some(WS_MAX_MESSAGE_SIZE);
         ws_config.max_frame_size = Some(WS_MAX_MESSAGE_SIZE);
         let ws_stream = accept_async_with_config(stream, Some(ws_config)).await?;

@@ -78,10 +78,7 @@ pub enum DeployEvent {
     /// Deployment completed successfully for an agent.
     Completed { agent_id: String },
     /// Deployment failed for an agent.
-    Failed {
-        agent_id: String,
-        error: String,
-    },
+    Failed { agent_id: String, error: String },
 }
 
 /// Result of a single agent deployment.

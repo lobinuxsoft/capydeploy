@@ -11,9 +11,7 @@ pub async fn set_console_log_enabled(
     state: State<'_, Arc<AgentState>>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    state
-        .console_log_enabled
-        .store(enabled, Ordering::Relaxed);
+    state.console_log_enabled.store(enabled, Ordering::Relaxed);
 
     // Start/stop collector
     if enabled {

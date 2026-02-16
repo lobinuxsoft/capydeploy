@@ -24,10 +24,7 @@ pub async fn refresh_discovery(
 }
 
 #[tauri::command]
-pub async fn connect_agent(
-    state: State<'_, HubState>,
-    agent_id: String,
-) -> Result<String, String> {
+pub async fn connect_agent(state: State<'_, HubState>, agent_id: String) -> Result<String, String> {
     // Returns "connected" or "pairing_required" so the frontend can
     // distinguish both cases and avoid false "Connected" toasts.
     match state.connection_mgr.connect_agent(&agent_id).await {

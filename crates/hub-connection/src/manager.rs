@@ -6,8 +6,8 @@
 
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::sync::{Mutex, RwLock, mpsc, watch};
@@ -379,7 +379,8 @@ impl ConnectionManager {
             Ok(r) => r,
             Err(e) => {
                 warn!(agent = %agent_id, error = %e, "connection failed");
-                self.set_state(agent_id, ConnectionState::Disconnected).await;
+                self.set_state(agent_id, ConnectionState::Disconnected)
+                    .await;
                 return Err(e);
             }
         };
@@ -584,9 +585,7 @@ impl ConnectionManager {
 // ---------------------------------------------------------------------------
 
 /// Cancels any active reconnect loop regardless of agent ID.
-fn cancel_any_reconnect(
-    reconnect_cancel: &std::sync::Mutex<Option<(String, CancellationToken)>>,
-) {
+fn cancel_any_reconnect(reconnect_cancel: &std::sync::Mutex<Option<(String, CancellationToken)>>) {
     if let Ok(mut guard) = reconnect_cancel.lock()
         && let Some((_, token)) = guard.take()
     {
@@ -601,9 +600,7 @@ fn cancel_reconnect_for(
 ) {
     if let Ok(mut guard) = reconnect_cancel.lock() {
         let matches = guard.as_ref().is_some_and(|(id, _)| id == agent_id);
-        if matches
-            && let Some((_, token)) = guard.take()
-        {
+        if matches && let Some((_, token)) = guard.take() {
             token.cancel();
         }
     }
@@ -688,88 +685,68 @@ fn reconnect_loop(
     cancel: CancellationToken,
 ) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
     Box::pin(async move {
-    // Inline mDNS refresh — catch quick agent restarts before the continuous
-    // discovery loop notices them. Only updates the cache, no UI events.
-    let refresh_client = DiscoveryClient::new();
-    if let Ok(agents) = refresh_client.discover(Duration::from_secs(1)).await {
-        let mut disc = ctx.discovered.write().await;
-        for agent in agents {
-            disc.insert(agent.info.id.clone(), agent);
+        // Inline mDNS refresh — catch quick agent restarts before the continuous
+        // discovery loop notices them. Only updates the cache, no UI events.
+        let refresh_client = DiscoveryClient::new();
+        if let Ok(agents) = refresh_client.discover(Duration::from_secs(1)).await {
+            let mut disc = ctx.discovered.write().await;
+            for agent in agents {
+                disc.insert(agent.info.id.clone(), agent);
+            }
         }
-    }
 
-    let mut attempt: u32 = 0;
-    let mut no_mdns_count: u32 = 0;
+        let mut attempt: u32 = 0;
+        let mut no_mdns_count: u32 = 0;
 
-    loop {
-        attempt = attempt.saturating_add(1);
-        let delay = ctx.reconnect_config.delay_for_attempt(attempt);
-        let delay_secs = delay.as_secs_f64();
+        loop {
+            attempt = attempt.saturating_add(1);
+            let delay = ctx.reconnect_config.delay_for_attempt(attempt);
+            let delay_secs = delay.as_secs_f64();
 
-        // Update state and emit Reconnecting event.
-        ctx.state
-            .write()
-            .await
-            .insert(agent_id.clone(), ConnectionState::Reconnecting { attempt });
-        let _ = ctx
-            .events_tx
-            .send(ConnectionEvent::Reconnecting {
-                agent_id: agent_id.clone(),
+            // Update state and emit Reconnecting event.
+            ctx.state
+                .write()
+                .await
+                .insert(agent_id.clone(), ConnectionState::Reconnecting { attempt });
+            let _ = ctx
+                .events_tx
+                .send(ConnectionEvent::Reconnecting {
+                    agent_id: agent_id.clone(),
+                    attempt,
+                    next_retry_secs: delay_secs,
+                })
+                .await;
+
+            info!(
+                agent = %agent_id,
                 attempt,
-                next_retry_secs: delay_secs,
-            })
-            .await;
+                delay_secs = format_args!("{delay_secs:.1}"),
+                "reconnecting"
+            );
 
-        info!(
-            agent = %agent_id,
-            attempt,
-            delay_secs = format_args!("{delay_secs:.1}"),
-            "reconnecting"
-        );
+            // Wait for the backoff delay (or cancellation).
+            tokio::select! {
+                _ = cancel.cancelled() => {
+                    debug!(agent = %agent_id, "reconnect cancelled");
+                    return;
+                }
+                _ = tokio::time::sleep(delay) => {}
+            }
 
-        // Wait for the backoff delay (or cancellation).
-        tokio::select! {
-            _ = cancel.cancelled() => {
-                debug!(agent = %agent_id, "reconnect cancelled");
+            // Check cancellation after sleep.
+            if cancel.is_cancelled() {
                 return;
             }
-            _ = tokio::time::sleep(delay) => {}
-        }
 
-        // Check cancellation after sleep.
-        if cancel.is_cancelled() {
-            return;
-        }
-
-        // Resolve the WebSocket URL: prefer mDNS, fall back to last known address.
-        let discovered_agent = ctx.discovered.read().await.get(&agent_id).cloned();
-        let (ws_url, fallback_agent) = if let Some(agent) = discovered_agent {
-            no_mdns_count = 0;
-            (agent.websocket_address(), agent)
-        } else {
-            no_mdns_count += 1;
-            if no_mdns_count > MAX_NO_MDNS_ATTEMPTS {
-                info!(agent = %agent_id, "too many attempts without mDNS, stopping reconnect");
-                ctx.state
-                    .write()
-                    .await
-                    .insert(agent_id.clone(), ConnectionState::Disconnected);
-                let _ = ctx
-                    .events_tx
-                    .send(ConnectionEvent::StateChanged {
-                        agent_id: agent_id.clone(),
-                        state: ConnectionState::Disconnected,
-                    })
-                    .await;
-                break;
-            }
-            match ctx.last_known_addr.lock().await.clone() {
-                Some((addr, agent)) => {
-                    debug!(agent = %agent_id, no_mdns_count, "using last known address");
-                    (addr, agent)
-                }
-                None => {
-                    info!(agent = %agent_id, "no mDNS and no last known address, stopping reconnect");
+            // Resolve the WebSocket URL: prefer mDNS, fall back to last known address.
+            let discovered_agent = ctx.discovered.read().await.get(&agent_id).cloned();
+            let (ws_url, fallback_agent) = if let Some(agent) = discovered_agent {
+                no_mdns_count = 0;
+                (agent.websocket_address(), agent)
+            } else {
+                no_mdns_count += 1;
+                if no_mdns_count > MAX_NO_MDNS_ATTEMPTS {
+                    info!(agent = %agent_id, "too many attempts without mDNS, stopping reconnect");
                     ctx.state
                         .write()
                         .await
@@ -783,93 +760,112 @@ fn reconnect_loop(
                         .await;
                     break;
                 }
+                match ctx.last_known_addr.lock().await.clone() {
+                    Some((addr, agent)) => {
+                        debug!(agent = %agent_id, no_mdns_count, "using last known address");
+                        (addr, agent)
+                    }
+                    None => {
+                        info!(agent = %agent_id, "no mDNS and no last known address, stopping reconnect");
+                        ctx.state
+                            .write()
+                            .await
+                            .insert(agent_id.clone(), ConnectionState::Disconnected);
+                        let _ = ctx
+                            .events_tx
+                            .send(ConnectionEvent::StateChanged {
+                                agent_id: agent_id.clone(),
+                                state: ConnectionState::Disconnected,
+                            })
+                            .await;
+                        break;
+                    }
+                }
+            };
+            let token = ctx
+                .token_store
+                .as_ref()
+                .and_then(|s| s.get_token(&agent_id))
+                .unwrap_or_default();
+
+            let hub_req = HubConnectedRequest {
+                name: ctx.hub.name.clone(),
+                version: ctx.hub.version.clone(),
+                platform: ctx.hub.platform.clone(),
+                hub_id: ctx.hub.hub_id.clone(),
+                token,
+            };
+
+            match WsClient::connect(&ws_url, &hub_req).await {
+                Ok((client, HandshakeResult::Connected(status))) => {
+                    // Set up callbacks on the new client (including reconnect on future disconnect).
+                    setup_ws_callbacks(&client, &agent_id, ctx.clone()).await;
+
+                    let connected_agent = ConnectedAgent {
+                        agent: fallback_agent.clone(),
+                        status,
+                    };
+
+                    *ctx.ws_client.lock().await = Some(client);
+                    *ctx.connected.write().await = Some((agent_id.clone(), connected_agent));
+                    *ctx.last_known_addr.lock().await = Some((ws_url, fallback_agent));
+                    ctx.state
+                        .write()
+                        .await
+                        .insert(agent_id.clone(), ConnectionState::Connected);
+
+                    let _ = ctx
+                        .events_tx
+                        .send(ConnectionEvent::StateChanged {
+                            agent_id: agent_id.clone(),
+                            state: ConnectionState::Connected,
+                        })
+                        .await;
+
+                    info!(agent = %agent_id, "reconnected successfully");
+                    break;
+                }
+                Ok((client, HandshakeResult::NeedsPairing(_))) => {
+                    // Token invalid — user must re-pair manually.
+                    client.close().await;
+                    warn!(agent = %agent_id, "agent requires re-pairing, stopping reconnect");
+                    ctx.state
+                        .write()
+                        .await
+                        .insert(agent_id.clone(), ConnectionState::Disconnected);
+                    let _ = ctx
+                        .events_tx
+                        .send(ConnectionEvent::StateChanged {
+                            agent_id: agent_id.clone(),
+                            state: ConnectionState::Disconnected,
+                        })
+                        .await;
+                    break;
+                }
+                Err(e) => {
+                    warn!(
+                        agent = %agent_id,
+                        attempt,
+                        error = %e,
+                        "reconnect attempt failed"
+                    );
+                    // Continue loop — next attempt with increased backoff.
+                }
             }
-        };
-        let token = ctx
-            .token_store
-            .as_ref()
-            .and_then(|s| s.get_token(&agent_id))
-            .unwrap_or_default();
 
-        let hub_req = HubConnectedRequest {
-            name: ctx.hub.name.clone(),
-            version: ctx.hub.version.clone(),
-            platform: ctx.hub.platform.clone(),
-            hub_id: ctx.hub.hub_id.clone(),
-            token,
-        };
-
-        match WsClient::connect(&ws_url, &hub_req).await {
-            Ok((client, HandshakeResult::Connected(status))) => {
-                // Set up callbacks on the new client (including reconnect on future disconnect).
-                setup_ws_callbacks(&client, &agent_id, ctx.clone()).await;
-
-                let connected_agent = ConnectedAgent {
-                    agent: fallback_agent.clone(),
-                    status,
-                };
-
-                *ctx.ws_client.lock().await = Some(client);
-                *ctx.connected.write().await =
-                    Some((agent_id.clone(), connected_agent));
-                *ctx.last_known_addr.lock().await = Some((ws_url, fallback_agent));
-                ctx.state
-                    .write()
-                    .await
-                    .insert(agent_id.clone(), ConnectionState::Connected);
-
-                let _ = ctx
-                    .events_tx
-                    .send(ConnectionEvent::StateChanged {
-                        agent_id: agent_id.clone(),
-                        state: ConnectionState::Connected,
-                    })
-                    .await;
-
-                info!(agent = %agent_id, "reconnected successfully");
-                break;
-            }
-            Ok((client, HandshakeResult::NeedsPairing(_))) => {
-                // Token invalid — user must re-pair manually.
-                client.close().await;
-                warn!(agent = %agent_id, "agent requires re-pairing, stopping reconnect");
-                ctx.state
-                    .write()
-                    .await
-                    .insert(agent_id.clone(), ConnectionState::Disconnected);
-                let _ = ctx
-                    .events_tx
-                    .send(ConnectionEvent::StateChanged {
-                        agent_id: agent_id.clone(),
-                        state: ConnectionState::Disconnected,
-                    })
-                    .await;
-                break;
-            }
-            Err(e) => {
-                warn!(
-                    agent = %agent_id,
-                    attempt,
-                    error = %e,
-                    "reconnect attempt failed"
-                );
-                // Continue loop — next attempt with increased backoff.
+            // Check cancellation after connect attempt.
+            if cancel.is_cancelled() {
+                return;
             }
         }
 
-        // Check cancellation after connect attempt.
-        if cancel.is_cancelled() {
-            return;
+        // Clean up the cancel token if it's still ours.
+        if let Ok(mut guard) = ctx.reconnect_cancel.lock() {
+            let ours = guard.as_ref().is_some_and(|(id, _)| id == &agent_id);
+            if ours {
+                *guard = None;
+            }
         }
-    }
-
-    // Clean up the cancel token if it's still ours.
-    if let Ok(mut guard) = ctx.reconnect_cancel.lock() {
-        let ours = guard.as_ref().is_some_and(|(id, _)| id == &agent_id);
-        if ours {
-            *guard = None;
-        }
-    }
     }) // Box::pin
 }
 

@@ -74,7 +74,8 @@ impl<'a> AgentDeploy<'a> {
         let agent_id = self.conn.agent_id().to_string();
 
         // 1. Scan files
-        self.emit_progress(events_tx, 0.0, "Scanning files...").await;
+        self.emit_progress(events_tx, 0.0, "Scanning files...")
+            .await;
         self.check_cancelled()?;
 
         let root_path = Path::new(&config.setup.local_path);
@@ -88,7 +89,8 @@ impl<'a> AgentDeploy<'a> {
         );
 
         // 2. Init upload
-        self.emit_progress(events_tx, 0.05, "Initializing upload...").await;
+        self.emit_progress(events_tx, 0.05, "Initializing upload...")
+            .await;
         self.check_cancelled()?;
 
         let init_result = self.init_upload(&config.setup, &files, total_size).await?;
@@ -100,7 +102,8 @@ impl<'a> AgentDeploy<'a> {
         };
 
         // 3. Upload chunks
-        self.emit_progress(events_tx, 0.1, "Uploading files...").await;
+        self.emit_progress(events_tx, 0.1, "Uploading files...")
+            .await;
 
         self.upload_files(
             &config.setup,
@@ -113,18 +116,22 @@ impl<'a> AgentDeploy<'a> {
         .await?;
 
         // 4. Send local artwork
-        self.emit_progress(events_tx, 0.85, "Sending artwork...").await;
+        self.emit_progress(events_tx, 0.85, "Sending artwork...")
+            .await;
         self.check_cancelled()?;
 
         let local_artwork = collect_local_artwork(&config.artwork);
         self.send_artwork(&local_artwork, 0, events_tx).await;
 
         // 5. Complete upload
-        self.emit_progress(events_tx, 0.9, "Creating shortcut...").await;
+        self.emit_progress(events_tx, 0.9, "Creating shortcut...")
+            .await;
         self.check_cancelled()?;
 
         let shortcut = build_shortcut_config(&config.setup, &config.artwork);
-        let result = self.complete_upload(&init_result.upload_id, &shortcut).await?;
+        let result = self
+            .complete_upload(&init_result.upload_id, &shortcut)
+            .await?;
 
         self.emit_progress(events_tx, 1.0, "Upload complete!").await;
 

@@ -137,6 +137,8 @@ fn image_cache_dir() -> PathBuf {
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
-        PathBuf::from("/tmp").join("capydeploy-cache").join("images")
+        PathBuf::from("/tmp")
+            .join("capydeploy-cache")
+            .join("images")
     }
 }

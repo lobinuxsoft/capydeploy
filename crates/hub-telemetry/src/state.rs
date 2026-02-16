@@ -219,9 +219,18 @@ mod tests {
         assert_eq!(agent.history("gpu.tempCelsius").unwrap().len(), 1);
         assert_eq!(agent.history("memory.usagePercent").unwrap().len(), 1);
 
-        assert_eq!(agent.history("cpu.usagePercent").unwrap().last(), Some(&45.0));
-        assert_eq!(agent.history("gpu.tempCelsius").unwrap().last(), Some(&75.0));
-        assert_eq!(agent.history("memory.usagePercent").unwrap().last(), Some(&50.0));
+        assert_eq!(
+            agent.history("cpu.usagePercent").unwrap().last(),
+            Some(&45.0)
+        );
+        assert_eq!(
+            agent.history("gpu.tempCelsius").unwrap().last(),
+            Some(&75.0)
+        );
+        assert_eq!(
+            agent.history("memory.usagePercent").unwrap().last(),
+            Some(&50.0)
+        );
     }
 
     #[test]
@@ -263,7 +272,10 @@ mod tests {
 
         // usagePercent pushed, but tempCelsius was absent — not tracked
         assert_eq!(agent.history("cpu.usagePercent").unwrap().len(), 1);
-        assert_eq!(agent.history("cpu.usagePercent").unwrap().last(), Some(&25.0));
+        assert_eq!(
+            agent.history("cpu.usagePercent").unwrap().last(),
+            Some(&25.0)
+        );
         assert!(agent.history("cpu.tempCelsius").is_none());
     }
 
@@ -278,9 +290,15 @@ mod tests {
         });
         agent.process_data(&data);
 
-        assert_eq!(agent.history("battery.capacity").unwrap().last(), Some(&85.0));
+        assert_eq!(
+            agent.history("battery.capacity").unwrap().last(),
+            Some(&85.0)
+        );
         assert_eq!(agent.history("power.tdpWatts").unwrap().last(), Some(&15.0));
-        assert_eq!(agent.history("power.powerWatts").unwrap().last(), Some(&12.3));
+        assert_eq!(
+            agent.history("power.powerWatts").unwrap().last(),
+            Some(&12.3)
+        );
         assert_eq!(agent.history("fan.rpm").unwrap().last(), Some(&2100.0));
     }
 

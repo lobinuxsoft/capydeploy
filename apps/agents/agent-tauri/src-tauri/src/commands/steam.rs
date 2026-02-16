@@ -29,8 +29,8 @@ pub async fn get_shortcuts(
     // Read VDF shortcuts, filtering out app IDs that were deleted via CEF
     // but not yet flushed from the VDF file.
     let deleted = state.deleted_app_ids.lock().await;
-    let vdf_list = capydeploy_steam::load_shortcuts_vdf(std::path::Path::new(&vdf_path))
-        .unwrap_or_default();
+    let vdf_list =
+        capydeploy_steam::load_shortcuts_vdf(std::path::Path::new(&vdf_path)).unwrap_or_default();
 
     let mut seen_ids: HashSet<u32> = HashSet::new();
     let mut result: Vec<ShortcutDto> = vdf_list

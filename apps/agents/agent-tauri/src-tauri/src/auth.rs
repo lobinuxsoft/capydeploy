@@ -117,7 +117,11 @@ impl AuthManager {
     }
 
     /// Checks if a Hub's token matches one in the authorized list.
-    pub fn validate_token(authorized_hubs: &[crate::config::AuthorizedHub], hub_id: &str, token: &str) -> bool {
+    pub fn validate_token(
+        authorized_hubs: &[crate::config::AuthorizedHub],
+        hub_id: &str,
+        token: &str,
+    ) -> bool {
         authorized_hubs
             .iter()
             .any(|h| h.id == hub_id && h.token == token)
@@ -125,7 +129,9 @@ impl AuthManager {
 
     /// Returns the pending pairing session (if not expired).
     pub fn pending_pairing(&self) -> Option<&PairingSession> {
-        self.pending.as_ref().filter(|s| Instant::now() < s.expires_at)
+        self.pending
+            .as_ref()
+            .filter(|s| Instant::now() < s.expires_at)
     }
 
     /// Cancels any pending pairing session.

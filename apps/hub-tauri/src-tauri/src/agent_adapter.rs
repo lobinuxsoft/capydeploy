@@ -33,8 +33,9 @@ impl capydeploy_hub_deploy::AgentConnection for DeployAdapter {
         &self,
         msg_type: MessageType,
         payload: &serde_json::Value,
-    ) -> Pin<Box<dyn Future<Output = Result<Message, capydeploy_hub_deploy::DeployError>> + Send + '_>>
-    {
+    ) -> Pin<
+        Box<dyn Future<Output = Result<Message, capydeploy_hub_deploy::DeployError>> + Send + '_>,
+    > {
         let mgr = self.mgr.clone();
         let payload = payload.clone();
         Box::pin(async move {
@@ -48,8 +49,9 @@ impl capydeploy_hub_deploy::AgentConnection for DeployAdapter {
         &self,
         header: &serde_json::Value,
         data: &[u8],
-    ) -> Pin<Box<dyn Future<Output = Result<Message, capydeploy_hub_deploy::DeployError>> + Send + '_>>
-    {
+    ) -> Pin<
+        Box<dyn Future<Output = Result<Message, capydeploy_hub_deploy::DeployError>> + Send + '_>,
+    > {
         let mgr = self.mgr.clone();
         let header = header.clone();
         let data = data.to_vec();

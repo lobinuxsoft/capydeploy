@@ -15,10 +15,7 @@ pub async fn get_game_setups(state: State<'_, HubState>) -> Result<Vec<GameSetup
 }
 
 #[tauri::command]
-pub async fn add_game_setup(
-    state: State<'_, HubState>,
-    setup: GameSetup,
-) -> Result<(), String> {
+pub async fn add_game_setup(state: State<'_, HubState>, setup: GameSetup) -> Result<(), String> {
     let mut cfg = state.config.lock().await;
     cfg.game_setups.push(setup);
     cfg.save().map_err(|e| e.to_string())
@@ -117,7 +114,10 @@ pub async fn upload_game(
 
     if let Some(result) = results.first() {
         if !result.success {
-            return Err(result.error.clone().unwrap_or_else(|| "upload failed".into()));
+            return Err(result
+                .error
+                .clone()
+                .unwrap_or_else(|| "upload failed".into()));
         }
     }
 

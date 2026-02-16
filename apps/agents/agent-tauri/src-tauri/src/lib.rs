@@ -98,26 +98,28 @@ pub fn run() {
             // System tray
             let show = MenuItemBuilder::with_id("show", "Show Window").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let menu = MenuBuilder::new(app).item(&show).separator().item(&quit).build()?;
+            let menu = MenuBuilder::new(app)
+                .item(&show)
+                .separator()
+                .item(&quit)
+                .build()?;
 
             TrayIconBuilder::new()
                 .tooltip(&format!("CapyDeploy Agent — {agent_name}"))
                 .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
-                .on_menu_event(|app, event| {
-                    match event.id().as_ref() {
-                        "show" => {
-                            if let Some(w) = app.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
                         }
-                        "quit" => {
-                            tracing::info!("Quit requested from tray");
-                            app.exit(0);
-                        }
-                        _ => {}
                     }
+                    "quit" => {
+                        tracing::info!("Quit requested from tray");
+                        app.exit(0);
+                    }
+                    _ => {}
                 })
                 .build(app)?;
 

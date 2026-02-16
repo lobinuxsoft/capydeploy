@@ -130,9 +130,7 @@ mod tests {
     use crate::types::{ArtworkAssignment, GameSetup};
     use capydeploy_protocol::constants::MessageType;
     use capydeploy_protocol::envelope::Message;
-    use capydeploy_protocol::messages::{
-        CompleteUploadResponseFull, InitUploadResponseFull,
-    };
+    use capydeploy_protocol::messages::{CompleteUploadResponseFull, InitUploadResponseFull};
     use std::future::Future;
     use std::pin::Pin;
     use std::sync::Mutex;
@@ -174,9 +172,7 @@ mod tests {
             _data: &[u8],
         ) -> Pin<Box<dyn Future<Output = Result<Message, crate::error::DeployError>> + Send + '_>>
         {
-            Box::pin(async move {
-                Ok(Message::new::<()>("b", MessageType::Pong, None).unwrap())
-            })
+            Box::pin(async move { Ok(Message::new::<()>("b", MessageType::Pong, None).unwrap()) })
         }
 
         fn agent_id(&self) -> &str {
@@ -248,9 +244,11 @@ mod tests {
             events.push(e);
         }
         // Should have progress + completed.
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, DeployEvent::Completed { .. })));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, DeployEvent::Completed { .. }))
+        );
     }
 
     #[tokio::test]

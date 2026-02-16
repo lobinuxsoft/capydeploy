@@ -11,7 +11,7 @@ use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages::{
     DeleteGameRequest, DeleteGameResponse, ListShortcutsRequest, SetGameLogWrapperRequest,
-    SteamUsersResponse, ShortcutsListResponse,
+    ShortcutsListResponse, SteamUsersResponse,
 };
 use capydeploy_protocol::telemetry::SetGameLogWrapperResponse;
 use tracing::{debug, warn};
@@ -117,9 +117,7 @@ impl GamesManager {
     ) -> Result<DeleteGameResponse, GamesError> {
         let req = DeleteGameRequest { app_id };
         let payload = serde_json::to_value(&req)?;
-        let resp = conn
-            .send_request(MessageType::DeleteGame, &payload)
-            .await?;
+        let resp = conn.send_request(MessageType::DeleteGame, &payload).await?;
 
         let delete_resp: DeleteGameResponse = resp
             .parse_payload::<DeleteGameResponse>()?
@@ -214,9 +212,7 @@ impl GamesManager {
     async fn resolve_artwork_source(&self, src: &str) -> Result<(Vec<u8>, String), GamesError> {
         if let Some(path) = src.strip_prefix("file://") {
             let data = tokio::fs::read(path).await?;
-            let content_type = detect_content_type(path)
-                .unwrap_or("")
-                .to_string();
+            let content_type = detect_content_type(path).unwrap_or("").to_string();
             Ok((data, content_type))
         } else if src.starts_with("http://") || src.starts_with("https://") {
             let response = self
@@ -540,10 +536,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_game_log_wrapper_enable() {
-        let conn = MockConn::new(
-            "agent-1",
-            vec![make_log_wrapper_response(42, true)],
-        );
+        let conn = MockConn::new("agent-1", vec![make_log_wrapper_response(42, true)]);
 
         let mgr = GamesManager::new(reqwest::Client::new());
         let resp = mgr.set_game_log_wrapper(&conn, 42, true).await.unwrap();
@@ -558,10 +551,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_game_log_wrapper_disable() {
-        let conn = MockConn::new(
-            "agent-1",
-            vec![make_log_wrapper_response(99, false)],
-        );
+        let conn = MockConn::new("agent-1", vec![make_log_wrapper_response(99, false)]);
 
         let mgr = GamesManager::new(reqwest::Client::new());
         let resp = mgr.set_game_log_wrapper(&conn, 99, false).await.unwrap();

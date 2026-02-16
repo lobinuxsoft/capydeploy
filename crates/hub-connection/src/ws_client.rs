@@ -87,8 +87,7 @@ impl WsClient {
         url: &str,
         hub_request: &HubConnectedRequest,
     ) -> Result<(Self, HandshakeResult), WsError> {
-        let mut ws_config =
-            tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
+        let mut ws_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
         ws_config.max_message_size = Some(WS_MAX_MESSAGE_SIZE);
         ws_config.max_frame_size = Some(WS_MAX_MESSAGE_SIZE);
         let (ws_stream, _) =
@@ -116,7 +115,13 @@ impl WsClient {
             let cancel = cancel.clone();
             let write_tx = write_tx.clone();
             tokio::spawn(read_pump(
-                read, pending, on_event, on_disconnect, agent_closed, write_tx, cancel,
+                read,
+                pending,
+                on_event,
+                on_disconnect,
+                agent_closed,
+                write_tx,
+                cancel,
             ))
         };
 
@@ -585,17 +590,25 @@ mod tests {
         let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
         let disconnected = Arc::new(std::sync::Mutex::new(false));
         let dc = disconnected.clone();
-        let on_disconnect: DisconnectCallback =
-            Arc::new(Mutex::new(Some(Box::new(move || {
-                *dc.lock().unwrap() = true;
-            }))));
+        let on_disconnect: DisconnectCallback = Arc::new(Mutex::new(Some(Box::new(move || {
+            *dc.lock().unwrap() = true;
+        }))));
 
         let cancel = tokio_util::sync::CancellationToken::new();
         let (write_tx, _write_rx) = mpsc::channel(16);
         let empty = stream::empty::<Result<tungstenite::Message, tungstenite::Error>>();
 
         let agent_closed = Arc::new(AtomicBool::new(false));
-        read_pump(empty, pending, on_event, on_disconnect, agent_closed, write_tx, cancel).await;
+        read_pump(
+            empty,
+            pending,
+            on_event,
+            on_disconnect,
+            agent_closed,
+            write_tx,
+            cancel,
+        )
+        .await;
 
         assert!(*disconnected.lock().unwrap());
     }
@@ -656,8 +669,7 @@ mod tests {
 
         // Parse the 4-byte header length.
         assert!(frame.len() > 4);
-        let header_len =
-            ((frame[0] as usize) << 24)
+        let header_len = ((frame[0] as usize) << 24)
             | ((frame[1] as usize) << 16)
             | ((frame[2] as usize) << 8)
             | (frame[3] as usize);
@@ -688,10 +700,9 @@ mod tests {
         let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
         let disconnected = Arc::new(std::sync::Mutex::new(false));
         let dc = disconnected.clone();
-        let on_disconnect: DisconnectCallback =
-            Arc::new(Mutex::new(Some(Box::new(move || {
-                *dc.lock().unwrap() = true;
-            }))));
+        let on_disconnect: DisconnectCallback = Arc::new(Mutex::new(Some(Box::new(move || {
+            *dc.lock().unwrap() = true;
+        }))));
 
         let cancel = tokio_util::sync::CancellationToken::new();
         let (write_tx, _write_rx) = mpsc::channel(16);
@@ -700,9 +711,21 @@ mod tests {
         let stream = stream::pending::<Result<tungstenite::Message, tungstenite::Error>>();
         let agent_closed = Arc::new(AtomicBool::new(false));
 
-        read_pump(stream, pending, on_event, on_disconnect, agent_closed, write_tx, cancel).await;
+        read_pump(
+            stream,
+            pending,
+            on_event,
+            on_disconnect,
+            agent_closed,
+            write_tx,
+            cancel,
+        )
+        .await;
 
-        assert!(*disconnected.lock().unwrap(), "should disconnect on pong timeout");
+        assert!(
+            *disconnected.lock().unwrap(),
+            "should disconnect on pong timeout"
+        );
     }
 
     #[tokio::test]
@@ -714,10 +737,9 @@ mod tests {
         let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
         let disconnected = Arc::new(std::sync::Mutex::new(false));
         let dc = disconnected.clone();
-        let on_disconnect: DisconnectCallback =
-            Arc::new(Mutex::new(Some(Box::new(move || {
-                *dc.lock().unwrap() = true;
-            }))));
+        let on_disconnect: DisconnectCallback = Arc::new(Mutex::new(Some(Box::new(move || {
+            *dc.lock().unwrap() = true;
+        }))));
 
         let cancel = tokio_util::sync::CancellationToken::new();
         let (write_tx, _write_rx) = mpsc::channel(16);
@@ -739,7 +761,16 @@ mod tests {
 
         let agent_closed = Arc::new(AtomicBool::new(false));
         let handle = tokio::spawn(async move {
-            read_pump(combined, pending, on_event, on_disconnect, agent_closed, write_tx, cancel).await;
+            read_pump(
+                combined,
+                pending,
+                on_event,
+                on_disconnect,
+                agent_closed,
+                write_tx,
+                cancel,
+            )
+            .await;
         });
 
         // Advance past the original deadline — should NOT have timed out
@@ -749,7 +780,10 @@ mod tests {
         for _ in 0..10 {
             tokio::task::yield_now().await;
         }
-        assert!(!*disconnected.lock().unwrap(), "should not disconnect — deadline was reset");
+        assert!(
+            !*disconnected.lock().unwrap(),
+            "should not disconnect — deadline was reset"
+        );
 
         // Now advance past the reset deadline (from the message time).
         tokio::time::advance(WS_PONG_WAIT).await;
@@ -759,7 +793,10 @@ mod tests {
 
         // With paused time the spawned task should have completed.
         handle.await.unwrap();
-        assert!(*disconnected.lock().unwrap(), "should disconnect after extended deadline");
+        assert!(
+            *disconnected.lock().unwrap(),
+            "should disconnect after extended deadline"
+        );
     }
 
     #[tokio::test]

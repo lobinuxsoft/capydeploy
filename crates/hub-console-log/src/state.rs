@@ -270,14 +270,8 @@ mod tests {
     #[test]
     fn remove_agent_cleans_up() {
         let mut hub = ConsoleLogHub::with_capacity(100);
-        hub.process_batch(
-            "agent-1",
-            &make_batch(vec![make_entry(1, "log", "a")], 0),
-        );
-        hub.process_batch(
-            "agent-2",
-            &make_batch(vec![make_entry(2, "log", "b")], 0),
-        );
+        hub.process_batch("agent-1", &make_batch(vec![make_entry(1, "log", "a")], 0));
+        hub.process_batch("agent-2", &make_batch(vec![make_entry(2, "log", "b")], 0));
 
         hub.remove_agent("agent-1");
 
@@ -288,14 +282,8 @@ mod tests {
     #[test]
     fn hub_clear_removes_all() {
         let mut hub = ConsoleLogHub::with_capacity(100);
-        hub.process_batch(
-            "agent-1",
-            &make_batch(vec![make_entry(1, "log", "a")], 0),
-        );
-        hub.process_batch(
-            "agent-2",
-            &make_batch(vec![make_entry(2, "log", "b")], 0),
-        );
+        hub.process_batch("agent-1", &make_batch(vec![make_entry(1, "log", "a")], 0));
+        hub.process_batch("agent-2", &make_batch(vec![make_entry(2, "log", "b")], 0));
 
         hub.clear();
 
@@ -305,14 +293,8 @@ mod tests {
     #[test]
     fn agent_ids_returns_tracked() {
         let mut hub = ConsoleLogHub::with_capacity(100);
-        hub.process_batch(
-            "alpha",
-            &make_batch(vec![make_entry(1, "log", "a")], 0),
-        );
-        hub.process_batch(
-            "beta",
-            &make_batch(vec![make_entry(2, "log", "b")], 0),
-        );
+        hub.process_batch("alpha", &make_batch(vec![make_entry(1, "log", "a")], 0));
+        hub.process_batch("beta", &make_batch(vec![make_entry(2, "log", "b")], 0));
 
         let mut ids = hub.agent_ids();
         ids.sort();

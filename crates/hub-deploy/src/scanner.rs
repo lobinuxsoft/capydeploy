@@ -38,9 +38,7 @@ fn walk_dir(
         if metadata.is_dir() {
             walk_dir(root, &path, files, total_size)?;
         } else if metadata.is_file() {
-            let rel_path = path
-                .strip_prefix(root)
-                .map_err(std::io::Error::other)?;
+            let rel_path = path.strip_prefix(root).map_err(std::io::Error::other)?;
 
             // Normalize to forward slashes.
             let rel_str = rel_path.to_string_lossy().replace('\\', "/");
