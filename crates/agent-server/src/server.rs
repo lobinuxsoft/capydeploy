@@ -19,16 +19,10 @@ use crate::connection::{self, HubConnection, HubMeta};
 use crate::handler::Handler;
 
 /// Server configuration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ServerConfig {
     /// TCP port to listen on (0 = OS-assigned).
     pub port: u16,
-}
-
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self { port: 0 }
-    }
 }
 
 /// The agent WebSocket server.
