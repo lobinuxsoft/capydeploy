@@ -737,6 +737,7 @@ impl Handler for TauriAgentHandler {
             };
 
             // Create shortcut if requested
+            #[allow(clippy::collapsible_if)]
             if req.create_shortcut {
                 if let Some(shortcut_cfg) = req.shortcut {
                     let exe_name = std::path::Path::new(&shortcut_cfg.exe)
@@ -785,12 +786,11 @@ impl Handler for TauriAgentHandler {
 
                             // On Linux, auto-set Proton for Windows executables.
                             #[cfg(target_os = "linux")]
-                            if full_exe.to_lowercase().ends_with(".exe") {
-                                if let Err(e) =
+                            if full_exe.to_lowercase().ends_with(".exe")
+                                && let Err(e) =
                                     cef.specify_compat_tool(app_id, "proton_experimental").await
-                                {
-                                    tracing::warn!("failed to set Proton compat tool: {e}");
-                                }
+                            {
+                                tracing::warn!("failed to set Proton compat tool: {e}");
                             }
 
                             // Track the shortcut in memory (VDF may not be flushed yet).
@@ -1328,10 +1328,10 @@ fn generate_agent_id(name: &str) -> String {
 
 /// Expands ~ in paths.
 fn expand_path(path: &str) -> String {
-    if path.starts_with("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            return format!("{}{}", home, &path[1..]);
-        }
+    if path.starts_with("~/")
+        && let Ok(home) = std::env::var("HOME")
+    {
+        return format!("{}{}", home, &path[1..]);
     }
     path.to_string()
 }

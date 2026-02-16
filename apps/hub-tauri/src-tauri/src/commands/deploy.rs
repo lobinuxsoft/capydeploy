@@ -112,13 +112,13 @@ pub async fn upload_game(
 
     let results = orchestrator.deploy(deploy_config, vec![&adapter]).await;
 
-    if let Some(result) = results.first() {
-        if !result.success {
-            return Err(result
-                .error
-                .clone()
-                .unwrap_or_else(|| "upload failed".into()));
-        }
+    if let Some(result) = results.first()
+        && !result.success
+    {
+        return Err(result
+            .error
+            .clone()
+            .unwrap_or_else(|| "upload failed".into()));
     }
 
     Ok(())

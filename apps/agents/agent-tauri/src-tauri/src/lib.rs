@@ -43,10 +43,10 @@ pub fn run() {
             let sender = telem_ws.lock().unwrap();
             if let Some(ws) = sender.as_ref() {
                 let id = uuid::Uuid::new_v4().to_string();
-                if let Ok(msg) = Message::new(id, MessageType::TelemetryData, Some(&data)) {
-                    if let Err(e) = ws.send_msg(msg) {
-                        tracing::warn!("telemetry send failed: {e}");
-                    }
+                if let Ok(msg) = Message::new(id, MessageType::TelemetryData, Some(&data))
+                    && let Err(e) = ws.send_msg(msg)
+                {
+                    tracing::warn!("telemetry send failed: {e}");
                 }
             }
         },
@@ -59,10 +59,10 @@ pub fn run() {
             let sender = cl_ws.lock().unwrap();
             if let Some(ws) = sender.as_ref() {
                 let id = uuid::Uuid::new_v4().to_string();
-                if let Ok(msg) = Message::new(id, MessageType::ConsoleLogData, Some(&batch)) {
-                    if let Err(e) = ws.send_msg(msg) {
-                        tracing::warn!("console log send failed: {e}");
-                    }
+                if let Ok(msg) = Message::new(id, MessageType::ConsoleLogData, Some(&batch))
+                    && let Err(e) = ws.send_msg(msg)
+                {
+                    tracing::warn!("console log send failed: {e}");
                 }
             }
         },
@@ -105,7 +105,7 @@ pub fn run() {
                 .build()?;
 
             TrayIconBuilder::new()
-                .tooltip(&format!("CapyDeploy Agent — {agent_name}"))
+                .tooltip(format!("CapyDeploy Agent — {agent_name}"))
                 .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id().as_ref() {
