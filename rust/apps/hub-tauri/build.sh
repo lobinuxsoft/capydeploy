@@ -16,9 +16,8 @@ cd ..
 
 # Build Tauri app
 echo "--- Building Tauri app ---"
-cd src-tauri
-cargo build --release
-cd ..
+cargo build --release -p capydeploy-hub-tauri --manifest-path "$SCRIPT_DIR/../../Cargo.toml"
 
+BINARY="$SCRIPT_DIR/../../target/release/capydeploy-hub-tauri"
 echo "=== Build complete ==="
-echo "Binary: src-tauri/target/release/capydeploy-hub-tauri"
+echo "Binary: $BINARY"
