@@ -12,7 +12,8 @@ use tokio_tungstenite::tungstenite;
 use tracing::{debug, error, trace, warn};
 
 use capydeploy_protocol::constants::{
-    MessageType, WS_MAX_MESSAGE_SIZE, WS_PING_PERIOD, WS_PONG_WAIT, WS_REQUEST_TIMEOUT,
+    MessageType, WS_BINARY_REQUEST_TIMEOUT, WS_MAX_MESSAGE_SIZE, WS_PING_PERIOD, WS_PONG_WAIT,
+    WS_REQUEST_TIMEOUT,
 };
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages::{
@@ -268,7 +269,9 @@ impl WsClient {
             .await
             .map_err(|_| WsError::Closed)?;
 
-        let result = tokio::time::timeout(WS_REQUEST_TIMEOUT, rx).await;
+        // Binary transfers use a longer timeout to handle slow disk I/O
+        // and network conditions during large chunk uploads.
+        let result = tokio::time::timeout(WS_BINARY_REQUEST_TIMEOUT, rx).await;
         self.pending.lock().await.remove(&id);
 
         match result {

@@ -17,9 +17,8 @@ members = [
     "crates/hub-telemetry",
     "crates/hub-console-log",
     "crates/hub-settings",
-    "crates/hub-widgets",
     "apps/agent-desktop",
-    "apps/hub-rs",
+    "apps/hub-tauri/src-tauri",
     "tests/wire_compat",
 ]
 resolver = "2"
@@ -41,6 +40,10 @@ chrono = { version = "0.4", features = ["serde"] }
 tokio-util = "0.7"
 if-addrs = "0.13"
 hostname = "0.4"
+tauri = { version = "2", features = ["devtools", "custom-protocol"] }
+tauri-build = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
 
 # Workspace crates
 capydeploy-protocol = { path = "crates/protocol" }
@@ -60,8 +63,6 @@ capydeploy-hub-games = { path = "crates/hub-games" }
 capydeploy-hub-telemetry = { path = "crates/hub-telemetry" }
 capydeploy-hub-console-log = { path = "crates/hub-console-log" }
 capydeploy-hub-settings = { path = "crates/hub-settings" }
-capydeploy-hub-widgets = { path = "crates/hub-widgets" }
-libcosmic = { git = "https://github.com/pop-os/libcosmic.git", default-features = false }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"

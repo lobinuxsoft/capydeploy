@@ -5,10 +5,15 @@ use serde::{Deserialize, Serialize};
 /// Time allowed to write a WebSocket message.
 pub const WS_WRITE_WAIT: Duration = Duration::from_secs(30);
 
-/// Time to wait for a pong response.
-pub const WS_PONG_WAIT: Duration = Duration::from_secs(15);
+/// Time to wait for a pong response (or any incoming message).
+///
+/// This acts as a read deadline: if *nothing* arrives within this window
+/// (no pong, no response, no push event), the connection is considered
+/// dead. Set high enough to tolerate slow chunk processing on the agent
+/// side during large file transfers.
+pub const WS_PONG_WAIT: Duration = Duration::from_secs(60);
 
-/// How often to send pings (must be < pong wait).
+/// How often to send pings (must be < agent's pong wait of 15s).
 pub const WS_PING_PERIOD: Duration = Duration::from_secs(5);
 
 /// Maximum message size in bytes (50 MB).
@@ -17,8 +22,14 @@ pub const WS_MAX_MESSAGE_SIZE: usize = 50 * 1024 * 1024;
 /// Size for binary chunks (1 MB).
 pub const WS_CHUNK_SIZE: usize = 1024 * 1024;
 
-/// Timeout for request/response operations.
+/// Timeout for request/response operations (text messages).
 pub const WS_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Timeout for binary request/response operations (chunk uploads).
+///
+/// Binary transfers (chunk uploads, artwork images) may take significantly
+/// longer than text requests due to disk I/O and network conditions.
+pub const WS_BINARY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// WebSocket message type identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

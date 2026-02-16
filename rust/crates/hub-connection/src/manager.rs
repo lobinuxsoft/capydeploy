@@ -95,20 +95,31 @@ pub struct ReconnectConfig {
 impl Default for ReconnectConfig {
     fn default() -> Self {
         Self {
-            initial_delay: Duration::from_millis(500),
-            max_delay: Duration::from_secs(30),
+            initial_delay: Duration::from_millis(250),
+            max_delay: Duration::from_secs(15),
             backoff_factor: 2.0,
         }
     }
 }
 
 impl ReconnectConfig {
-    /// Calculates the delay for a given attempt number (1-based).
+    /// Calculates the delay for a given attempt number (1-based),
+    /// with ±25% jitter to avoid thundering herd.
     pub fn delay_for_attempt(&self, attempt: u32) -> Duration {
         let exp = attempt.saturating_sub(1).min(63) as i32;
         let secs = self.initial_delay.as_secs_f64() * self.backoff_factor.powi(exp);
         let capped = secs.min(self.max_delay.as_secs_f64());
-        Duration::from_secs_f64(capped)
+        // Add ±25% jitter.
+        let jitter = capped * 0.25;
+        let offset = (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos() as f64
+            / u32::MAX as f64)
+            * 2.0
+            - 1.0; // [-1.0, 1.0)
+        let with_jitter = (capped + jitter * offset).max(0.05);
+        Duration::from_secs_f64(with_jitter)
     }
 }
 
@@ -122,7 +133,7 @@ pub struct HubIdentity {
 }
 
 /// Maximum reconnect attempts without mDNS visibility before giving up.
-const MAX_NO_MDNS_ATTEMPTS: u32 = 10;
+const MAX_NO_MDNS_ATTEMPTS: u32 = 30;
 
 /// Shared state passed to free functions for WebSocket callback setup
 /// and reconnection. Avoids threading 12 separate Arc parameters.
@@ -343,6 +354,13 @@ impl ConnectionManager {
         self.set_state(agent_id, ConnectionState::Connecting).await;
 
         let ws_url = agent.websocket_address();
+        info!(
+            agent = %agent_id,
+            url = %ws_url,
+            ips = ?agent.ips,
+            host = %agent.host,
+            "connecting to agent"
+        );
         let token = self
             .token_store
             .as_ref()
@@ -357,7 +375,14 @@ impl ConnectionManager {
             token,
         };
 
-        let (client, handshake) = WsClient::connect(&ws_url, &hub_req).await?;
+        let (client, handshake) = match WsClient::connect(&ws_url, &hub_req).await {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(agent = %agent_id, error = %e, "connection failed");
+                self.set_state(agent_id, ConnectionState::Disconnected).await;
+                return Err(e);
+            }
+        };
 
         match handshake {
             HandshakeResult::Connected(status) => {
@@ -658,7 +683,7 @@ fn reconnect_loop(
     // Inline mDNS refresh — catch quick agent restarts before the continuous
     // discovery loop notices them. Only updates the cache, no UI events.
     let refresh_client = DiscoveryClient::new();
-    if let Ok(agents) = refresh_client.discover(Duration::from_secs(2)).await {
+    if let Ok(agents) = refresh_client.discover(Duration::from_secs(1)).await {
         let mut disc = ctx.discovered.write().await;
         for agent in agents {
             disc.insert(agent.info.id.clone(), agent);
@@ -936,23 +961,28 @@ mod tests {
     #[test]
     fn reconnect_config_defaults() {
         let config = ReconnectConfig::default();
-        assert_eq!(config.initial_delay, Duration::from_millis(500));
-        assert_eq!(config.max_delay, Duration::from_secs(30));
+        assert_eq!(config.initial_delay, Duration::from_millis(250));
+        assert_eq!(config.max_delay, Duration::from_secs(15));
         assert!((config.backoff_factor - 2.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn reconnect_config_delay_backoff() {
         let config = ReconnectConfig::default();
-        // 500ms, 1s, 2s, 4s, 8s, 16s, 30s (capped), 30s...
-        assert_eq!(config.delay_for_attempt(1), Duration::from_millis(500));
-        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(1));
-        assert_eq!(config.delay_for_attempt(3), Duration::from_secs(2));
-        assert_eq!(config.delay_for_attempt(4), Duration::from_secs(4));
-        assert_eq!(config.delay_for_attempt(5), Duration::from_secs(8));
-        assert_eq!(config.delay_for_attempt(6), Duration::from_secs(16));
-        assert_eq!(config.delay_for_attempt(7), Duration::from_secs(30));
-        assert_eq!(config.delay_for_attempt(8), Duration::from_secs(30));
+        // Base delays: 250ms, 500ms, 1s, 2s, 4s, 8s, 15s (capped), 15s...
+        // With ±25% jitter, check that values are within expected range.
+        let expected_base = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 15.0];
+        for (i, &base) in expected_base.iter().enumerate() {
+            let delay = config.delay_for_attempt((i + 1) as u32);
+            let secs = delay.as_secs_f64();
+            let lo = base * 0.74; // -26% to allow for jitter rounding
+            let hi = base * 1.26; // +26%
+            assert!(
+                secs >= lo && secs <= hi,
+                "attempt {}: {secs:.3}s not in [{lo:.3}, {hi:.3}]",
+                i + 1
+            );
+        }
     }
 
     #[test]
