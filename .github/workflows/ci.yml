@@ -11,146 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint
+  rust-lint:
+    name: Rust Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
-
-      - name: Build frontend dist (required by go:embed)
-        uses: oven-sh/setup-bun@v2
-      - run: |
-          cd apps/hub/frontend && bun install && bun run build && cd ../../..
-          cd apps/agents/desktop/frontend && bun install && bun run build && cd ../../../..
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
-
-      - name: Build frontend dist (required by go:embed)
-        uses: oven-sh/setup-bun@v2
-      - run: |
-          cd apps/hub/frontend && bun install && bun run build && cd ../../..
-          cd apps/agents/desktop/frontend && bun install && bun run build && cd ../../../..
-
-      - name: Run tests
-        run: go test -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: coverage.out
-          retention-days: 7
-
-  build:
-    name: Build (${{ matrix.target }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: linux-amd64
-            goos: linux
-            goarch: amd64
-            platform: linux/amd64
-          - target: windows-amd64
-            goos: windows
-            goarch: amd64
-            platform: windows/amd64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
-      - uses: oven-sh/setup-bun@v2
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            sudo apt-get install -y gcc-mingw-w64-x86-64
-          fi
-
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Collect version info
-        id: version
-        run: |
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          BASE_VERSION=$(cat VERSION | tr -d '[:space:]')
-          VERSION="${BASE_VERSION}-dev+${COMMIT}"
-          echo "ldflags=-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE" >> "$GITHUB_OUTPUT"
-
-      - name: Build Hub
-        run: |
-          cd apps/hub
-          bun install --cwd frontend
-          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
-
-      - name: Build Agent
-        run: |
-          cd apps/agents/desktop
-          bun install --cwd frontend
-          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.target }}
-          path: |
-            apps/hub/build/bin/
-            apps/agents/desktop/build/bin/
-          retention-days: 7
-
-  rust:
-    name: Rust
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: rust
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -158,35 +23,127 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "rust -> target"
+          workspaces: ". -> target"
 
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test --all
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build frontends (required by tauri_build)
+        run: |
+          cd apps/hub-tauri/frontend && bun install && bun run build && cd ../../..
+          cd apps/agents/agent-tauri/frontend && bun install && bun run build && cd ../../..
+
+      - name: Check formatting
+        run: cargo fmt --check --all
+
+      - name: Run clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+  rust-test:
+    name: Rust Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build frontends (required by tauri_build)
+        run: |
+          cd apps/hub-tauri/frontend && bun install && bun run build && cd ../../..
+          cd apps/agents/agent-tauri/frontend && bun install && bun run build && cd ../../..
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  rust-build:
+    name: Build (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            rust_target: ""
+            bin_dir: target/release
+            hub_bin: capydeploy-hub-tauri
+            agent_bin: capydeploy-agent-tauri
+          - target: windows-amd64
+            rust_target: x86_64-pc-windows-gnu
+            bin_dir: target/x86_64-pc-windows-gnu/release
+            hub_bin: capydeploy-hub-tauri.exe
+            agent_bin: capydeploy-agent-tauri.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: ${{ matrix.target }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+          if [ "${{ matrix.target }}" = "windows-amd64" ]; then
+            sudo apt-get install -y gcc-mingw-w64-x86-64
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build frontends (required by tauri_build)
+        run: |
+          cd apps/hub-tauri/frontend && bun install && bun run build && cd ../../..
+          cd apps/agents/agent-tauri/frontend && bun install && bun run build && cd ../../..
+
+      - name: Build binaries
+        run: |
+          BUILD_CMD="cargo build --release -p capydeploy-hub-tauri -p capydeploy-agent-tauri"
+          if [ -n "${{ matrix.rust_target }}" ]; then
+            BUILD_CMD="$BUILD_CMD --target ${{ matrix.rust_target }}"
+          fi
+          $BUILD_CMD
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: |
+            ${{ matrix.bin_dir }}/${{ matrix.hub_bin }}
+            ${{ matrix.bin_dir }}/${{ matrix.agent_bin }}
+          retention-days: 7
 
   wire-compat:
     name: Wire compatibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "rust -> target"
+          workspaces: ". -> target"
 
-      - name: Generate Go fixtures
-        run: GENERATE_FIXTURES=1 go test ./pkg/protocol/ -run TestGenerateFixtures -v
-
-      - name: Run Rust wire compat tests
-        working-directory: rust
+      - name: Run wire compat tests
         run: cargo test -p wire-compat
 
   frontend:
@@ -194,20 +151,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install Hub frontend deps
-        run: cd apps/hub/frontend && bun install
+      - name: Hub frontend check
+        run: cd apps/hub-tauri/frontend && bun install && bun run check
 
-      - name: Install Agent frontend deps
-        run: cd apps/agents/desktop/frontend && bun install
-
-      - name: Svelte check (Hub)
-        run: cd apps/hub/frontend && bun run check
-
-      - name: Svelte check (Agent)
-        run: cd apps/agents/desktop/frontend && bun run check
-
+      - name: Agent frontend check
+        run: cd apps/agents/agent-tauri/frontend && bun install && bun run check

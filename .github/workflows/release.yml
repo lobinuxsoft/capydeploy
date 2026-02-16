@@ -25,73 +25,63 @@ jobs:
       matrix:
         include:
           - target: linux-amd64
-            goos: linux
-            goarch: amd64
-            platform: linux/amd64
-            hub_bin: capydeploy-hub
-            agent_bin: capydeploy-agent
+            rust_target: ""
+            bin_dir: target/release
+            hub_bin: capydeploy-hub-tauri
+            agent_bin: capydeploy-agent-tauri
           - target: windows-amd64
-            goos: windows
-            goarch: amd64
-            platform: windows/amd64
-            hub_bin: capydeploy-hub.exe
-            agent_bin: capydeploy-agent.exe
+            rust_target: x86_64-pc-windows-gnu
+            bin_dir: target/x86_64-pc-windows-gnu/release
+            hub_bin: capydeploy-hub-tauri.exe
+            agent_bin: capydeploy-agent-tauri.exe
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag_name }}
-          submodules: recursive
 
-      - uses: actions/setup-go@v5
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          go-version: "1.24"
+          targets: ${{ matrix.rust_target }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: ${{ matrix.target }}
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
-          if [ "${{ matrix.goos }}" = "windows" ]; then
+          if [ "${{ matrix.target }}" = "windows-amd64" ]; then
             sudo apt-get install -y gcc-mingw-w64-x86-64
           fi
 
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - uses: oven-sh/setup-bun@v2
 
-      - name: Collect version info
-        id: version
+      - name: Build frontends (required by tauri_build)
         run: |
-          TAG="${{ inputs.tag_name }}"
-          VERSION="${TAG#v}"
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "ldflags=-X github.com/lobinuxsoft/capydeploy/pkg/version.Version=$VERSION -X github.com/lobinuxsoft/capydeploy/pkg/version.Commit=$COMMIT -X github.com/lobinuxsoft/capydeploy/pkg/version.BuildDate=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+          cd apps/hub-tauri/frontend && bun install && bun run build && cd ../../..
+          cd apps/agents/agent-tauri/frontend && bun install && bun run build && cd ../../..
 
-      - name: Build Hub
+      - name: Build binaries
         run: |
-          cd apps/hub
-          bun install --cwd frontend
-          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
-
-      - name: Build Agent
-        run: |
-          cd apps/agents/desktop
-          bun install --cwd frontend
-          wails build -clean -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "${{ steps.version.outputs.ldflags }}"
+          BUILD_CMD="cargo build --release -p capydeploy-hub-tauri -p capydeploy-agent-tauri"
+          if [ -n "${{ matrix.rust_target }}" ]; then
+            BUILD_CMD="$BUILD_CMD --target ${{ matrix.rust_target }}"
+          fi
+          $BUILD_CMD
 
       - name: Upload Hub binary
         uses: actions/upload-artifact@v4
         with:
           name: hub-${{ matrix.target }}
-          path: apps/hub/build/bin/${{ matrix.hub_bin }}
+          path: ${{ matrix.bin_dir }}/${{ matrix.hub_bin }}
 
       - name: Upload Agent binary
         uses: actions/upload-artifact@v4
         with:
           name: agent-${{ matrix.target }}
-          path: apps/agents/desktop/build/bin/${{ matrix.agent_bin }}
+          path: ${{ matrix.bin_dir }}/${{ matrix.agent_bin }}
 
   appimage:
     name: AppImage
@@ -101,7 +91,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag_name }}
-          submodules: recursive
 
       - name: Download Hub Linux binary
         uses: actions/download-artifact@v4
@@ -244,19 +233,19 @@ jobs:
 
           # Hub AppDir
           mkdir -p hub.AppDir/usr/bin
-          cp artifacts/hub/capydeploy-hub hub.AppDir/usr/bin/
-          chmod +x hub.AppDir/usr/bin/capydeploy-hub
-          cp apps/hub/build/appicon.png hub.AppDir/capydeploy-hub.png
+          cp artifacts/hub/capydeploy-hub-tauri hub.AppDir/usr/bin/
+          chmod +x hub.AppDir/usr/bin/capydeploy-hub-tauri
+          cp apps/hub-tauri/src-tauri/icons/icon.png hub.AppDir/capydeploy-hub.png
           generate_desktop "capydeploy-hub" "CapyDeploy Hub" "hub.AppDir/capydeploy-hub.desktop"
-          generate_apprun "capydeploy-hub" "capydeploy-hub" "CapyDeploy Hub" "*capydeploy*hub*.AppImage" "hub.AppDir/AppRun"
+          generate_apprun "capydeploy-hub-tauri" "capydeploy-hub" "CapyDeploy Hub" "*capydeploy*hub*.AppImage" "hub.AppDir/AppRun"
 
           # Agent AppDir
           mkdir -p agent.AppDir/usr/bin
-          cp artifacts/agent/capydeploy-agent agent.AppDir/usr/bin/
-          chmod +x agent.AppDir/usr/bin/capydeploy-agent
-          cp apps/agents/desktop/build/appicon.png agent.AppDir/capydeploy-agent.png
+          cp artifacts/agent/capydeploy-agent-tauri agent.AppDir/usr/bin/
+          chmod +x agent.AppDir/usr/bin/capydeploy-agent-tauri
+          cp apps/agents/agent-tauri/src-tauri/icons/icon.png agent.AppDir/capydeploy-agent.png
           generate_desktop "capydeploy-agent" "CapyDeploy Agent" "agent.AppDir/capydeploy-agent.desktop"
-          generate_apprun "capydeploy-agent" "capydeploy-agent" "CapyDeploy Agent" "*capydeploy*agent*.AppImage" "agent.AppDir/AppRun"
+          generate_apprun "capydeploy-agent-tauri" "capydeploy-agent" "CapyDeploy Agent" "*capydeploy*agent*.AppImage" "agent.AppDir/AppRun"
 
       - name: Build AppImages
         env:
@@ -282,7 +271,6 @@ jobs:
         with:
           ref: ${{ inputs.tag_name }}
           fetch-depth: 0
-          submodules: recursive
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -295,15 +283,15 @@ jobs:
 
           # Linux tar.gz
           mkdir -p staging/linux
-          cp artifacts/hub-linux-amd64/capydeploy-hub staging/linux/
-          cp artifacts/agent-linux-amd64/capydeploy-agent staging/linux/
+          cp artifacts/hub-linux-amd64/capydeploy-hub-tauri staging/linux/
+          cp artifacts/agent-linux-amd64/capydeploy-agent-tauri staging/linux/
           chmod +x staging/linux/*
           tar -czf "release/capydeploy-linux-amd64.tar.gz" -C staging/linux .
 
           # Windows zip
           mkdir -p staging/windows
-          cp artifacts/hub-windows-amd64/capydeploy-hub.exe staging/windows/
-          cp artifacts/agent-windows-amd64/capydeploy-agent.exe staging/windows/
+          cp artifacts/hub-windows-amd64/capydeploy-hub-tauri.exe staging/windows/
+          cp artifacts/agent-windows-amd64/capydeploy-agent-tauri.exe staging/windows/
           cd staging/windows && zip -r "../../release/capydeploy-windows-amd64.zip" . && cd ../..
 
           # AppImages
