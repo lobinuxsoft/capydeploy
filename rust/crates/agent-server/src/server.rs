@@ -5,11 +5,14 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
-use tokio_tungstenite::accept_async;
+use tokio_tungstenite::accept_async_with_config;
 use tokio_util::sync::CancellationToken;
+
+use capydeploy_protocol::constants::WS_MAX_MESSAGE_SIZE;
 
 use crate::ServerError;
 use crate::connection::{self, HubConnection, HubMeta};
@@ -20,15 +23,12 @@ use crate::handler::Handler;
 pub struct ServerConfig {
     /// TCP port to listen on (0 = OS-assigned).
     pub port: u16,
-    /// Whether to accept new connections (can be toggled at runtime).
-    pub accept_connections: bool,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             port: 0,
-            accept_connections: true,
         }
     }
 }
@@ -38,22 +38,30 @@ impl Default for ServerConfig {
 /// Manages a single Hub connection at a time and dispatches messages
 /// to the provided [`Handler`].
 pub struct AgentServer<H: Handler> {
-    config: Mutex<ServerConfig>,
+    port: u16,
     handler: Arc<H>,
     hub_conn: Mutex<Option<HubConnection>>,
     cancel: CancellationToken,
     local_addr: Mutex<Option<SocketAddr>>,
+    /// Shared flag — the caller (e.g. Tauri state) owns the same Arc
+    /// so toggling from the UI is immediately visible to the server.
+    accept: Arc<AtomicBool>,
 }
 
 impl<H: Handler> AgentServer<H> {
     /// Creates a new server with the given handler.
-    pub fn new(config: ServerConfig, handler: H) -> Arc<Self> {
+    ///
+    /// `accept` is a shared flag that controls whether the server accepts
+    /// new Hub connections. The caller keeps a clone so toggling from the
+    /// UI takes effect immediately (no extra sync needed).
+    pub fn new(config: ServerConfig, handler: H, accept: Arc<AtomicBool>) -> Arc<Self> {
         Arc::new(Self {
-            config: Mutex::new(config),
+            port: config.port,
             handler: Arc::new(handler),
             hub_conn: Mutex::new(None),
             cancel: CancellationToken::new(),
             local_addr: Mutex::new(None),
+            accept,
         })
     }
 
@@ -69,14 +77,13 @@ impl<H: Handler> AgentServer<H> {
         self.local_addr.lock().await.map(|a| a.port()).unwrap_or(0)
     }
 
-    /// Updates whether the server accepts new connections.
-    pub async fn set_accept_connections(&self, accept: bool) {
-        self.config.lock().await.accept_connections = accept;
-    }
-
-    /// Returns `true` if a Hub is currently connected.
+    /// Returns `true` if a Hub is currently connected and alive.
     pub async fn has_hub(&self) -> bool {
-        self.hub_conn.lock().await.is_some()
+        let lock = self.hub_conn.lock().await;
+        match lock.as_ref() {
+            Some(conn) => conn.sender().is_connected(),
+            None => false,
+        }
     }
 
     /// Returns the sender for the current Hub connection, if any.
@@ -101,8 +108,7 @@ impl<H: Handler> AgentServer<H> {
     ///
     /// Binds to the configured port and accepts WebSocket connections.
     pub async fn run(self: &Arc<Self>) -> Result<(), ServerError> {
-        let port = self.config.lock().await.port;
-        let addr: SocketAddr = ([0, 0, 0, 0], port).into();
+        let addr: SocketAddr = ([0, 0, 0, 0], self.port).into();
         let listener = TcpListener::bind(addr).await?;
 
         let local_addr = listener.local_addr()?;
@@ -142,20 +148,34 @@ impl<H: Handler> AgentServer<H> {
         stream: tokio::net::TcpStream,
         peer_addr: SocketAddr,
     ) -> Result<(), ServerError> {
-        // Check if accepting connections.
-        if !self.config.lock().await.accept_connections {
+        // Check if accepting connections (lock-free: shared AtomicBool).
+        if !self.accept.load(Ordering::Relaxed) {
             tracing::warn!(%peer_addr, "rejecting connection: not accepting");
             return Err(ServerError::ConnectionRejected);
         }
 
-        // Check if a Hub is already connected.
-        if self.has_hub().await {
-            tracing::warn!(%peer_addr, "rejecting connection: hub already connected");
-            return Err(ServerError::HubAlreadyConnected);
+        // Take the old connection (if any) and wait for its read pump +
+        // on_hub_disconnected to finish before accepting the new one.
+        // This prevents a race where the old disconnect handler wipes
+        // hub_sender/collectors that the new connection just set up.
+        {
+            let old = self.hub_conn.lock().await.take();
+            if let Some(conn) = old {
+                if conn.sender().is_connected() {
+                    tracing::info!(%peer_addr, "replacing active hub connection");
+                } else {
+                    tracing::info!("clearing stale hub connection");
+                }
+                conn.close_and_wait().await;
+            }
         }
 
-        // WebSocket upgrade.
-        let ws_stream = accept_async(stream).await?;
+        // WebSocket upgrade with size limits matching our protocol constants.
+        let mut ws_config =
+            tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
+        ws_config.max_message_size = Some(WS_MAX_MESSAGE_SIZE);
+        ws_config.max_frame_size = Some(WS_MAX_MESSAGE_SIZE);
+        let ws_stream = accept_async_with_config(stream, Some(ws_config)).await?;
         tracing::info!(%peer_addr, "WebSocket connection established");
 
         let meta = HubMeta {
@@ -175,9 +195,11 @@ impl<H: Handler> AgentServer<H> {
         // Store the connection.
         let mut lock = self.hub_conn.lock().await;
         // Double-check: another task may have connected between our check and now.
-        if lock.is_some() {
-            conn.close();
-            return Err(ServerError::HubAlreadyConnected);
+        if let Some(existing) = lock.as_ref() {
+            if existing.sender().is_connected() {
+                conn.close();
+                return Err(ServerError::HubAlreadyConnected);
+            }
         }
         *lock = Some(conn);
 
@@ -190,7 +212,6 @@ mod tests {
     use super::*;
     use crate::handler::HandlerFuture;
     use capydeploy_protocol::envelope::Message;
-    use std::sync::atomic::{AtomicBool, Ordering};
 
     /// Minimal test handler.
     struct TestHandler {
@@ -216,14 +237,15 @@ mod tests {
         }
     }
 
+    fn accept_flag(val: bool) -> Arc<AtomicBool> {
+        Arc::new(AtomicBool::new(val))
+    }
+
     #[tokio::test]
     async fn server_binds_dynamic_port() {
         let handler = TestHandler::new();
-        let config = ServerConfig {
-            port: 0,
-            accept_connections: true,
-        };
-        let server = AgentServer::new(config, handler);
+        let config = ServerConfig { port: 0 };
+        let server = AgentServer::new(config, handler, accept_flag(true));
         let server2 = Arc::clone(&server);
 
         let handle = tokio::spawn(async move {
@@ -246,22 +268,20 @@ mod tests {
     #[tokio::test]
     async fn server_accept_connections_toggle() {
         let handler = TestHandler::new();
+        let accept = accept_flag(true);
         let config = ServerConfig::default();
-        let server = AgentServer::new(config, handler);
+        let server = AgentServer::new(config, handler, accept.clone());
 
-        assert!(server.config.lock().await.accept_connections);
-        server.set_accept_connections(false).await;
-        assert!(!server.config.lock().await.accept_connections);
+        assert!(server.accept.load(Ordering::Relaxed));
+        accept.store(false, Ordering::Relaxed);
+        assert!(!server.accept.load(Ordering::Relaxed));
     }
 
     #[tokio::test]
     async fn server_accepts_ws_connection() {
         let handler = TestHandler::new();
-        let config = ServerConfig {
-            port: 0,
-            accept_connections: true,
-        };
-        let server = AgentServer::new(config, handler);
+        let config = ServerConfig { port: 0 };
+        let server = AgentServer::new(config, handler, accept_flag(true));
         let server2 = Arc::clone(&server);
 
         let handle = tokio::spawn(async move {
@@ -290,11 +310,8 @@ mod tests {
     #[tokio::test]
     async fn server_rejects_second_connection() {
         let handler = TestHandler::new();
-        let config = ServerConfig {
-            port: 0,
-            accept_connections: true,
-        };
-        let server = AgentServer::new(config, handler);
+        let config = ServerConfig { port: 0 };
+        let server = AgentServer::new(config, handler, accept_flag(true));
         let server2 = Arc::clone(&server);
 
         let handle = tokio::spawn(async move {
@@ -329,11 +346,8 @@ mod tests {
         use futures_util::SinkExt;
 
         let handler = TestHandler::new();
-        let config = ServerConfig {
-            port: 0,
-            accept_connections: true,
-        };
-        let server = AgentServer::new(config, handler);
+        let config = ServerConfig { port: 0 };
+        let server = AgentServer::new(config, handler, accept_flag(true));
         let server2 = Arc::clone(&server);
 
         let handle = tokio::spawn(async move {

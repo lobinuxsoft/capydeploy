@@ -8,3 +8,4 @@ description = "Hub telemetry dashboard state: ring buffers, per-agent metrics, q
 
 [dependencies]
 capydeploy-protocol = { workspace = true }
+serde_json = { workspace = true }

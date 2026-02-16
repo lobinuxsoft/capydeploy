@@ -96,7 +96,7 @@ pub async fn upload_game(
                         done: false,
                     },
                     capydeploy_hub_deploy::DeployEvent::Completed { .. } => UploadProgressDto {
-                        progress: 100.0,
+                        progress: 1.0,
                         status: "completed".into(),
                         error: None,
                         done: true,

@@ -10,7 +10,7 @@ pub mod users;
 pub mod vdf;
 
 // Re-export primary types.
-pub use cef::CefClient;
+pub use cef::{CefClient, artwork_type_to_cef_asset};
 pub use controller::Controller;
 pub use paths::{ArtworkType, Paths};
 pub use shortcuts::{ShortcutManager, convert_to_shortcut_info, generate_app_id};

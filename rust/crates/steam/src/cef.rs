@@ -329,8 +329,12 @@ async fn evaluate_async(ws_url: &str, js_expr: &str) -> Result<serde_json::Value
 }
 
 /// Minimal HTTP GET to fetch JSON from the CEF debug endpoint.
+///
+/// Steam's CEF server does NOT close the TCP connection after responding
+/// (even with `Connection: close`), so we must parse `Content-Length` and
+/// read exactly that many bytes instead of relying on `read_to_end`.
 async fn http_get_json(addr: &str) -> Result<String, SteamError> {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
     let stream = tokio::time::timeout(HTTP_TIMEOUT, tokio::net::TcpStream::connect(addr))
         .await
@@ -338,27 +342,46 @@ async fn http_get_json(addr: &str) -> Result<String, SteamError> {
         .map_err(|e| SteamError::Cef(format!("failed to connect to CEF debugger: {e}")))?;
 
     let request = format!("GET /json HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n");
-    let mut stream = stream;
-    stream
+    let (reader, mut writer) = stream.into_split();
+    writer
         .write_all(request.as_bytes())
         .await
         .map_err(|e| SteamError::Cef(format!("failed to send HTTP request: {e}")))?;
 
-    let mut response = Vec::new();
-    stream
-        .read_to_end(&mut response)
+    let mut reader = BufReader::new(reader);
+    let mut content_length: Option<usize> = None;
+
+    // Read headers line by line until empty line (\r\n).
+    loop {
+        let mut line = String::new();
+        reader
+            .read_line(&mut line)
+            .await
+            .map_err(|e| SteamError::Cef(format!("failed to read HTTP header: {e}")))?;
+
+        if line == "\r\n" || line.is_empty() {
+            break;
+        }
+
+        // Parse Content-Length (case-insensitive).
+        if let Some(val) = line.strip_prefix("Content-Length:") {
+            content_length = val.trim().parse().ok();
+        } else if let Some(val) = line.strip_prefix("content-length:") {
+            content_length = val.trim().parse().ok();
+        }
+    }
+
+    let len = content_length
+        .ok_or_else(|| SteamError::Cef("CEF response missing Content-Length header".into()))?;
+
+    let mut body = vec![0u8; len];
+    reader
+        .read_exact(&mut body)
         .await
-        .map_err(|e| SteamError::Cef(format!("failed to read CEF response: {e}")))?;
+        .map_err(|e| SteamError::Cef(format!("failed to read CEF response body: {e}")))?;
 
-    let response_str = String::from_utf8_lossy(&response);
-
-    // Find the body after \r\n\r\n.
-    let body_start = response_str
-        .find("\r\n\r\n")
-        .map(|i| i + 4)
-        .ok_or_else(|| SteamError::Cef("invalid HTTP response from CEF".into()))?;
-
-    Ok(response_str[body_start..].to_string())
+    String::from_utf8(body)
+        .map_err(|e| SteamError::Cef(format!("CEF response is not valid UTF-8: {e}")))
 }
 
 #[cfg(test)]

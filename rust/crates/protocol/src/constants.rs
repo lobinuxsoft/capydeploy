@@ -135,6 +135,12 @@ pub enum MessageType {
     Unknown,
 }
 
+/// WebSocket close code: agent revoked the Hub's token (private-use range).
+///
+/// When the Hub receives a close frame with this code it must NOT
+/// attempt automatic reconnection.
+pub const WS_CLOSE_TOKEN_REVOKED: u16 = 4001;
+
 /// Common WebSocket error codes.
 pub const WS_ERR_CODE_BAD_REQUEST: i32 = 400;
 pub const WS_ERR_CODE_UNAUTHORIZED: i32 = 401;

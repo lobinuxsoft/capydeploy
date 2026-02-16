@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use capydeploy_protocol::telemetry::{TelemetryData, TelemetryStatusEvent};
+use serde_json::Value;
+
+use capydeploy_protocol::telemetry::TelemetryStatusEvent;
 
 use crate::buffer::RingBuffer;
 
@@ -11,18 +13,20 @@ const DEFAULT_CAPACITY: usize = 300;
 /// Data older than this is considered stale (no active telemetry stream).
 const STALE_THRESHOLD: Duration = Duration::from_secs(5);
 
-/// Per-agent telemetry state with individual metric histories.
+/// Per-agent telemetry state with dynamic metric histories.
+///
+/// Instead of tracking a fixed set of metrics, this walks incoming JSON and
+/// automatically creates a [`RingBuffer`] for every numeric value found under
+/// nested objects. Paths use dot notation (e.g. `"cpu.usagePercent"`).
+/// Top-level numeric fields like `timestamp` are excluded.
 #[derive(Debug, Clone)]
 pub struct AgentTelemetry {
-    latest: Option<TelemetryData>,
+    latest: Option<Value>,
     last_received: Option<Instant>,
     enabled: bool,
     interval: i32,
-    cpu_usage: RingBuffer<f64>,
-    cpu_temp: RingBuffer<f64>,
-    gpu_usage: RingBuffer<f64>,
-    gpu_temp: RingBuffer<f64>,
-    mem_usage: RingBuffer<f64>,
+    metrics: HashMap<String, RingBuffer<f64>>,
+    capacity: usize,
 }
 
 impl AgentTelemetry {
@@ -33,26 +37,31 @@ impl AgentTelemetry {
             last_received: None,
             enabled: false,
             interval: 0,
-            cpu_usage: RingBuffer::new(capacity),
-            cpu_temp: RingBuffer::new(capacity),
-            gpu_usage: RingBuffer::new(capacity),
-            gpu_temp: RingBuffer::new(capacity),
-            mem_usage: RingBuffer::new(capacity),
+            metrics: HashMap::new(),
+            capacity,
         }
     }
 
-    /// Ingest a telemetry data snapshot: store as latest and push metrics.
-    pub fn process_data(&mut self, data: &TelemetryData) {
-        if let Some(cpu) = &data.cpu {
-            self.cpu_usage.push(cpu.usage_percent);
-            self.cpu_temp.push(cpu.temp_celsius);
-        }
-        if let Some(gpu) = &data.gpu {
-            self.gpu_usage.push(gpu.usage_percent);
-            self.gpu_temp.push(gpu.temp_celsius);
-        }
-        if let Some(mem) = &data.memory {
-            self.mem_usage.push(mem.usage_percent);
+    /// Ingest a telemetry data snapshot.
+    ///
+    /// Walks the JSON object and pushes every numeric value found inside nested
+    /// objects into a ring buffer keyed by `"section.field"`. Top-level numbers
+    /// (like `timestamp`) are skipped — only nested numeric fields are tracked.
+    pub fn process_data(&mut self, data: &Value) {
+        if let Value::Object(top) = data {
+            for (section, value) in top {
+                if let Value::Object(fields) = value {
+                    for (field, val) in fields {
+                        if let Some(n) = val.as_f64() {
+                            let key = format!("{section}.{field}");
+                            self.metrics
+                                .entry(key)
+                                .or_insert_with(|| RingBuffer::new(self.capacity))
+                                .push(n);
+                        }
+                    }
+                }
+            }
         }
         self.latest = Some(data.clone());
         self.last_received = Some(Instant::now());
@@ -65,7 +74,7 @@ impl AgentTelemetry {
     }
 
     /// The most recent full telemetry snapshot, if any.
-    pub fn latest(&self) -> Option<&TelemetryData> {
+    pub fn latest(&self) -> Option<&Value> {
         self.latest.as_ref()
     }
 
@@ -85,29 +94,16 @@ impl AgentTelemetry {
         self.interval
     }
 
-    /// CPU usage percentage history.
-    pub fn cpu_usage_history(&self) -> &RingBuffer<f64> {
-        &self.cpu_usage
+    /// Get the ring buffer for a specific metric path (e.g. `"cpu.usagePercent"`).
+    pub fn history(&self, path: &str) -> Option<&RingBuffer<f64>> {
+        self.metrics.get(path)
     }
 
-    /// CPU temperature history.
-    pub fn cpu_temp_history(&self) -> &RingBuffer<f64> {
-        &self.cpu_temp
-    }
-
-    /// GPU usage percentage history.
-    pub fn gpu_usage_history(&self) -> &RingBuffer<f64> {
-        &self.gpu_usage
-    }
-
-    /// GPU temperature history.
-    pub fn gpu_temp_history(&self) -> &RingBuffer<f64> {
-        &self.gpu_temp
-    }
-
-    /// Memory usage percentage history.
-    pub fn mem_usage_history(&self) -> &RingBuffer<f64> {
-        &self.mem_usage
+    /// List all tracked metric paths, sorted alphabetically.
+    pub fn metric_keys(&self) -> Vec<&str> {
+        let mut keys: Vec<&str> = self.metrics.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        keys
     }
 }
 
@@ -136,7 +132,7 @@ impl TelemetryHub {
     }
 
     /// Route a telemetry data snapshot to the appropriate agent state.
-    pub fn process_data(&mut self, agent_id: &str, data: &TelemetryData) {
+    pub fn process_data(&mut self, agent_id: &str, data: &Value) {
         self.agents
             .entry(agent_id.to_owned())
             .or_insert_with(|| AgentTelemetry::new(self.capacity))
@@ -180,55 +176,31 @@ impl Default for TelemetryHub {
 
 #[cfg(test)]
 mod tests {
-    use capydeploy_protocol::telemetry::{CpuMetrics, GpuMetrics, MemoryMetrics};
+    use serde_json::json;
 
     use super::*;
 
-    fn sample_data_full() -> TelemetryData {
-        TelemetryData {
-            timestamp: 1700000000,
-            cpu: Some(CpuMetrics {
-                usage_percent: 45.0,
-                temp_celsius: 65.0,
-                freq_m_hz: 3200.0,
-            }),
-            gpu: Some(GpuMetrics {
-                usage_percent: 80.0,
-                temp_celsius: 75.0,
-                freq_m_hz: 1800.0,
-                mem_freq_m_hz: 0.0,
-                vram_used_bytes: 0,
-                vram_total_bytes: 0,
-            }),
-            memory: Some(MemoryMetrics {
-                total_bytes: 16_000_000_000,
-                available_bytes: 8_000_000_000,
-                usage_percent: 50.0,
-                swap_total_bytes: 0,
-                swap_free_bytes: 0,
-            }),
-            battery: None,
-            power: None,
-            fan: None,
-            steam: None,
-        }
+    fn sample_data_full() -> Value {
+        json!({
+            "timestamp": 1700000000,
+            "cpu": { "usagePercent": 45.0, "tempCelsius": 65.0, "freqMHz": 3200.0 },
+            "gpu": { "usagePercent": 80.0, "tempCelsius": 75.0, "freqMHz": 1800.0 },
+            "memory": { "totalBytes": 16000000000_i64, "availableBytes": 8000000000_i64, "usagePercent": 50.0 }
+        })
     }
 
-    fn sample_data_cpu_only() -> TelemetryData {
-        TelemetryData {
-            timestamp: 1700000001,
-            cpu: Some(CpuMetrics {
-                usage_percent: 30.0,
-                temp_celsius: 55.0,
-                freq_m_hz: 2800.0,
-            }),
-            gpu: None,
-            memory: None,
-            battery: None,
-            power: None,
-            fan: None,
-            steam: None,
-        }
+    fn sample_data_cpu_only() -> Value {
+        json!({
+            "timestamp": 1700000001,
+            "cpu": { "usagePercent": 30.0, "tempCelsius": 55.0, "freqMHz": 2800.0 }
+        })
+    }
+
+    fn sample_data_partial_cpu() -> Value {
+        json!({
+            "timestamp": 1700000002,
+            "cpu": { "usagePercent": 25.0, "freqMHz": 1963.0 }
+        })
     }
 
     // --- AgentTelemetry tests ---
@@ -240,30 +212,76 @@ mod tests {
 
         agent.process_data(&data);
 
-        assert_eq!(agent.latest().unwrap().timestamp, 1700000000);
-        assert_eq!(agent.cpu_usage_history().len(), 1);
-        assert_eq!(agent.cpu_temp_history().len(), 1);
-        assert_eq!(agent.gpu_usage_history().len(), 1);
-        assert_eq!(agent.gpu_temp_history().len(), 1);
-        assert_eq!(agent.mem_usage_history().len(), 1);
+        assert_eq!(agent.latest().unwrap()["timestamp"], 1700000000);
+        assert_eq!(agent.history("cpu.usagePercent").unwrap().len(), 1);
+        assert_eq!(agent.history("cpu.tempCelsius").unwrap().len(), 1);
+        assert_eq!(agent.history("gpu.usagePercent").unwrap().len(), 1);
+        assert_eq!(agent.history("gpu.tempCelsius").unwrap().len(), 1);
+        assert_eq!(agent.history("memory.usagePercent").unwrap().len(), 1);
 
-        assert_eq!(agent.cpu_usage_history().last(), Some(&45.0));
-        assert_eq!(agent.gpu_temp_history().last(), Some(&75.0));
-        assert_eq!(agent.mem_usage_history().last(), Some(&50.0));
+        assert_eq!(agent.history("cpu.usagePercent").unwrap().last(), Some(&45.0));
+        assert_eq!(agent.history("gpu.tempCelsius").unwrap().last(), Some(&75.0));
+        assert_eq!(agent.history("memory.usagePercent").unwrap().last(), Some(&50.0));
+    }
+
+    #[test]
+    fn process_data_tracks_all_numeric_fields() {
+        let mut agent = AgentTelemetry::new(10);
+        agent.process_data(&sample_data_full());
+
+        // All numeric fields from cpu, gpu, memory should be tracked
+        let keys = agent.metric_keys();
+        assert!(keys.contains(&"cpu.usagePercent"));
+        assert!(keys.contains(&"cpu.tempCelsius"));
+        assert!(keys.contains(&"cpu.freqMHz"));
+        assert!(keys.contains(&"gpu.usagePercent"));
+        assert!(keys.contains(&"gpu.tempCelsius"));
+        assert!(keys.contains(&"gpu.freqMHz"));
+        assert!(keys.contains(&"memory.totalBytes"));
+        assert!(keys.contains(&"memory.availableBytes"));
+        assert!(keys.contains(&"memory.usagePercent"));
+
+        // Top-level "timestamp" should NOT be tracked
+        assert!(agent.history("timestamp").is_none());
     }
 
     #[test]
     fn process_data_partial_metrics() {
         let mut agent = AgentTelemetry::new(10);
-        let data = sample_data_cpu_only();
+        agent.process_data(&sample_data_cpu_only());
 
+        assert_eq!(agent.history("cpu.usagePercent").unwrap().len(), 1);
+        assert_eq!(agent.history("cpu.tempCelsius").unwrap().len(), 1);
+        assert!(agent.history("gpu.usagePercent").is_none());
+        assert!(agent.history("memory.usagePercent").is_none());
+    }
+
+    #[test]
+    fn process_data_partial_cpu_missing_temp() {
+        let mut agent = AgentTelemetry::new(10);
+        agent.process_data(&sample_data_partial_cpu());
+
+        // usagePercent pushed, but tempCelsius was absent — not tracked
+        assert_eq!(agent.history("cpu.usagePercent").unwrap().len(), 1);
+        assert_eq!(agent.history("cpu.usagePercent").unwrap().last(), Some(&25.0));
+        assert!(agent.history("cpu.tempCelsius").is_none());
+    }
+
+    #[test]
+    fn process_data_unknown_sections() {
+        let mut agent = AgentTelemetry::new(10);
+        let data = json!({
+            "timestamp": 1700000000,
+            "battery": { "capacity": 85.0 },
+            "power": { "tdpWatts": 15.0, "powerWatts": 12.3 },
+            "fan": { "rpm": 2100.0 }
+        });
         agent.process_data(&data);
 
-        assert_eq!(agent.cpu_usage_history().len(), 1);
-        assert_eq!(agent.cpu_temp_history().len(), 1);
-        assert!(agent.gpu_usage_history().is_empty());
-        assert!(agent.gpu_temp_history().is_empty());
-        assert!(agent.mem_usage_history().is_empty());
+        assert_eq!(agent.history("battery.capacity").unwrap().last(), Some(&85.0));
+        assert_eq!(agent.history("power.tdpWatts").unwrap().last(), Some(&15.0));
+        assert_eq!(agent.history("power.powerWatts").unwrap().last(), Some(&12.3));
+        assert_eq!(agent.history("fan.rpm").unwrap().last(), Some(&2100.0));
     }
 
     #[test]
@@ -286,25 +304,20 @@ mod tests {
         let mut agent = AgentTelemetry::new(10);
 
         for i in 0..5 {
-            let data = TelemetryData {
-                timestamp: 1700000000 + i,
-                cpu: Some(CpuMetrics {
-                    usage_percent: i as f64 * 10.0,
-                    temp_celsius: 50.0 + i as f64,
-                    freq_m_hz: 3000.0,
-                }),
-                gpu: None,
-                memory: None,
-                battery: None,
-                power: None,
-                fan: None,
-                steam: None,
-            };
+            let data = json!({
+                "timestamp": 1700000000 + i,
+                "cpu": {
+                    "usagePercent": i as f64 * 10.0,
+                    "tempCelsius": 50.0 + i as f64,
+                    "freqMHz": 3000.0
+                }
+            });
             agent.process_data(&data);
         }
 
-        assert_eq!(agent.cpu_usage_history().len(), 5);
-        let values: Vec<&f64> = agent.cpu_usage_history().iter().collect();
+        let history = agent.history("cpu.usagePercent").unwrap();
+        assert_eq!(history.len(), 5);
+        let values: Vec<&f64> = history.iter().collect();
         assert_eq!(values, vec![&0.0, &10.0, &20.0, &30.0, &40.0]);
     }
 
@@ -318,10 +331,10 @@ mod tests {
         hub.process_data("agent-2", &sample_data_cpu_only());
 
         let a1 = hub.get_agent("agent-1").unwrap();
-        assert_eq!(a1.gpu_usage_history().len(), 1);
+        assert_eq!(a1.history("gpu.usagePercent").unwrap().len(), 1);
 
         let a2 = hub.get_agent("agent-2").unwrap();
-        assert!(a2.gpu_usage_history().is_empty());
+        assert!(a2.history("gpu.usagePercent").is_none());
     }
 
     #[test]

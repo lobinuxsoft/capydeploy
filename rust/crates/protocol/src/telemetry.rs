@@ -33,8 +33,11 @@ pub struct TelemetryData {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CpuMetrics {
+    #[serde(default)]
     pub usage_percent: f64,
+    #[serde(default)]
     pub temp_celsius: f64,
+    #[serde(default)]
     pub freq_m_hz: f64,
 }
 
@@ -42,8 +45,11 @@ pub struct CpuMetrics {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuMetrics {
+    #[serde(default)]
     pub usage_percent: f64,
+    #[serde(default)]
     pub temp_celsius: f64,
+    #[serde(default)]
     pub freq_m_hz: f64,
     #[serde(default, skip_serializing_if = "is_zero_f64")]
     pub mem_freq_m_hz: f64,
@@ -57,8 +63,11 @@ pub struct GpuMetrics {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryMetrics {
+    #[serde(default)]
     pub total_bytes: i64,
+    #[serde(default)]
     pub available_bytes: i64,
+    #[serde(default)]
     pub usage_percent: f64,
     #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub swap_total_bytes: i64,
@@ -69,7 +78,9 @@ pub struct MemoryMetrics {
 /// Battery status.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BatteryMetrics {
+    #[serde(default)]
     pub capacity: i32,
+    #[serde(default)]
     pub status: String,
 }
 
@@ -86,6 +97,7 @@ pub struct PowerMetrics {
 /// Fan speed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FanMetrics {
+    #[serde(default)]
     pub rpm: i32,
 }
 

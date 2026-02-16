@@ -1,6 +1,7 @@
 //! Application orchestrator — wires all agent components together.
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use capydeploy_agent_server::{AgentServer, Handler, HandlerFuture, Sender, ServerConfig};
 use capydeploy_console_log::Collector as ConsoleLogCollector;
@@ -37,10 +38,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
 
     let server_config = ServerConfig {
         port: config.port,
-        accept_connections: true,
     };
 
-    let server = AgentServer::new(server_config, handler);
+    let accept = Arc::new(AtomicBool::new(true));
+    let server = AgentServer::new(server_config, handler, accept);
     let server_run = Arc::clone(&server);
     tokio::spawn(async move {
         if let Err(e) = server_run.run().await {

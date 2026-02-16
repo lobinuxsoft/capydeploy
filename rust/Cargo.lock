@@ -254,6 +254,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "capydeploy-agent-tauri"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "capydeploy-agent-server",
+ "capydeploy-console-log",
+ "capydeploy-discovery",
+ "capydeploy-protocol",
+ "capydeploy-steam",
+ "capydeploy-telemetry",
+ "capydeploy-transfer",
+ "chrono",
+ "hostname",
+ "if-addrs",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-shell",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "capydeploy-console-log"
 version = "0.1.0"
 dependencies = [
@@ -407,6 +438,7 @@ name = "capydeploy-hub-telemetry"
 version = "0.1.0"
 dependencies = [
  "capydeploy-protocol",
+ "serde_json",
 ]
 
 [[package]]
@@ -572,8 +604,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fac4744fb15ae8337dc853fee7fb3f4e48c0fbaa23d0afe49c447b4fab126118"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link 0.2.1",
 ]
 

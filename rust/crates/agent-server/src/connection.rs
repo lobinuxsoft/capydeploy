@@ -60,6 +60,24 @@ impl Sender {
     pub fn is_connected(&self) -> bool {
         !self.tx.is_closed()
     }
+
+    /// Sends a WebSocket close frame with [`WS_CLOSE_TOKEN_REVOKED`] code,
+    /// signalling the Hub that reconnection should NOT be attempted.
+    ///
+    /// The peer will respond with its own close frame, which causes the
+    /// read pump to exit and triggers [`Handler::on_hub_disconnected`].
+    ///
+    /// [`WS_CLOSE_TOKEN_REVOKED`]: capydeploy_protocol::constants::WS_CLOSE_TOKEN_REVOKED
+    pub fn disconnect(&self) {
+        use capydeploy_protocol::constants::WS_CLOSE_TOKEN_REVOKED;
+        use tokio_tungstenite::tungstenite::protocol::CloseFrame;
+        use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+
+        let _ = self.tx.try_send(WsMessage::Close(Some(CloseFrame {
+            code: CloseCode::from(WS_CLOSE_TOKEN_REVOKED),
+            reason: "token_revoked".into(),
+        })));
+    }
 }
 
 /// Error returned when the send channel is full or closed.
@@ -75,6 +93,7 @@ pub struct HubConnection {
     pub meta: HubMeta,
     sender: Sender,
     cancel: CancellationToken,
+    read_join: tokio::task::JoinHandle<()>,
 }
 
 impl HubConnection {
@@ -83,9 +102,16 @@ impl HubConnection {
         self.sender.clone()
     }
 
-    /// Signals shutdown and waits for the pumps to finish.
+    /// Signals shutdown of the read/write pumps.
     pub fn close(&self) {
         self.cancel.cancel();
+    }
+
+    /// Cancels the connection and waits for the read pump (and its
+    /// `on_hub_disconnected` callback) to complete.
+    pub async fn close_and_wait(self) {
+        self.cancel.cancel();
+        let _ = self.read_join.await;
     }
 }
 
@@ -111,23 +137,18 @@ where
     let cancel = server_cancel.child_token();
     let sender = Sender { tx };
 
-    let conn = HubConnection {
-        meta: meta.clone(),
-        sender: sender.clone(),
-        cancel: cancel.clone(),
-    };
-
     let (ws_sink, ws_stream) = ws_stream.split();
 
     // Write pump.
     let write_cancel = cancel.clone();
     tokio::spawn(write_pump(ws_sink, rx, write_cancel));
 
-    // Read pump.
+    // Read pump — capture JoinHandle so callers can await cleanup.
     let read_cancel = cancel.clone();
     let read_handler = handler.clone();
     let read_sender = sender.clone();
-    tokio::spawn(async move {
+    let conn_meta = meta.clone();
+    let read_join = tokio::spawn(async move {
         read_pump(ws_stream, read_sender, read_handler, read_cancel.clone()).await;
         // When read pump exits, cancel the write pump too.
         read_cancel.cancel();
@@ -135,7 +156,12 @@ where
         tracing::info!(hub = %meta.name, "hub disconnected");
     });
 
-    conn
+    HubConnection {
+        meta: conn_meta,
+        sender: sender.clone(),
+        cancel: cancel.clone(),
+        read_join,
+    }
 }
 
 /// Write pump: drains the send channel and sends WS pings.
@@ -252,6 +278,8 @@ async fn dispatch_text<H: Handler>(handler: &Arc<H>, sender: &Sender, text: &str
             return;
         }
     };
+
+    tracing::debug!(msg_type = ?msg.msg_type, id = %msg.id, "dispatching message");
 
     let s = sender.clone();
     match msg.msg_type {

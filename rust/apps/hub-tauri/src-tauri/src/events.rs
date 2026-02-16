@@ -9,7 +9,7 @@ use tracing::{debug, warn};
 use capydeploy_hub_connection::{ConnectionEvent, ConnectionManager, ConnectionState};
 use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::console_log::ConsoleLogBatch;
-use capydeploy_protocol::telemetry::{TelemetryData, TelemetryStatusEvent};
+use capydeploy_protocol::telemetry::TelemetryStatusEvent;
 
 use crate::state::HubState;
 use crate::types::{
@@ -47,10 +47,26 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                 let status = match state {
                     ConnectionState::Connected => {
                         if let Some(connected) = mgr.get_connected().await {
-                            ConnectionStatusDto::from_connected(&connected)
-                        } else {
-                            ConnectionStatusDto::disconnected()
+                            let dto = ConnectionStatusDto::from_connected(&connected);
+                            let _ = handle.emit("connection:changed", &dto);
+
+                            // Emit initial telemetry/console-log status from agent_status
+                            // so the frontend doesn't have to wait for a push event.
+                            let tel = TelemetryStatusEvent {
+                                enabled: connected.status.telemetry_enabled,
+                                interval: connected.status.telemetry_interval,
+                            };
+                            let _ = handle.emit("telemetry:status", &tel);
+
+                            let cl = capydeploy_protocol::console_log::ConsoleLogStatusEvent {
+                                enabled: connected.status.console_log_enabled,
+                                level_mask: 15, // default mask (LOG|WARN|ERROR|INFO)
+                            };
+                            let _ = handle.emit("consolelog:status", &cl);
+
+                            continue;
                         }
+                        ConnectionStatusDto::disconnected()
                     }
                     _ => {
                         let mut dto = ConnectionStatusDto::disconnected();
@@ -96,7 +112,10 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
 
                 match msg_type {
                     MessageType::TelemetryData => {
-                        if let Some(data) = message.parse_payload::<TelemetryData>().ok().flatten()
+                        if let Some(data) = message
+                            .parse_payload::<serde_json::Value>()
+                            .ok()
+                            .flatten()
                         {
                             state
                                 .telemetry_hub
@@ -156,8 +175,9 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                             .ok()
                             .flatten()
                         {
+                            // percentage() returns 0-100, frontend expects 0.0-1.0.
                             let dto = UploadProgressDto {
-                                progress: progress.percentage(),
+                                progress: progress.percentage() / 100.0,
                                 status: format!("{:?}", progress.status),
                                 error: if progress.error.is_empty() {
                                     None
@@ -191,11 +211,12 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                             .ok()
                             .flatten()
                         {
+                            // Protocol uses 0-100 scale, frontend expects 0.0-1.0.
                             let dto = UploadProgressDto {
-                                progress: evt.progress,
+                                progress: evt.progress / 100.0,
                                 status: evt.status.clone(),
                                 error: None,
-                                done: evt.status == "completed" || evt.status == "failed",
+                                done: evt.status == "complete" || evt.status == "failed",
                             };
                             let _ = handle.emit("upload:progress", &dto);
                         }

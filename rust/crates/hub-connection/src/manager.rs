@@ -625,8 +625,9 @@ async fn setup_ws_callbacks(client: &WsClient, agent_id: &str, ctx: WsContext) {
         }))
         .await;
 
-    // Disconnect callback — handles both manual and unexpected disconnects.
+    // Disconnect callback — handles manual, agent-revoked, and unexpected disconnects.
     let agent_id_dc = agent_id.to_string();
+    let agent_closed = client.agent_closed();
     let ctx_dc = ctx;
     client
         .set_disconnect_callback(Box::new(move || {
@@ -637,8 +638,11 @@ async fn setup_ws_callbacks(client: &WsClient, agent_id: &str, ctx: WsContext) {
                 *c = None;
             }
 
-            if ctx_dc.manual_disconnect.load(Ordering::Relaxed) {
-                // User-initiated disconnect — just set Disconnected.
+            let no_reconnect = ctx_dc.manual_disconnect.load(Ordering::Relaxed)
+                || agent_closed.load(Ordering::Relaxed);
+
+            if no_reconnect {
+                // User-initiated or agent-revoked disconnect — no reconnect.
                 if let Ok(mut s) = ctx_dc.state.try_write() {
                     s.insert(id.clone(), ConnectionState::Disconnected);
                 }

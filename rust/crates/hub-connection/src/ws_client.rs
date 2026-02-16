@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::{Mutex, mpsc, oneshot};
@@ -67,6 +68,10 @@ pub struct WsClient {
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<Message>>>>,
     on_event: Arc<Mutex<Option<EventCallback>>>,
     on_disconnect: DisconnectCallback,
+    /// Set to `true` by the read pump when the Agent sends a close frame
+    /// with [`WS_CLOSE_TOKEN_REVOKED`]. The disconnect callback checks
+    /// this to suppress automatic reconnection.
+    agent_closed: Arc<AtomicBool>,
     _read_handle: tokio::task::JoinHandle<()>,
     _write_handle: tokio::task::JoinHandle<()>,
     _ping_handle: tokio::task::JoinHandle<()>,
@@ -82,7 +87,12 @@ impl WsClient {
         url: &str,
         hub_request: &HubConnectedRequest,
     ) -> Result<(Self, HandshakeResult), WsError> {
-        let (ws_stream, _) = tokio_tungstenite::connect_async(url).await?;
+        let mut ws_config =
+            tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
+        ws_config.max_message_size = Some(WS_MAX_MESSAGE_SIZE);
+        ws_config.max_frame_size = Some(WS_MAX_MESSAGE_SIZE);
+        let (ws_stream, _) =
+            tokio_tungstenite::connect_async_with_config(url, Some(ws_config), false).await?;
         let (write, read) = ws_stream.split();
 
         let (write_tx, write_rx) = mpsc::channel::<tungstenite::Message>(256);
@@ -90,6 +100,7 @@ impl WsClient {
             Arc::new(Mutex::new(HashMap::new()));
         let on_event: Arc<Mutex<Option<EventCallback>>> = Arc::new(Mutex::new(None));
         let on_disconnect: DisconnectCallback = Arc::new(Mutex::new(None));
+        let agent_closed = Arc::new(AtomicBool::new(false));
         let cancel = tokio_util::sync::CancellationToken::new();
 
         let write_handle = {
@@ -101,9 +112,12 @@ impl WsClient {
             let pending = pending.clone();
             let on_event = on_event.clone();
             let on_disconnect = on_disconnect.clone();
+            let agent_closed = agent_closed.clone();
             let cancel = cancel.clone();
             let write_tx = write_tx.clone();
-            tokio::spawn(read_pump(read, pending, on_event, on_disconnect, write_tx, cancel))
+            tokio::spawn(read_pump(
+                read, pending, on_event, on_disconnect, agent_closed, write_tx, cancel,
+            ))
         };
 
         let ping_handle = {
@@ -117,6 +131,7 @@ impl WsClient {
             pending,
             on_event,
             on_disconnect,
+            agent_closed,
             _read_handle: read_handle,
             _write_handle: write_handle,
             _ping_handle: ping_handle,
@@ -289,6 +304,12 @@ impl WsClient {
         }
     }
 
+    /// Returns `true` if the Agent sent a close frame with
+    /// [`WS_CLOSE_TOKEN_REVOKED`], meaning reconnection should be suppressed.
+    pub fn agent_closed(&self) -> Arc<AtomicBool> {
+        self.agent_closed.clone()
+    }
+
     /// Gracefully closes the connection.
     pub async fn close(&self) {
         self.cancel.cancel();
@@ -319,6 +340,7 @@ async fn read_pump<S>(
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<Message>>>>,
     on_event: Arc<Mutex<Option<EventCallback>>>,
     on_disconnect: DisconnectCallback,
+    agent_closed: Arc<AtomicBool>,
     write_tx: mpsc::Sender<tungstenite::Message>,
     cancel: tokio_util::sync::CancellationToken,
 ) where
@@ -356,7 +378,14 @@ async fn read_pump<S>(
                             tungstenite::Message::Pong(_) => {
                                 trace!("received pong");
                             }
-                            tungstenite::Message::Close(_) => {
+                            tungstenite::Message::Close(frame) => {
+                                if let Some(ref f) = frame {
+                                    use capydeploy_protocol::constants::WS_CLOSE_TOKEN_REVOKED;
+                                    if u16::from(f.code) == WS_CLOSE_TOKEN_REVOKED {
+                                        debug!("agent revoked token (close code {WS_CLOSE_TOKEN_REVOKED})");
+                                        agent_closed.store(true, Ordering::Relaxed);
+                                    }
+                                }
                                 debug!("received close frame");
                                 break;
                             }
@@ -562,7 +591,8 @@ mod tests {
         let (write_tx, _write_rx) = mpsc::channel(16);
         let empty = stream::empty::<Result<tungstenite::Message, tungstenite::Error>>();
 
-        read_pump(empty, pending, on_event, on_disconnect, write_tx, cancel).await;
+        let agent_closed = Arc::new(AtomicBool::new(false));
+        read_pump(empty, pending, on_event, on_disconnect, agent_closed, write_tx, cancel).await;
 
         assert!(*disconnected.lock().unwrap());
     }
@@ -599,6 +629,7 @@ mod tests {
             pending: pending.clone(),
             on_event,
             on_disconnect,
+            agent_closed: Arc::new(AtomicBool::new(false)),
             _read_handle: tokio::spawn(async {}),
             _write_handle: tokio::spawn(async {}),
             _ping_handle: tokio::spawn(async {}),
@@ -664,8 +695,9 @@ mod tests {
 
         // A stream that never yields (pending forever) — simulates silence.
         let stream = stream::pending::<Result<tungstenite::Message, tungstenite::Error>>();
+        let agent_closed = Arc::new(AtomicBool::new(false));
 
-        read_pump(stream, pending, on_event, on_disconnect, write_tx, cancel).await;
+        read_pump(stream, pending, on_event, on_disconnect, agent_closed, write_tx, cancel).await;
 
         assert!(*disconnected.lock().unwrap(), "should disconnect on pong timeout");
     }
@@ -702,8 +734,9 @@ mod tests {
         });
         let combined = Box::pin(delayed.chain(stream::pending()));
 
+        let agent_closed = Arc::new(AtomicBool::new(false));
         let handle = tokio::spawn(async move {
-            read_pump(combined, pending, on_event, on_disconnect, write_tx, cancel).await;
+            read_pump(combined, pending, on_event, on_disconnect, agent_closed, write_tx, cancel).await;
         });
 
         // Advance past the original deadline — should NOT have timed out
