@@ -1,0 +1,21 @@
+[package]
+name = "capydeploy-discovery"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "mDNS service discovery for CapyDeploy agents"
+
+[dependencies]
+capydeploy-protocol = { workspace = true }
+mdns-sd = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+if-addrs = { workspace = true }
+hostname = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

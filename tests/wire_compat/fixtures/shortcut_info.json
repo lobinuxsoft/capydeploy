@@ -1,0 +1,12 @@
+{
+  "appId": 2147483648,
+  "name": "Test Shortcut",
+  "exe": "/usr/bin/game",
+  "startDir": "/home/user",
+  "launchOptions": "--fullscreen",
+  "tags": [
+    "Action",
+    "RPG"
+  ],
+  "lastPlayed": 1700000000
+}

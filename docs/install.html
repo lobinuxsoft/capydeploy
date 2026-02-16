@@ -110,7 +110,7 @@ title: Installation
         <div class="text-sm text-slate-400 space-y-2">
           <p>1. Download the <code class="text-capy-400">.zip</code> file</p>
           <p>2. Extract the ZIP</p>
-          <p>3. Run <code class="text-capy-400">capydeploy-hub.exe</code> or <code class="text-capy-400">capydeploy-agent.exe</code></p>
+          <p>3. Run <code class="text-capy-400">capydeploy-hub-tauri.exe</code> or <code class="text-capy-400">capydeploy-agent-tauri.exe</code></p>
           <div class="mt-3 text-xs text-slate-500">
             <p>WebView2 is pre-installed on Windows 10/11.</p>
           </div>
@@ -156,9 +156,9 @@ title: Installation
         <div class="flex-1">
           <h3 class="text-lg font-semibold mb-2">Install Prerequisites</h3>
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Install Go 1.24+ and Wails CLI</span>
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
-wails doctor</code></pre>
+            <pre class="text-sm overflow-x-auto"><code class="text-slate-300"><span class="text-slate-500"># Install Rust and Bun</span>
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl -fsSL https://bun.sh/install | bash</code></pre>
           </div>
         </div>
       </div>
@@ -172,11 +172,12 @@ wails doctor</code></pre>
             <pre class="text-sm overflow-x-auto"><code class="text-slate-300">git clone https://github.com/lobinuxsoft/capydeploy
 cd capydeploy
 
-<span class="text-slate-500"># Build Hub (your PC)</span>
-cd apps/hub && ./build.sh
+<span class="text-slate-500"># Build everything</span>
+./build_all.sh
 
-<span class="text-slate-500"># Build Agent (handheld)</span>
-cd apps/agents/desktop && ./build.sh</code></pre>
+<span class="text-slate-500"># Or build individually</span>
+cd apps/hub-tauri && ./build.sh
+cd apps/agents/agent-tauri && ./build.sh</code></pre>
           </div>
         </div>
       </div>
@@ -205,15 +206,15 @@ cd apps/agents/desktop && ./build.sh</code></pre>
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-capy-400 mb-2">Fedora / Bazzite</h4>
-          <code class="text-slate-400 text-xs">rpm-ostree install webkit2gtk4.0-devel gtk3-devel</code>
+          <code class="text-slate-400 text-xs">rpm-ostree install webkit2gtk4.1-devel gtk3-devel</code>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-water-400 mb-2">Ubuntu / Debian</h4>
-          <code class="text-slate-400 text-xs">apt install libwebkit2gtk-4.0-dev libgtk-3-dev</code>
+          <code class="text-slate-400 text-xs">apt install libwebkit2gtk-4.1-dev libgtk-3-dev</code>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-purple-400 mb-2">Arch Linux</h4>
-          <code class="text-slate-400 text-xs">pacman -S webkit2gtk gtk3</code>
+          <code class="text-slate-400 text-xs">pacman -S webkit2gtk-4.1 gtk3</code>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-blue-400 mb-2">Windows</h4>

@@ -1,0 +1,15 @@
+{
+  "name": "Test Game",
+  "exe": "/games/test/game.exe",
+  "startDir": "/games/test",
+  "launchOptions": "--fullscreen",
+  "tags": [
+    "RPG",
+    "Indie"
+  ],
+  "artwork": {
+    "grid": "/art/grid.png",
+    "hero": "/art/hero.png",
+    "logo": "/art/logo.png"
+  }
+}

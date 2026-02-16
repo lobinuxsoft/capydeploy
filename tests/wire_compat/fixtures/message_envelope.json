@@ -1,0 +1,7 @@
+{
+  "id": "test-msg-1",
+  "type": "get_info",
+  "payload": {
+    "key": "value"
+  }
+}

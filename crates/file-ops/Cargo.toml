@@ -1,0 +1,18 @@
+[package]
+name = "capydeploy-file-ops"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "File operations for game installation, deletion and filesystem browsing"
+
+[dependencies]
+capydeploy-protocol = { workspace = true }
+capydeploy-steam = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

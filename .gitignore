@@ -1,4 +1,4 @@
-# Build artifacts (only compiled binaries, not icons)
+# Build artifacts
 **/build/bin/
 dist/
 
@@ -8,20 +8,8 @@ dist/
 *.dll
 *.so
 *.dylib
-capydeploy-hub
-capydeploy-agent
 
-# Frontend - Hub
-apps/hub/frontend/node_modules/
-apps/hub/frontend/dist/
-apps/hub/frontend/.svelte-kit/
-
-# Frontend - Desktop Agent
-apps/agents/desktop/frontend/node_modules/
-apps/agents/desktop/frontend/dist/
-apps/agents/desktop/frontend/.svelte-kit/
-
-# Docs (Docus/Nuxt)
+# Docs
 docs/node_modules/
 docs/.nuxt/
 docs/.output/
@@ -41,8 +29,11 @@ ehthumbs.db
 # Logs
 *.log
 
-# Wails temp files
+# Build checksum caches
 *.md5
+
+# Rust
+target/
 
 # Config files (user-specific)
 config.json

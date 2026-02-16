@@ -56,19 +56,15 @@ title: Developers
     <!-- Platform Files -->
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
       <h3 class="text-lg font-semibold mb-4">Platform-Specific Files (if using Steam)</h3>
-      <p class="text-slate-400 mb-4">Go build tags separate platform code. Only needed if your platform supports Steam:</p>
-      <div class="grid md:grid-cols-3 gap-4">
+      <p class="text-slate-400 mb-4">Rust <code>cfg</code> attributes separate platform code. Only needed if your platform supports Steam:</p>
+      <div class="grid md:grid-cols-2 gap-4">
         <div class="bg-slate-950 rounded-xl p-4">
-          <code class="text-capy-400 text-sm">pkg/steam/paths_*.go</code>
+          <code class="text-capy-400 text-sm">crates/steam/src/paths_*.rs</code>
           <p class="text-slate-500 text-xs mt-2">Steam directory detection</p>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
-          <code class="text-water-400 text-sm">apps/agents/desktop/steam/control_*.go</code>
+          <code class="text-water-400 text-sm">crates/steam/src/controller_*.rs</code>
           <p class="text-slate-500 text-xs mt-2">Start, stop, restart Steam</p>
-        </div>
-        <div class="bg-slate-950 rounded-xl p-4">
-          <code class="text-purple-400 text-sm">apps/agents/desktop/artwork/artwork_*.go</code>
-          <p class="text-slate-500 text-xs mt-2">Artwork paths (if different)</p>
         </div>
       </div>
     </div>
@@ -81,17 +77,20 @@ title: Developers
           <span class="w-8 h-8 rounded-lg bg-capy-500/20 flex items-center justify-center text-capy-500 text-sm font-bold">1</span>
           Steam Paths
         </h3>
-        <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs"><code class="text-slate-300"><span class="text-slate-500">//go:build darwin</span>
+        <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs"><code class="text-slate-300"><span class="text-slate-500">// crates/steam/src/paths_darwin.rs</span>
 
-<span class="text-purple-400">package</span> steam
+<span class="text-purple-400">use</span> std::path::PathBuf;
+<span class="text-purple-400">use</span> <span class="text-capy-400">crate</span>::SteamError;
 
-<span class="text-purple-400">func</span> <span class="text-water-400">getBaseDir</span>() (<span class="text-capy-400">string</span>, <span class="text-capy-400">error</span>) {
-    home, _ := os.UserHomeDir()
-    steamPath := filepath.Join(home,
-        <span class="text-green-400">"Library"</span>,
-        <span class="text-green-400">"Application Support"</span>,
-        <span class="text-green-400">"Steam"</span>)
-    <span class="text-purple-400">return</span> steamPath, <span class="text-capy-400">nil</span>
+<span class="text-purple-400">pub</span>(<span class="text-purple-400">crate</span>) <span class="text-purple-400">fn</span> <span class="text-water-400">get_base_dir</span>() -> <span class="text-capy-400">Result</span>&lt;PathBuf, SteamError&gt; {
+    <span class="text-purple-400">let</span> home = std::env::var_os(<span class="text-green-400">"HOME"</span>)
+        .map(PathBuf::from)
+        .ok_or(SteamError::NotFound)?;
+    <span class="text-purple-400">let</span> steam_dir = home
+        .join(<span class="text-green-400">"Library"</span>)
+        .join(<span class="text-green-400">"Application Support"</span>)
+        .join(<span class="text-green-400">"Steam"</span>);
+    Ok(steam_dir)
 }</code></pre>
       </div>
 
@@ -101,20 +100,31 @@ title: Developers
           <span class="w-8 h-8 rounded-lg bg-water-500/20 flex items-center justify-center text-water-500 text-sm font-bold">2</span>
           Steam Controller
         </h3>
-        <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs"><code class="text-slate-300"><span class="text-slate-500">//go:build darwin</span>
+        <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs"><code class="text-slate-300"><span class="text-slate-500">// crates/steam/src/controller_darwin.rs</span>
 
-<span class="text-purple-400">func</span> (c *Controller) <span class="text-water-400">Start</span>() <span class="text-capy-400">error</span> {
-    <span class="text-purple-400">return</span> exec.Command(<span class="text-green-400">"open"</span>, <span class="text-green-400">"-a"</span>, <span class="text-green-400">"Steam"</span>).Run()
+<span class="text-purple-400">pub async fn</span> <span class="text-water-400">is_running</span>() -> <span class="text-capy-400">bool</span> {
+    <span class="text-purple-400">let</span> output = tokio::process::Command::new(<span class="text-green-400">"pgrep"</span>)
+        .args([<span class="text-green-400">"-x"</span>, <span class="text-green-400">"steam"</span>])
+        .output().<span class="text-purple-400">await</span>;
+    output.map(|o| o.status.success()).unwrap_or(<span class="text-purple-400">false</span>)
 }
 
-<span class="text-purple-400">func</span> (c *Controller) <span class="text-water-400">IsRunning</span>() <span class="text-capy-400">bool</span> {
-    out, _ := exec.Command(<span class="text-green-400">"pgrep"</span>, <span class="text-green-400">"steam"</span>).Output()
-    <span class="text-purple-400">return</span> len(out) > <span class="text-purple-400">0</span>
+<span class="text-purple-400">pub async fn</span> <span class="text-water-400">start</span>() -> <span class="text-capy-400">Result</span>&lt;(), SteamError&gt; {
+    tokio::process::Command::new(<span class="text-green-400">"open"</span>)
+        .args([<span class="text-green-400">"-a"</span>, <span class="text-green-400">"Steam"</span>])
+        .spawn()
+        .map_err(|e| SteamError::Controller(
+            <span class="text-purple-400">format!</span>(<span class="text-green-400">"failed to start Steam: {e}"</span>)))?;
+    Ok(())
 }
 
-<span class="text-purple-400">func</span> (c *Controller) <span class="text-water-400">Shutdown</span>() <span class="text-capy-400">error</span> {
-    <span class="text-purple-400">return</span> exec.Command(<span class="text-green-400">"osascript"</span>, <span class="text-green-400">"-e"</span>,
-        <span class="text-green-400">`quit app "Steam"`</span>).Run()
+<span class="text-purple-400">pub async fn</span> <span class="text-water-400">shutdown_command</span>() -> <span class="text-capy-400">Result</span>&lt;(), SteamError&gt; {
+    tokio::process::Command::new(<span class="text-green-400">"osascript"</span>)
+        .args([<span class="text-green-400">"-e"</span>, <span class="text-green-400">"quit app \"Steam\""</span>])
+        .output().<span class="text-purple-400">await</span>
+        .map_err(|e| SteamError::Controller(
+            <span class="text-purple-400">format!</span>(<span class="text-green-400">"failed to shutdown Steam: {e}"</span>)))?;
+    Ok(())
 }</code></pre>
       </div>
     </div>
@@ -168,11 +178,11 @@ title: Developers
       <div class="grid md:grid-cols-2 gap-3 text-sm">
         <div class="flex items-center gap-3 text-slate-300">
           <span class="w-2 h-2 rounded-full bg-capy-500"></span>
-          <span><code>paths_&lt;platform&gt;.go</code> - Steam directory</span>
+          <span><code>paths_&lt;platform&gt;.rs</code> - Steam directory</span>
         </div>
         <div class="flex items-center gap-3 text-slate-300">
           <span class="w-2 h-2 rounded-full bg-capy-500"></span>
-          <span><code>control_&lt;platform&gt;.go</code> - Steam control</span>
+          <span><code>controller_&lt;platform&gt;.rs</code> - Steam control</span>
         </div>
         <div class="flex items-center gap-3 text-slate-300">
           <span class="w-2 h-2 rounded-full bg-water-500"></span>

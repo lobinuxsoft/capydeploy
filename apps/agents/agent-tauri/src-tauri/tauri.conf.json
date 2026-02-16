@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri-v2-nightly-schema/main/tauri.conf.json",
+  "productName": "CapyDeploy Agent",
+  "version": "0.1.0",
+  "identifier": "com.capydeploy.agent",
+  "build": {
+    "beforeDevCommand": "cd ../frontend && bun run dev",
+    "devUrl": "http://localhost:5175",
+    "beforeBuildCommand": "cd ../frontend && bun run build",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "CapyDeploy Agent",
+        "width": 800,
+        "height": 600,
+        "minWidth": 640,
+        "minHeight": 480,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; font-src 'self' data:"
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

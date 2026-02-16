@@ -1,0 +1,9 @@
+{
+  "name": "Agent",
+  "version": "0.6.0",
+  "platform": "steamdeck",
+  "acceptConnections": true,
+  "telemetryEnabled": true,
+  "telemetryInterval": 5,
+  "consoleLogEnabled": false
+}
