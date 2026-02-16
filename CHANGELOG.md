@@ -1,5 +1,71 @@
 # Changelog
 
+## [0.7.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.6.0...v0.7.0) (2026-02-16)
+
+
+### Features
+
+* add agent WebSocket server crate ([#114](https://github.com/lobinuxsoft/capydeploy/issues/114)) ([60c44c5](https://github.com/lobinuxsoft/capydeploy/commit/60c44c5b6e3806fd117b50047a58c2354e3317fb))
+* add build_all.sh and build_all.bat for Tauri + Decky builds ([4952e0f](https://github.com/lobinuxsoft/capydeploy/commit/4952e0f3e36c4037a67b64e0da98118e563edb69))
+* add Rust workspace with Phase 1 core crates ([#40](https://github.com/lobinuxsoft/capydeploy/issues/40)) ([b77f8ce](https://github.com/lobinuxsoft/capydeploy/commit/b77f8ceaef0301061b62e353199a6ef6e3577cea))
+* **agent:** port desktop Agent to Tauri v2 with flexible telemetry ([a9dfedc](https://github.com/lobinuxsoft/capydeploy/commit/a9dfedcd56e3b4f5d7c53f37b9184df1a21511a2))
+* assemble Rust agent desktop binary ([#122](https://github.com/lobinuxsoft/capydeploy/issues/122)) ([3d3db22](https://github.com/lobinuxsoft/capydeploy/commit/3d3db22e36142f59985a12cdb97a185ded3ebf1e))
+* **hub-console-log:** implementar state management de console log del Hub ([#128](https://github.com/lobinuxsoft/capydeploy/issues/128)) ([d6a55b8](https://github.com/lobinuxsoft/capydeploy/commit/d6a55b8be307a403847bdb4d8a28e66896f0b82c))
+* **hub-deploy:** implementar flujo de deploy de juegos del Hub ([#125](https://github.com/lobinuxsoft/capydeploy/issues/125)) ([9c194a3](https://github.com/lobinuxsoft/capydeploy/commit/9c194a300a7e8557b56b4d25e0c84f9aed0c9f73))
+* **hub-games:** implementar gestión de juegos instalados del Hub ([#126](https://github.com/lobinuxsoft/capydeploy/issues/126)) ([1f32afe](https://github.com/lobinuxsoft/capydeploy/commit/1f32afe699d3c24c1b0dfca0fb5e6b6fd787cb6e))
+* **hub-settings:** implementar toast queue del Hub ([#129](https://github.com/lobinuxsoft/capydeploy/issues/129)) ([5bf7b13](https://github.com/lobinuxsoft/capydeploy/commit/5bf7b13510a0892632c6c8bb082639d586f71b33))
+* **hub-telemetry:** implementar state management de telemetría del Hub ([#127](https://github.com/lobinuxsoft/capydeploy/issues/127)) ([0bcb2ca](https://github.com/lobinuxsoft/capydeploy/commit/0bcb2ca4b8a84ccb7b7605860c05eed0349da58c))
+* **hub-widgets:** implementar widgets canvas para dashboard de telemetría ([#130](https://github.com/lobinuxsoft/capydeploy/issues/130)) ([dd789d6](https://github.com/lobinuxsoft/capydeploy/commit/dd789d6d48f66061e9f127a6aec95d8ad8929014))
+* **hub:** add connection header bar and Hub unit tests ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([0665f94](https://github.com/lobinuxsoft/capydeploy/commit/0665f941c91f633c9485a2854fbdddaa7bfae789))
+* **hub:** add deploy view with game setup CRUD and upload ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([0e17e77](https://github.com/lobinuxsoft/capydeploy/commit/0e17e77f8298c4a078bc2997f42160840bec0d25))
+* **hub:** add game artwork edit, source filter, about section, and pagination ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([4188b6e](https://github.com/lobinuxsoft/capydeploy/commit/4188b6ed4bde39b7c94f0e39f37286f9d7a051c3))
+* **hub:** add installed games view and settings page ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([76bf0b3](https://github.com/lobinuxsoft/capydeploy/commit/76bf0b323e261c8380d4d80625b51264c26abe4e))
+* **hub:** add native folder picker dialogs for local path and log dir ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([f95d07c](https://github.com/lobinuxsoft/capydeploy/commit/f95d07c88c40887a5c5c14cf7552ff3a143f86ec))
+* **hub:** add secure API key input, discovery refresh, and console source badges ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([51ac691](https://github.com/lobinuxsoft/capydeploy/commit/51ac6915b20cfdad698f9df85aa7cc07bd33511d))
+* **hub:** add toast notifications and artwork selector ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([9c2a269](https://github.com/lobinuxsoft/capydeploy/commit/9c2a2693d99c44d2991ad24828bbe0226a4818a9))
+* **hub:** agregar toggle de telemetría y corregir deserialización de SteamUser ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([a4063c1](https://github.com/lobinuxsoft/capydeploy/commit/a4063c163e3b9f4f288d4b1e801fb193dec97faf))
+* **hub:** integrate console log viewer with level filters ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([2e09f8a](https://github.com/lobinuxsoft/capydeploy/commit/2e09f8a2219abfe96cd2dd0c526716c9c4d880e1))
+* **hub:** integrate telemetry dashboard with canvas widgets ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([ee5763e](https://github.com/lobinuxsoft/capydeploy/commit/ee5763ea14e4eb7f13668f884662aac98a630452))
+* **hub:** port Hub to Tauri v2, replace libcosmic/hub-rs with Svelte WebView ([f4054eb](https://github.com/lobinuxsoft/capydeploy/commit/f4054eb9c137e50d12859e431627052bb86b7356))
+* **hub:** scaffold Hub binary with send_binary support ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([e84dedb](https://github.com/lobinuxsoft/capydeploy/commit/e84dedba0d3d18f8801c741f5406c9384768c772))
+* **hub:** virtual scrolling en console log, filtros artwork y thumbnails retry ([#140](https://github.com/lobinuxsoft/capydeploy/issues/140)) ([4916f5a](https://github.com/lobinuxsoft/capydeploy/commit/4916f5aa3f9aa98adf135f29285eca2b3a993aed))
+* **hub:** wire connection bridge, devices view, and pairing dialog ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([7dba700](https://github.com/lobinuxsoft/capydeploy/commit/7dba700491f83e1283b5919e65c7b5c51ad1d49e))
+* **hub:** wire deploy progress stream with real-time UI updates ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([13dbdf8](https://github.com/lobinuxsoft/capydeploy/commit/13dbdf85d29e0b421b209de6b5fb3ba858253c6f))
+* implement Rust agent file operations ([#120](https://github.com/lobinuxsoft/capydeploy/issues/120)) ([b000a4a](https://github.com/lobinuxsoft/capydeploy/commit/b000a4a65089fc3c676aabb0d72f633a5423d4a7))
+* implement Rust agent system tray ([#121](https://github.com/lobinuxsoft/capydeploy/issues/121)) ([4fbdf89](https://github.com/lobinuxsoft/capydeploy/commit/4fbdf89495f3b2d89138841dc306116e91838442))
+* implement Rust CDP console log collector ([#118](https://github.com/lobinuxsoft/capydeploy/issues/118)) ([8b4e716](https://github.com/lobinuxsoft/capydeploy/commit/8b4e7169726131e78e1be2fe534f4f9e21fd52b1))
+* implement Rust CEF/CDP client ([#116](https://github.com/lobinuxsoft/capydeploy/issues/116)) ([abac1f6](https://github.com/lobinuxsoft/capydeploy/commit/abac1f6f1c6d1a1dd680831b82bebec8381809c0))
+* implement Rust game log wrapper ([#119](https://github.com/lobinuxsoft/capydeploy/issues/119)) ([1f1defb](https://github.com/lobinuxsoft/capydeploy/commit/1f1defbf518675f389837c70ee935e19cb67d3fe))
+* implement Rust hardware telemetry collector ([#117](https://github.com/lobinuxsoft/capydeploy/issues/117)) ([7155399](https://github.com/lobinuxsoft/capydeploy/commit/71553994e6655abcd46a236939049289799c0c60))
+* implement Rust Steam controller ([#115](https://github.com/lobinuxsoft/capydeploy/issues/115)) ([af73ef4](https://github.com/lobinuxsoft/capydeploy/commit/af73ef4e0a86ce49c3d8a7a13286c97fb19c6ae1))
+* implementar connection manager del Hub ([#124](https://github.com/lobinuxsoft/capydeploy/issues/124)) ([f8e6959](https://github.com/lobinuxsoft/capydeploy/commit/f8e69597a9e8c9d96f644cc925ece2c309f700b5))
+* port cliente SteamGridDB API a Rust ([#123](https://github.com/lobinuxsoft/capydeploy/issues/123)) ([84d87f3](https://github.com/lobinuxsoft/capydeploy/commit/84d87f30fa7a404348bc398d6ce626a9f896b7ad))
+* port transfer crate to Rust ([#113](https://github.com/lobinuxsoft/capydeploy/issues/113)) ([7d4a8de](https://github.com/lobinuxsoft/capydeploy/commit/7d4a8deba103fe29182a6933646bb2f613bd38b1))
+
+
+### Bug Fixes
+
+* **agent:** notify Hub of telemetry/console-log status via WS and move EventsOn to always-mounted page ([ae07a3a](https://github.com/lobinuxsoft/capydeploy/commit/ae07a3a32913906bae9c24b1efea686701908072))
+* **ci:** resolve clippy collapsible_if and needless_borrow (Rust 1.93) ([7b574ea](https://github.com/lobinuxsoft/capydeploy/commit/7b574ea48db46bbd22209314fee87919c2e155fb))
+* **ci:** resolve lint, typecheck and Windows build failures ([dafce34](https://github.com/lobinuxsoft/capydeploy/commit/dafce34689cc60ca7d6ee259b2eb7151210b4bce))
+* **ci:** resolve remaining typecheck and clippy failures ([63acf7a](https://github.com/lobinuxsoft/capydeploy/commit/63acf7a60a7c40ff74368dcccdc594bddfbc1839))
+* **ci:** type agent invoke calls and derive ServerConfig Default ([8298a3f](https://github.com/lobinuxsoft/capydeploy/commit/8298a3f4f44f2c1f7b94b6bfd0be33bb5226ab33))
+* **hub:** clean up TelemetryHub/ConsoleLogHub on agent disconnect and use VecDeque for console-log buffer ([a45208d](https://github.com/lobinuxsoft/capydeploy/commit/a45208dff4b04121d63d636ffcfd22159b7eb24d))
+* **hub:** corregir reconexión WS, pong detection y gestión de estados ([#136](https://github.com/lobinuxsoft/capydeploy/issues/136)) ([bc866f1](https://github.com/lobinuxsoft/capydeploy/commit/bc866f16deed3537b7fca5daf4e8a09b4148f3fe))
+* **hub:** corregir telemetría, header bar y deserialización de protocolo ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([aa0e8e0](https://github.com/lobinuxsoft/capydeploy/commit/aa0e8e046e1222089c0f9eda0cf2ba0c9488a151))
+* **hub:** quitar toggle de console log y detectar telemetría stale ([#136](https://github.com/lobinuxsoft/capydeploy/issues/136)) ([486dd11](https://github.com/lobinuxsoft/capydeploy/commit/486dd1134ef1c11b38b923a1ab377535b05ae924))
+* **hub:** resolver panics de tokio y spam de mDNS ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([6dfe34f](https://github.com/lobinuxsoft/capydeploy/commit/6dfe34fcbe9a4d3a5f9e30fb3991716fdf7e8d55))
+* **hub:** telemetría agrupada, deploy protocol y panic en tokio tasks ([#138](https://github.com/lobinuxsoft/capydeploy/issues/138)) ([7b8cc52](https://github.com/lobinuxsoft/capydeploy/commit/7b8cc52087e9d625138fbf036283dec132c83366))
+* **hub:** telemetría paridad visual con Svelte, layout 2 columnas y build.sh ([#138](https://github.com/lobinuxsoft/capydeploy/issues/138)) ([d24fe42](https://github.com/lobinuxsoft/capydeploy/commit/d24fe42fb009e61cdb282a9ba43c2087ce47c769))
+
+
+### Refactoring
+
+* flatten Rust workspace from rust/ subdirectory to project root ([4d9ce81](https://github.com/lobinuxsoft/capydeploy/commit/4d9ce81840b0440148363246841bcea2cf83c9e8))
+* **hub:** overhaul visual, telemetría sin sparklines, artwork modular y WS reconnect ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([7b61bc6](https://github.com/lobinuxsoft/capydeploy/commit/7b61bc6b5d854f1449aa3f8e36ddd5721f76a11d))
+* **hub:** reemplazar canvas gauges con progress_bar y preparar sparklines consolidados ([#131](https://github.com/lobinuxsoft/capydeploy/issues/131)) ([55ab77f](https://github.com/lobinuxsoft/capydeploy/commit/55ab77fd612cb2d2cbef7d08b91375540a5c9bab))
+* port entire codebase from Go/Wails to Rust/Tauri ([9b783d4](https://github.com/lobinuxsoft/capydeploy/commit/9b783d4d8a93c3e543e3dab297d9e15142c8d969))
+
 ## [0.6.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.5.0...v0.6.0) (2026-02-12)
 
 
