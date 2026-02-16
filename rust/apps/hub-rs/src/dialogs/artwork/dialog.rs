@@ -227,13 +227,33 @@ impl ArtworkDialog {
             ArtworkFilterField::ImageType => &mut self.filters.image_type,
         };
 
-        // For ImageType, it's a single value toggle (not CSV).
+        // ImageType works like two independent toggles (Static/Animated).
+        // "" = both on, "Static Only" = animated off, "Animated Only" = static off.
+        // Clicking a type toggles it on/off, but at least one must stay on.
         if *field == ArtworkFilterField::ImageType {
-            if csv == value {
-                csv.clear();
-            } else {
-                *csv = value.to_string();
+            match (csv.as_str(), value) {
+                // Both on → turn off the clicked type.
+                ("", "Static Only") => *csv = "Animated Only".to_string(),
+                ("", "Animated Only") => *csv = "Static Only".to_string(),
+                // Only one on → turn the other back on (both on).
+                ("Animated Only", "Static Only") | ("Static Only", "Animated Only") => csv.clear(),
+                // The only active type was clicked → can't turn off both, ignore.
+                _ => {}
             }
+            return;
+        }
+
+        // Empty CSV means "all selected". Clicking a chip deselects it by
+        // populating the CSV with all tab options EXCEPT the clicked one.
+        if csv.is_empty() {
+            let all: &[&str] = match field {
+                ArtworkFilterField::Style => self.active_tab.style_options(),
+                ArtworkFilterField::Dimension => self.active_tab.dimension_options(),
+                ArtworkFilterField::MimeType => self.active_tab.mime_options(),
+                _ => &[],
+            };
+            let remaining: Vec<&str> = all.iter().copied().filter(|&v| v != value).collect();
+            *csv = remaining.join(",");
             return;
         }
 
@@ -243,7 +263,19 @@ impl ArtworkDialog {
         } else {
             parts.push(value);
         }
-        *csv = parts.join(",");
+
+        // If all values for this tab are now selected, clear back to "" (= all).
+        let all: &[&str] = match field {
+            ArtworkFilterField::Style => self.active_tab.style_options(),
+            ArtworkFilterField::Dimension => self.active_tab.dimension_options(),
+            ArtworkFilterField::MimeType => self.active_tab.mime_options(),
+            _ => &[],
+        };
+        if parts.len() == all.len() && all.iter().all(|v| parts.contains(v)) {
+            csv.clear();
+        } else {
+            *csv = parts.join(",");
+        }
     }
 
     /// Resets all filters to their defaults.
@@ -265,6 +297,7 @@ impl ArtworkDialog {
     }
 
     /// Whether a CSV filter value is currently selected.
+    /// Empty CSV means "all selected" for Style/Dimension/MimeType fields.
     pub fn is_filter_selected(&self, field: &ArtworkFilterField, value: &str) -> bool {
         let csv = match field {
             ArtworkFilterField::Style => &self.filters.style,
@@ -275,6 +308,11 @@ impl ArtworkDialog {
 
         if *field == ArtworkFilterField::ImageType {
             return csv == value;
+        }
+
+        // Empty = all selected (default state).
+        if csv.is_empty() {
+            return true;
         }
 
         csv.split(',').any(|s| s == value)
@@ -399,36 +437,52 @@ mod tests {
     }
 
     #[test]
-    fn toggle_filter_csv_add_remove() {
+    fn toggle_filter_csv_empty_means_all_selected() {
         let mut dlg = ArtworkDialog::new("Test", 0, "", "", "", "", "");
-
-        dlg.toggle_filter(&ArtworkFilterField::Style, "alternate");
-        assert_eq!(dlg.filters.style, "alternate");
+        // Default tab is Capsule with 5 styles.
+        assert!(dlg.filters.style.is_empty());
+        // Empty = all selected visually.
         assert!(dlg.is_filter_selected(&ArtworkFilterField::Style, "alternate"));
+        assert!(dlg.is_filter_selected(&ArtworkFilterField::Style, "blurred"));
 
-        dlg.toggle_filter(&ArtworkFilterField::Style, "blurred");
-        assert_eq!(dlg.filters.style, "alternate,blurred");
-
+        // Clicking "alternate" when empty → populates with all EXCEPT alternate.
         dlg.toggle_filter(&ArtworkFilterField::Style, "alternate");
-        assert_eq!(dlg.filters.style, "blurred");
+        assert!(!dlg.is_filter_selected(&ArtworkFilterField::Style, "alternate"));
+        assert!(dlg.is_filter_selected(&ArtworkFilterField::Style, "white_logo"));
+        assert!(dlg.is_filter_selected(&ArtworkFilterField::Style, "blurred"));
 
-        dlg.toggle_filter(&ArtworkFilterField::Style, "blurred");
+        // Re-add "alternate" → all styles selected → CSV clears back to "".
+        dlg.toggle_filter(&ArtworkFilterField::Style, "alternate");
         assert!(dlg.filters.style.is_empty());
     }
 
     #[test]
-    fn toggle_filter_image_type_single_value() {
+    fn toggle_filter_image_type_independent_toggles() {
         let mut dlg = ArtworkDialog::new("Test", 0, "", "", "", "", "");
+        // Default: both on (empty).
+        assert!(dlg.filters.image_type.is_empty());
 
+        // Turn off static → animated only.
         dlg.toggle_filter(&ArtworkFilterField::ImageType, "Static Only");
-        assert_eq!(dlg.filters.image_type, "Static Only");
+        assert_eq!(dlg.filters.image_type, "Animated Only");
 
+        // Turn static back on → both on.
         dlg.toggle_filter(&ArtworkFilterField::ImageType, "Static Only");
         assert!(dlg.filters.image_type.is_empty());
 
+        // Turn off animated → static only.
         dlg.toggle_filter(&ArtworkFilterField::ImageType, "Animated Only");
-        dlg.toggle_filter(&ArtworkFilterField::ImageType, "Static Only");
         assert_eq!(dlg.filters.image_type, "Static Only");
+
+        // Turn animated back on → both on.
+        dlg.toggle_filter(&ArtworkFilterField::ImageType, "Animated Only");
+        assert!(dlg.filters.image_type.is_empty());
+
+        // Can't turn off the only active type.
+        dlg.toggle_filter(&ArtworkFilterField::ImageType, "Static Only");
+        assert_eq!(dlg.filters.image_type, "Animated Only");
+        dlg.toggle_filter(&ArtworkFilterField::ImageType, "Animated Only");
+        assert_eq!(dlg.filters.image_type, "Animated Only"); // No change.
     }
 
     #[test]

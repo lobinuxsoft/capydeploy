@@ -451,12 +451,16 @@ fn filters_panel(dialog: &ArtworkDialog) -> Element<'_, Message> {
     }
 
     // -- Types section (Animated / Static) --
+    // Both are ON when imageType is empty (default). Each is OFF only when
+    // the OTHER type is exclusively selected (matching old Svelte hub toggles).
+    let static_on = dialog.filters.image_type != "Animated Only";
+    let animated_on = dialog.filters.image_type != "Static Only";
     panel = panel.push(filter_section(
         "Types",
         vec![
             filter_chip(
                 "Static",
-                dialog.is_filter_selected(&ArtworkFilterField::ImageType, "Static Only"),
+                static_on,
                 Message::ArtworkToggleFilter(
                     ArtworkFilterField::ImageType,
                     "Static Only".to_string(),
@@ -464,7 +468,7 @@ fn filters_panel(dialog: &ArtworkDialog) -> Element<'_, Message> {
             ),
             filter_chip(
                 "Animated",
-                dialog.is_filter_selected(&ArtworkFilterField::ImageType, "Animated Only"),
+                animated_on,
                 Message::ArtworkToggleFilter(
                     ArtworkFilterField::ImageType,
                     "Animated Only".to_string(),

@@ -12,13 +12,20 @@ use capydeploy_protocol::constants::{
 use crate::message::Message;
 use crate::theme;
 
-/// Renders the console log viewer.
+/// Height of a single log entry row (caption text + spacing).
+const ITEM_HEIGHT: f32 = 20.0;
+/// Extra items rendered above/below the viewport for smooth scrolling.
+const BUFFER: usize = 5;
+
+/// Renders the console log viewer with virtual scrolling.
 pub fn view<'a>(
     hub: &'a ConsoleLogHub,
     agent_id: Option<&str>,
     level_filter: u32,
     source_filter: &'a str,
     search: &'a str,
+    scroll_y: f32,
+    viewport_h: f32,
 ) -> Element<'a, Message> {
     let mut content = widget::column().spacing(12);
 
@@ -87,37 +94,51 @@ pub fn view<'a>(
         .on_input(Message::ConsoleSearchInput);
     content = content.push(search_input);
 
-    // -- Log entries --
+    // -- Log entries (virtual scrolling) --
     if let Some(agent) = agent {
         let search_lower = search.to_lowercase();
 
-        let mut log_list = widget::column().spacing(2);
-        let mut visible_count = 0u32;
+        // Pre-filter entries into a Vec of references (one pass).
+        let filtered: Vec<_> = agent
+            .entries()
+            .iter()
+            .filter(|entry| passes_filter(entry, level_filter, source_filter, &search_lower))
+            .collect();
 
-        for entry in agent.entries().iter() {
-            // Level filter.
-            let level_bit = capydeploy_protocol::constants::log_level_bit(&entry.level);
-            if level_bit & level_filter == 0 {
-                continue;
-            }
+        let visible_count = filtered.len();
+        let total_height = visible_count as f32 * ITEM_HEIGHT;
 
-            // Source filter.
-            if !source_filter.is_empty() && entry.source != source_filter {
-                continue;
-            }
+        // Calculate visible range with buffer.
+        let first = (scroll_y / ITEM_HEIGHT)
+            .floor()
+            .max(0.0) as usize;
+        let first = first.saturating_sub(BUFFER);
+        let visible_items = (viewport_h / ITEM_HEIGHT).ceil() as usize + 2 * BUFFER;
+        let last = (first + visible_items).min(visible_count);
+        let first = first.min(visible_count);
 
-            // Text search filter.
-            if !search_lower.is_empty() && !entry.text.to_lowercase().contains(&search_lower) {
-                continue;
-            }
+        // Build column with spacers + visible slice.
+        let spacer_top = first as f32 * ITEM_HEIGHT;
+        let spacer_bottom = (total_height - last as f32 * ITEM_HEIGHT).max(0.0);
 
+        let mut log_list = widget::column().spacing(0);
+
+        if spacer_top > 0.0 {
+            log_list = log_list.push(widget::vertical_space().height(spacer_top));
+        }
+
+        for entry in &filtered[first..last] {
             log_list = log_list.push(log_entry_row(entry));
-            visible_count += 1;
+        }
+
+        if spacer_bottom > 0.0 {
+            log_list = log_list.push(widget::vertical_space().height(spacer_bottom));
         }
 
         let log_scroll = widget::scrollable(log_list)
             .width(Length::Fill)
-            .height(Length::Fill);
+            .height(Length::Fill)
+            .on_scroll(Message::ConsoleScrolled);
 
         content = content.push(
             container(log_scroll)
@@ -147,6 +168,26 @@ pub fn view<'a>(
     }
 
     content.into()
+}
+
+/// Returns true if a log entry passes all active filters.
+fn passes_filter(
+    entry: &capydeploy_protocol::console_log::ConsoleLogEntry,
+    level_filter: u32,
+    source_filter: &str,
+    search_lower: &str,
+) -> bool {
+    let level_bit = capydeploy_protocol::constants::log_level_bit(&entry.level);
+    if level_bit & level_filter == 0 {
+        return false;
+    }
+    if !source_filter.is_empty() && entry.source != source_filter {
+        return false;
+    }
+    if !search_lower.is_empty() && !entry.text.to_lowercase().contains(search_lower) {
+        return false;
+    }
+    true
 }
 
 /// Renders a single log entry row.

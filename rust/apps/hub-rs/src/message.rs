@@ -155,6 +155,8 @@ pub enum Message {
     ConsoleClear,
     /// Change the source filter for console log entries.
     ConsoleSourceFilter(String),
+    /// Console log scrollable viewport changed (virtual scrolling).
+    ConsoleScrolled(cosmic::iced::widget::scrollable::Viewport),
     // ConsoleSetEnabled removed — Decky agent auto-starts console log.
 
     // -- Artwork Selector --

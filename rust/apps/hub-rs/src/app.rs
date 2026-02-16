@@ -58,6 +58,8 @@ pub struct Hub {
     console_level_filter: u32,
     console_source_filter: String,
     console_search: String,
+    console_scroll_y: f32,
+    console_viewport_h: f32,
 
     // Deploy state.
     editing_setup: Option<GameSetup>,
@@ -192,36 +194,58 @@ impl Hub {
         )
     }
 
-    /// Fetches thumbnail images from remote URLs concurrently.
+    /// Fetches thumbnail images from remote URLs concurrently with retry.
     fn fetch_thumbnails(&self, urls: Vec<String>) -> cosmic::app::Task<Message> {
         self.tokio_perform(
             async move {
-                let client = reqwest::Client::new();
-                let mut results = Vec::new();
-                // Fetch up to 24 thumbnails concurrently.
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(15))
+                    .build()
+                    .unwrap_or_default();
                 let futures: Vec<_> = urls
                     .into_iter()
-                    .take(24)
                     .map(|url| {
                         let client = client.clone();
                         async move {
-                            match client.get(&url).send().await {
-                                Ok(resp) if resp.status().is_success() => {
-                                    match resp.bytes().await {
-                                        Ok(bytes) => Some((url, bytes.to_vec())),
-                                        Err(_) => None,
+                            for attempt in 0..3 {
+                                match client.get(&url).send().await {
+                                    Ok(resp) if resp.status().is_success() => {
+                                        match resp.bytes().await {
+                                            Ok(bytes) => return Some((url, bytes.to_vec())),
+                                            Err(e) => {
+                                                tracing::debug!(
+                                                    url = %url, attempt, error = %e,
+                                                    "thumbnail body read failed"
+                                                );
+                                            }
+                                        }
+                                    }
+                                    Ok(resp) => {
+                                        tracing::debug!(
+                                            url = %url, attempt, status = %resp.status(),
+                                            "thumbnail fetch non-success"
+                                        );
+                                    }
+                                    Err(e) => {
+                                        tracing::debug!(
+                                            url = %url, attempt, error = %e,
+                                            "thumbnail fetch failed"
+                                        );
                                     }
                                 }
-                                _ => None,
+                                if attempt < 2 {
+                                    tokio::time::sleep(std::time::Duration::from_millis(
+                                        500 * (attempt + 1) as u64,
+                                    )).await;
+                                }
                             }
+                            tracing::warn!(url = %url, "thumbnail fetch exhausted retries");
+                            None
                         }
                     })
                     .collect();
                 let fetched = futures_util::future::join_all(futures).await;
-                for item in fetched.into_iter().flatten() {
-                    results.push(item);
-                }
-                results
+                fetched.into_iter().flatten().collect()
             },
             |batch| cosmic::action::app(Message::ArtworkThumbnailsBatch(batch)),
         )
@@ -278,6 +302,8 @@ impl Application for Hub {
             console_level_filter: constants::LOG_LEVEL_DEFAULT | constants::LOG_LEVEL_DEBUG,
             console_source_filter: String::new(),
             console_search: String::new(),
+            console_scroll_y: 0.0,
+            console_viewport_h: 600.0,
             editing_setup: None,
             deploy_status: None,
             deploy_events_rx: Arc::new(Mutex::new(None)),
@@ -555,6 +581,8 @@ impl Application for Hub {
                 self.artwork_dialog = Some(ArtworkDialog::new(
                     game_name, 0, "", "", "", "", "",
                 ));
+                // Auto-search on SteamGridDB.
+                return self.update(Message::ArtworkSearchSubmit);
             }
 
             Message::SaveGameArtwork => {
@@ -667,6 +695,12 @@ impl Application for Hub {
 
             Message::ConsoleSearchInput(text) => {
                 self.console_search = text;
+            }
+
+            Message::ConsoleScrolled(viewport) => {
+                let offset = viewport.absolute_offset();
+                self.console_scroll_y = offset.y;
+                self.console_viewport_h = viewport.bounds().height;
             }
 
             Message::ConsoleClear => {
@@ -915,7 +949,17 @@ impl Application for Hub {
                 if let Some(dialog) = &mut self.artwork_dialog {
                     dialog.searching = false;
                     match result {
-                        Ok(results) => dialog.search_results = results,
+                        Ok(results) => {
+                            dialog.search_results = results;
+                            // Auto-select first result if no game is selected yet.
+                            if dialog.selected_game_id.is_none()
+                                && let Some(first) = dialog.search_results.first()
+                            {
+                                let id = first.id;
+                                let name = first.name.clone();
+                                return self.update(Message::ArtworkSelectGame(id, name));
+                            }
+                        }
                         Err(e) => {
                             tracing::warn!(error = %e, "artwork search failed");
                             return self.push_toast(format!("Search failed: {e}"));
@@ -1425,6 +1469,8 @@ impl Hub {
                 self.console_level_filter,
                 &self.console_source_filter,
                 &self.console_search,
+                self.console_scroll_y,
+                self.console_viewport_h,
             ),
             NavPage::Settings => crate::views::settings::view(
                 &self.config,
