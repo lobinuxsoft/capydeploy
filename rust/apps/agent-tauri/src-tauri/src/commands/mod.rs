@@ -12,6 +12,9 @@ use std::sync::atomic::Ordering;
 
 use tauri::{AppHandle, Emitter};
 
+use capydeploy_protocol::constants::MessageType;
+use capydeploy_protocol::envelope::Message;
+
 use crate::state::AgentState;
 use crate::types::{AgentStatusDto, ConnectedHubDto};
 
@@ -60,4 +63,43 @@ pub async fn emit_status(app: &AppHandle, state: &Arc<AgentState>) {
     };
 
     let _ = app.emit("status:changed", &dto);
+}
+
+/// Sends a push event to the connected Hub over WebSocket.
+fn send_hub_event<T: serde::Serialize>(state: &AgentState, msg_type: MessageType, payload: &T) {
+    let sender = state.hub_sender.lock().unwrap();
+    if let Some(ws) = sender.as_ref() {
+        let id = uuid::Uuid::new_v4().to_string();
+        match Message::new(id, msg_type.clone(), Some(payload)) {
+            Ok(msg) => {
+                if let Err(e) = ws.send_msg(msg) {
+                    tracing::warn!("failed to send {msg_type:?} to hub: {e}");
+                }
+            }
+            Err(e) => tracing::warn!("failed to build {msg_type:?} message: {e}"),
+        }
+    }
+}
+
+/// Notifies the Hub of the current telemetry status.
+pub fn notify_telemetry_status(state: &AgentState, enabled: bool, interval: i32) {
+    use capydeploy_protocol::telemetry::TelemetryStatusEvent;
+    send_hub_event(
+        state,
+        MessageType::TelemetryStatus,
+        &TelemetryStatusEvent { enabled, interval },
+    );
+}
+
+/// Notifies the Hub of the current console log status.
+pub fn notify_console_log_status(state: &AgentState, enabled: bool) {
+    use capydeploy_protocol::console_log::ConsoleLogStatusEvent;
+    send_hub_event(
+        state,
+        MessageType::ConsoleLogStatus,
+        &ConsoleLogStatusEvent {
+            enabled,
+            level_mask: state.console_log_collector.get_level_mask(),
+        },
+    );
 }

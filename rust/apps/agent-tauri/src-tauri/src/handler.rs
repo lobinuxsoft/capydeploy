@@ -1056,6 +1056,10 @@ impl TauriAgentHandler {
         req: &messages::HubConnectedRequest,
     ) {
         // Store WS sender for telemetry/console-log forwarding
+        tracing::debug!(
+            sender_connected = sender.is_connected(),
+            "accept_hub: storing hub_sender"
+        );
         *self.state.hub_sender.lock().unwrap() = Some(sender.clone());
 
         // Update connected hub state
@@ -1087,18 +1091,24 @@ impl TauriAgentHandler {
             let _ = sender.send_msg(reply);
         }
 
-        // Start telemetry if enabled
+        // Start telemetry if enabled and notify Hub
         if telemetry_enabled {
             self.state
                 .telemetry_collector
                 .start(telemetry_interval as u32)
                 .await;
         }
+        crate::commands::notify_telemetry_status(
+            &self.state,
+            telemetry_enabled,
+            telemetry_interval,
+        );
 
-        // Start console log if enabled
+        // Start console log if enabled and notify Hub
         if console_log_enabled {
             self.state.console_log_collector.start().await;
         }
+        crate::commands::notify_console_log_status(&self.state, console_log_enabled);
 
         self.emit_status_changed().await;
     }

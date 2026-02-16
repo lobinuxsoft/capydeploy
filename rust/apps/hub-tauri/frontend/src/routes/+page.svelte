@@ -6,6 +6,7 @@
 	import { consolelog } from '$lib/stores/consolelog';
 	import { EventsOn } from '$lib/wailsjs';
 	import { browser } from '$app/environment';
+	import type { TelemetryStatus, TelemetryData, ConsoleLogStatus, ConsoleLogBatch } from '$lib/types';
 
 	// Tabs are dynamic based on connection status.
 	// "Upload Game" and "Installed Games" only appear when an agent is connected.
@@ -20,11 +21,12 @@
 		{ id: 'settings', label: 'Settings' }
 	]);
 
-	// Listen for connection status changes
+	// Global event listeners — must live here (always mounted) so events
+	// are not lost when sub-components unmount on tab switch.
 	$effect(() => {
 		if (!browser) return;
 
-		const unsub = EventsOn('connection:changed', (status) => {
+		const unsubConnection = EventsOn('connection:changed', (status) => {
 			connectionStatus.set(status);
 			if (!status.connected) {
 				telemetry.reset();
@@ -32,7 +34,29 @@
 			}
 		});
 
-		return unsub;
+		const unsubTelStatus = EventsOn('telemetry:status', (event: TelemetryStatus) => {
+			telemetry.status.set(event);
+		});
+
+		const unsubTelData = EventsOn('telemetry:data', (event: TelemetryData) => {
+			telemetry.data.set(event);
+		});
+
+		const unsubClStatus = EventsOn('consolelog:status', (event: ConsoleLogStatus) => {
+			consolelog.status.set(event);
+		});
+
+		const unsubClData = EventsOn('consolelog:data', (event: ConsoleLogBatch) => {
+			consolelog.addBatch(event.entries, event.dropped);
+		});
+
+		return () => {
+			unsubConnection();
+			unsubTelStatus();
+			unsubTelData();
+			unsubClStatus();
+			unsubClData();
+		};
 	});
 </script>
 

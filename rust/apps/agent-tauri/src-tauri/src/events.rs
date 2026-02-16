@@ -53,13 +53,25 @@ pub async fn start_server(handle: AppHandle, state: Arc<AgentState>) {
     // Start mDNS discovery advertisement
     let mut discovery = start_discovery(&agent_name, port);
 
-    // Wait for server to complete
-    let _ = server_handle.await;
+    // Wait for either the server to stop on its own or a shutdown signal.
+    tokio::select! {
+        _ = server_handle => {}
+        _ = state.shutdown_token.cancelled() => {
+            tracing::info!("shutdown signal received — stopping server");
+            server.shutdown();
+        }
+    }
+
+    // Stop collectors
+    state.telemetry_collector.stop().await;
+    state.console_log_collector.stop().await;
 
     // Shutdown discovery
     if let Some(disc) = discovery.as_mut() {
         let _ = disc.stop();
     }
+
+    tracing::info!("agent shutdown complete");
 }
 
 fn start_discovery(name: &str, port: u16) -> Option<DiscoveryServer> {

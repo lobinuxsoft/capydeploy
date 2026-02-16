@@ -22,6 +22,9 @@ pub async fn set_console_log_enabled(
         state.console_log_collector.stop().await;
     }
 
+    // Notify Hub over WS
+    super::notify_console_log_status(&state, enabled);
+
     let mut config = state.config.lock().await;
     config.console_log_enabled = enabled;
     config.save().map_err(|e| e.to_string())?;

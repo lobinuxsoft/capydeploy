@@ -26,6 +26,9 @@ pub async fn set_telemetry_enabled(
         state.telemetry_collector.stop().await;
     }
 
+    // Notify Hub over WS
+    super::notify_telemetry_status(&state, enabled, interval);
+
     tracing::info!("Telemetry enabled: {enabled}");
     super::emit_status(&app, &state).await;
     Ok(())

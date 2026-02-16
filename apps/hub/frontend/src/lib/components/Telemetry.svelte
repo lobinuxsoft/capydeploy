@@ -1,36 +1,16 @@
 <script lang="ts">
 	import { Card } from '$lib/components/ui';
 	import { telemetry } from '$lib/stores/telemetry';
-	import { EventsOn } from '$lib/wailsjs';
-	import { browser } from '$app/environment';
 	import type { TelemetryStatus, TelemetryData } from '$lib/types';
 	import { Cpu, MonitorDot, MemoryStick, BatteryCharging, Zap, Fan, Gamepad2 } from 'lucide-svelte';
 
 	let status = $state<TelemetryStatus>({ enabled: false, interval: 2 });
 	let data = $state<TelemetryData | null>(null);
 
-	// Subscribe to stores
+	// Subscribe to global stores (EventsOn listeners live in +page.svelte)
 	$effect(() => {
 		const unsubStatus = telemetry.status.subscribe((s) => (status = s));
 		const unsubData = telemetry.data.subscribe((d) => (data = d));
-		return () => {
-			unsubStatus();
-			unsubData();
-		};
-	});
-
-	// Listen for telemetry events from Wails
-	$effect(() => {
-		if (!browser) return;
-
-		const unsubStatus = EventsOn('telemetry:status', (event: TelemetryStatus) => {
-			telemetry.status.set(event);
-		});
-
-		const unsubData = EventsOn('telemetry:data', (event: TelemetryData) => {
-			telemetry.data.set(event);
-		});
-
 		return () => {
 			unsubStatus();
 			unsubData();

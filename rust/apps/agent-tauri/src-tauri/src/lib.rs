@@ -15,6 +15,7 @@ use capydeploy_protocol::envelope::Message;
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
 use config::AgentConfig;
@@ -43,7 +44,9 @@ pub fn run() {
             if let Some(ws) = sender.as_ref() {
                 let id = uuid::Uuid::new_v4().to_string();
                 if let Ok(msg) = Message::new(id, MessageType::TelemetryData, Some(&data)) {
-                    let _ = ws.send_msg(msg);
+                    if let Err(e) = ws.send_msg(msg) {
+                        tracing::warn!("telemetry send failed: {e}");
+                    }
                 }
             }
         },
@@ -57,11 +60,15 @@ pub fn run() {
             if let Some(ws) = sender.as_ref() {
                 let id = uuid::Uuid::new_v4().to_string();
                 if let Ok(msg) = Message::new(id, MessageType::ConsoleLogData, Some(&batch)) {
-                    let _ = ws.send_msg(msg);
+                    if let Err(e) = ws.send_msg(msg) {
+                        tracing::warn!("console log send failed: {e}");
+                    }
                 }
             }
         },
     )));
+
+    let shutdown_token = CancellationToken::new();
 
     let agent_state = AgentState {
         accept_connections: Arc::new(AtomicBool::new(true)),
@@ -78,11 +85,12 @@ pub fn run() {
         console_log_collector,
         tracked_shortcuts: Arc::new(tokio::sync::Mutex::new(Vec::new())),
         deleted_app_ids: Arc::new(tokio::sync::Mutex::new(std::collections::HashSet::new())),
+        shutdown_token: shutdown_token.clone(),
     };
 
     let state_arc = Arc::new(agent_state);
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(state_arc.clone())
@@ -147,6 +155,13 @@ pub fn run() {
             // Files
             commands::files::select_install_path,
         ])
-        .run(tauri::generate_context!())
-        .expect("error running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error building tauri application");
+
+    app.run(move |_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            tracing::info!("shutting down agent — cleaning up server and collectors");
+            shutdown_token.cancel();
+        }
+    });
 }

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use crate::auth::AuthManager;
 use crate::config::AgentConfig;
@@ -28,6 +29,8 @@ pub struct AgentState {
     /// App IDs deleted via CEF but possibly still in VDF (not flushed yet).
     /// Filtered out in get_shortcuts to avoid showing stale entries.
     pub deleted_app_ids: Arc<Mutex<HashSet<u32>>>,
+    /// Cancellation token for graceful shutdown of all background tasks.
+    pub shutdown_token: CancellationToken,
 }
 
 /// A shortcut tracked by the agent (created via CEF).

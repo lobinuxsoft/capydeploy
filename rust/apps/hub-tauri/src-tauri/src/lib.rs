@@ -43,6 +43,7 @@ pub fn run() {
         .map(Arc::new);
 
     let mgr = Arc::new(ConnectionManager::new(identity, token_store));
+    let mgr_shutdown = mgr.clone();
 
     let hub_state = HubState {
         connection_mgr: mgr.clone(),
@@ -53,7 +54,7 @@ pub fn run() {
         config: Arc::new(tokio::sync::Mutex::new(cfg)),
     };
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(hub_state)
@@ -113,6 +114,13 @@ pub fn run() {
             commands::files::select_folder,
             commands::files::select_artwork_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("error running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error building tauri application");
+
+    app.run(move |_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            tracing::info!("shutting down hub — cleaning up connections");
+            tauri::async_runtime::block_on(mgr_shutdown.shutdown());
+        }
+    });
 }

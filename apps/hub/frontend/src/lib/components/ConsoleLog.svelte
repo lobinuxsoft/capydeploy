@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { consolelog, consoleColors, type ConsoleColors, type ConsoleLogEntryWithId } from '$lib/stores/consolelog';
-	import { EventsOn, SetConsoleLogFilter, SetConsoleLogEnabled } from '$lib/wailsjs';
-	import { browser } from '$app/environment';
-	import type { ConsoleLogStatus, ConsoleLogBatch } from '$lib/types';
+	import { SetConsoleLogFilter } from '$lib/wailsjs';
+	import type { ConsoleLogStatus } from '$lib/types';
 	import {
 		LOG_LEVEL_LOG,
 		LOG_LEVEL_WARN,
@@ -11,7 +10,7 @@
 		LOG_LEVEL_DEBUG,
 		LOG_LEVEL_DEFAULT
 	} from '$lib/types';
-	import { Terminal, Trash2, Power } from 'lucide-svelte';
+	import { Terminal, Trash2 } from 'lucide-svelte';
 	import { sanitizeCSS } from '$lib/console-format';
 	import DropdownSelect from '$lib/components/ui/DropdownSelect.svelte';
 
@@ -32,11 +31,13 @@
 		{ value: 'other', label: 'Other' }
 	];
 
-	let status = $state<ConsoleLogStatus>({ enabled: false, levelMask: LOG_LEVEL_DEFAULT });
 	let entries = $state<ConsoleLogEntryWithId[]>([]);
 	let totalDropped = $state<number>(0);
 	let colors = $state<ConsoleColors>({ error: '#f87171', warn: '#facc15', info: '#60a5fa', debug: '#71717a', log: '#f1f5f9' });
 	let levelMask = $state<number>(LOG_LEVEL_DEFAULT);
+
+	// Track whether data has ever arrived (so Clear doesn't reset to empty state)
+	let hasReceivedData = $state(false);
 
 	// Filters
 	let sourceFilter = $state('all');
@@ -48,47 +49,28 @@
 
 	// Subscribe to stores
 	$effect(() => {
-		const unsubStatus = consolelog.status.subscribe((s) => (status = s));
-		const unsubEntries = consolelog.entries.subscribe((e) => (entries = e));
+		const unsubEntries = consolelog.entries.subscribe((e) => {
+			entries = e;
+			if (e.length > 0) hasReceivedData = true;
+		});
 		const unsubDropped = consolelog.totalDropped.subscribe((d) => (totalDropped = d));
 		const unsubColors = consoleColors.subscribe((c) => (colors = c));
 		return () => {
-			unsubStatus();
 			unsubEntries();
 			unsubDropped();
 			unsubColors();
 		};
 	});
 
-	// Listen for console log events from Wails
+	// Sync levelMask from store (EventsOn listeners live in +page.svelte)
 	$effect(() => {
-		if (!browser) return;
-
-		const unsubStatus = EventsOn('consolelog:status', (event: ConsoleLogStatus) => {
-			consolelog.status.set(event);
-			if (event.levelMask !== undefined) {
-				levelMask = event.levelMask;
+		const unsub = consolelog.status.subscribe((s: ConsoleLogStatus) => {
+			if (s.levelMask !== undefined) {
+				levelMask = s.levelMask;
 			}
 		});
-
-		const unsubData = EventsOn('consolelog:data', (event: ConsoleLogBatch) => {
-			consolelog.addBatch(event.entries, event.dropped);
-		});
-
-		return () => {
-			unsubStatus();
-			unsubData();
-		};
+		return unsub;
 	});
-
-	let enabling = $state(false);
-
-	function handleEnableToggle(enabled: boolean) {
-		enabling = true;
-		SetConsoleLogEnabled(enabled)
-			.catch((err: unknown) => console.error('Failed to toggle console log:', err))
-			.finally(() => (enabling = false));
-	}
 
 	function handleToggle(bit: number) {
 		levelMask = levelMask ^ bit;
@@ -172,27 +154,13 @@
 	}
 </script>
 
-{#if !status.enabled && entries.length === 0}
+{#if !hasReceivedData}
 	<div class="flex flex-col items-center justify-center py-16 text-center">
 		<Terminal class="w-12 h-12 text-muted-foreground mb-4" />
-		<p class="text-muted-foreground text-sm max-w-md mb-4">
-			Enable console log streaming from the agent to view Steam CEF logs,
-			or enable a game log wrapper to capture game output.
+		<p class="text-muted-foreground text-sm max-w-md">
+			Waiting for console log data from the agent.
+			Enable console log streaming from the agent settings.
 		</p>
-		<button
-			type="button"
-			onclick={() => handleEnableToggle(true)}
-			disabled={enabling}
-			class="text-sm bg-primary text-primary-foreground rounded px-4 py-2 hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-		>
-			<Power class="w-4 h-4" />
-			{enabling ? 'Enabling...' : 'Enable Console Log'}
-		</button>
-	</div>
-{:else if status.enabled && entries.length === 0}
-	<div class="flex flex-col items-center justify-center py-16 text-center">
-		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-		<p class="text-muted-foreground text-sm">Waiting for console log data...</p>
 	</div>
 {:else}
 	<!-- Toolbar -->
@@ -227,28 +195,6 @@
 			<Trash2 class="w-3 h-3" />
 			Clear
 		</button>
-
-		{#if status.enabled}
-			<button
-				type="button"
-				onclick={() => handleEnableToggle(false)}
-				disabled={enabling}
-				class="text-xs bg-destructive/10 border border-destructive/30 rounded px-2 py-1.5 text-destructive hover:bg-destructive/20 transition-colors flex items-center gap-1 disabled:opacity-50"
-			>
-				<Power class="w-3 h-3" />
-				Disable
-			</button>
-		{:else}
-			<button
-				type="button"
-				onclick={() => handleEnableToggle(true)}
-				disabled={enabling}
-				class="text-xs bg-primary/10 border border-primary/30 rounded px-2 py-1.5 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1 disabled:opacity-50"
-			>
-				<Power class="w-3 h-3" />
-				Enable Console
-			</button>
-		{/if}
 
 		{#if totalDropped > 0}
 			<span class="text-xs text-yellow-400">{totalDropped} dropped</span>

@@ -440,9 +440,12 @@ async fn handle_text_message(
     drop(map);
 
     // Push event to callback.
-    if let Some(cb) = on_event.lock().await.as_ref() {
+    let guard = on_event.lock().await;
+    if let Some(cb) = guard.as_ref() {
         let msg_type = msg.msg_type.clone();
         cb(msg_type, msg);
+    } else {
+        warn!(msg_type = ?msg.msg_type, id = %msg.id, "no event callback set — dropping push event");
     }
 }
 

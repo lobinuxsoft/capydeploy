@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use tokio::sync::{Mutex, RwLock, mpsc, watch};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 
 use capydeploy_discovery::client::Client as DiscoveryClient;
 use capydeploy_discovery::types::{DiscoveredAgent, EventType};
@@ -617,11 +617,15 @@ async fn setup_ws_callbacks(client: &WsClient, agent_id: &str, ctx: WsContext) {
     let agent_id_ev = agent_id.to_string();
     client
         .set_event_callback(Box::new(move |msg_type, message| {
-            let _ = events_tx.try_send(ConnectionEvent::AgentEvent {
+            trace!(msg_type = ?msg_type, agent = %agent_id_ev, "forwarding agent event to hub event loop");
+            match events_tx.try_send(ConnectionEvent::AgentEvent {
                 agent_id: agent_id_ev.clone(),
                 msg_type,
                 message,
-            });
+            }) {
+                Ok(()) => {}
+                Err(e) => warn!("failed to forward agent event: {e}"),
+            }
         }))
         .await;
 
