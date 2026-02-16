@@ -69,6 +69,21 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                         ConnectionStatusDto::disconnected()
                     }
                     _ => {
+                        // Clean up hub state when an agent fully disconnects.
+                        if matches!(state, ConnectionState::Disconnected) {
+                            let hub_state = handle.state::<HubState>();
+                            hub_state
+                                .telemetry_hub
+                                .lock()
+                                .await
+                                .remove_agent(&agent_id);
+                            hub_state
+                                .console_hub
+                                .lock()
+                                .await
+                                .remove_agent(&agent_id);
+                        }
+
                         let mut dto = ConnectionStatusDto::disconnected();
                         dto.agent_id = agent_id;
                         dto

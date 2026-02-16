@@ -3,6 +3,7 @@
 //! Manages the CDP connection lifecycle, accumulates entries in a ring buffer,
 //! and flushes batches to a callback at regular intervals.
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
@@ -45,7 +46,7 @@ pub struct Collector {
 struct CollectorState {
     send_fn: SendFn,
     cancel: Option<CancellationToken>,
-    buffer: Vec<ConsoleLogEntry>,
+    buffer: VecDeque<ConsoleLogEntry>,
     dropped: i32,
 }
 
@@ -56,7 +57,7 @@ impl Collector {
             inner: Arc::new(Mutex::new(CollectorState {
                 send_fn,
                 cancel: None,
-                buffer: Vec::new(),
+                buffer: VecDeque::new(),
                 dropped: 0,
             })),
             level_mask: Arc::new(AtomicU32::new(LOG_LEVEL_DEFAULT)),
@@ -232,10 +233,10 @@ async fn flush_once(inner: &Arc<Mutex<CollectorState>>) {
 /// Adds an entry to the ring buffer, dropping the oldest if full.
 fn add_entry(state: &mut CollectorState, entry: ConsoleLogEntry) {
     if state.buffer.len() >= MAX_BUFFER_SIZE {
-        state.buffer.remove(0);
+        state.buffer.pop_front();
         state.dropped += 1;
     }
-    state.buffer.push(entry);
+    state.buffer.push_back(entry);
 }
 
 #[cfg(test)]
@@ -248,7 +249,7 @@ mod tests {
         let mut state = CollectorState {
             send_fn: Box::new(|_| {}),
             cancel: None,
-            buffer: Vec::new(),
+            buffer: VecDeque::new(),
             dropped: 0,
         };
 
@@ -276,7 +277,7 @@ mod tests {
         let mut state = CollectorState {
             send_fn: Box::new(|_| {}),
             cancel: None,
-            buffer: Vec::new(),
+            buffer: VecDeque::new(),
             dropped: 0,
         };
 
@@ -316,7 +317,7 @@ mod tests {
         assert_eq!(state.buffer.len(), MAX_BUFFER_SIZE);
         assert_eq!(state.dropped, 1);
         assert_eq!(state.buffer[0].timestamp, 1); // msg 0 was dropped.
-        assert_eq!(state.buffer.last().unwrap().text, "overflow");
+        assert_eq!(state.buffer.back().unwrap().text, "overflow");
     }
 
     #[tokio::test]
@@ -330,7 +331,7 @@ mod tests {
                 batch_count2.fetch_add(1, Ordering::SeqCst);
             }),
             cancel: None,
-            buffer: vec![ConsoleLogEntry {
+            buffer: VecDeque::from([ConsoleLogEntry {
                 timestamp: 1,
                 level: "log".into(),
                 source: "console".into(),
@@ -338,7 +339,7 @@ mod tests {
                 url: String::new(),
                 line: 0,
                 segments: vec![],
-            }],
+            }]),
             dropped: 3,
         }));
 
@@ -360,7 +361,7 @@ mod tests {
                 called2.fetch_add(1, Ordering::SeqCst);
             }),
             cancel: None,
-            buffer: Vec::new(),
+            buffer: VecDeque::new(),
             dropped: 0,
         }));
 
@@ -373,9 +374,9 @@ mod tests {
         let entries_sent = Arc::new(AtomicI32::new(0));
         let entries_sent2 = Arc::clone(&entries_sent);
 
-        let mut buffer = Vec::new();
+        let mut buffer = VecDeque::new();
         for i in 0..80 {
-            buffer.push(ConsoleLogEntry {
+            buffer.push_back(ConsoleLogEntry {
                 timestamp: i,
                 level: "log".into(),
                 source: "console".into(),
