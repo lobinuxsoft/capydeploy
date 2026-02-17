@@ -389,10 +389,7 @@ mod tests {
         };
         let result = writer.write_chunk(&chunk);
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            TransferError::InvalidPath(_)
-        ));
+        assert!(matches!(result.unwrap_err(), TransferError::InvalidPath(_)));
     }
 
     #[test]
@@ -408,10 +405,7 @@ mod tests {
         };
         let result = writer.write_chunk(&chunk);
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            TransferError::InvalidPath(_)
-        ));
+        assert!(matches!(result.unwrap_err(), TransferError::InvalidPath(_)));
     }
 
     #[test]
@@ -427,10 +421,7 @@ mod tests {
         };
         let result = writer.write_chunk(&chunk);
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            TransferError::InvalidPath(_)
-        ));
+        assert!(matches!(result.unwrap_err(), TransferError::InvalidPath(_)));
     }
 
     #[test]
