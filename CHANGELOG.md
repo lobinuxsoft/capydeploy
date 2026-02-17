@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.1](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.0...v0.8.1) (2026-02-17)
+
+
+### Bug Fixes
+
+* **hub:** show agent's install path instead of local Hub path ([ef177ab](https://github.com/lobinuxsoft/capydeploy/commit/ef177ab89639d44f53df8cdbf0dc98c565ce3891))
+* **hub:** show agent's install path instead of local Hub path ([ed4d210](https://github.com/lobinuxsoft/capydeploy/commit/ed4d2102b2deae55e2562cae2edeb296107f3524))
+* **hub:** show agent's install path instead of local Hub path ([9207669](https://github.com/lobinuxsoft/capydeploy/commit/920766946ff48ad19fb579ee084f828a31d744ea))
+
 ## [0.8.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.7.0...v0.8.0) (2026-02-17)
 
 
