@@ -547,6 +547,11 @@ impl Handler for TauriAgentHandler {
                 return;
             }
 
+            if let Err(e) = capydeploy_transfer::validate_upload_path(&req.config.game_name) {
+                let _ = sender.send_error(&msg, 400, &format!("invalid game name: {e}"));
+                return;
+            }
+
             let upload_id = uuid::Uuid::new_v4().to_string();
             let session = UploadSession {
                 id: upload_id.clone(),
