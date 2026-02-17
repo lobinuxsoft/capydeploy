@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.7.0...v0.8.0) (2026-02-17)
+
+
+### Features
+
+* **decky:** add full lockout UX for pairing rate limiting ([47851f9](https://github.com/lobinuxsoft/capydeploy/commit/47851f98bf219dbf3b673716a96039fa850ce0f4)), closes [#154](https://github.com/lobinuxsoft/capydeploy/issues/154)
+* **ui:** auto-close Decky pairing modal on success ([19bdee7](https://github.com/lobinuxsoft/capydeploy/commit/19bdee77ffbb004b36cd078d5dc27581099bcc9b))
+
+
+### Bug Fixes
+
+* **security:** add rate limiting to Decky pairing brute-force ([a387163](https://github.com/lobinuxsoft/capydeploy/commit/a387163c6168f73c9db646ffc355d6e2d69835d8))
+* **security:** add rate limiting to Decky pairing brute-force ([9f155c9](https://github.com/lobinuxsoft/capydeploy/commit/9f155c98cfb7bb86f4590bed1e840b17afec4699)), closes [#154](https://github.com/lobinuxsoft/capydeploy/issues/154)
+* **security:** enforce SSL cert verification in Decky artwork downloads ([005fff3](https://github.com/lobinuxsoft/capydeploy/commit/005fff3c5b8ec5b45ffbd5df14cbdc309cc99721)), closes [#152](https://github.com/lobinuxsoft/capydeploy/issues/152)
+* **security:** prevenir path traversal en uploads de archivos ([#155](https://github.com/lobinuxsoft/capydeploy/issues/155)) ([d4e8c6f](https://github.com/lobinuxsoft/capydeploy/commit/d4e8c6fdc68606763b588355a4b6bd5f6199a9c3)), closes [#150](https://github.com/lobinuxsoft/capydeploy/issues/150)
+* **security:** prevent SSRF in Decky artwork downloads ([cae026d](https://github.com/lobinuxsoft/capydeploy/commit/cae026dce60c7e5cfddd17170a732a2b0c0eee82))
+* **security:** prevent SSRF in Decky artwork downloads ([2b32894](https://github.com/lobinuxsoft/capydeploy/commit/2b32894464513f6ee9111e08cae52802808d89b9)), closes [#151](https://github.com/lobinuxsoft/capydeploy/issues/151)
+* **security:** use cryptographic PRNG for Decky pairing ([9a758bb](https://github.com/lobinuxsoft/capydeploy/commit/9a758bb40102cfde6b7337e2ae8ccf402fa20c68))
+* **security:** use cryptographic PRNG for Decky pairing ([8cee117](https://github.com/lobinuxsoft/capydeploy/commit/8cee11757678e320aae5825609cf15410ec6807b)), closes [#153](https://github.com/lobinuxsoft/capydeploy/issues/153)
+
 ## [0.7.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.6.0...v0.7.0) (2026-02-16)
 
 
