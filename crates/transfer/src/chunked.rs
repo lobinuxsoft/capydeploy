@@ -147,6 +147,9 @@ impl ChunkWriter {
     /// - Verifies checksum if non-empty.
     /// - Updates internal written-offset tracking.
     pub fn write_chunk(&mut self, chunk: &Chunk) -> Result<(), TransferError> {
+        // Validate path before joining to prevent directory traversal.
+        crate::validate_upload_path(&chunk.file_path)?;
+
         // Verify checksum before writing.
         if !chunk.checksum.is_empty() {
             let actual = checksum_bytes(&chunk.data);
@@ -371,6 +374,63 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let writer = ChunkWriter::new(dir.path());
         assert_eq!(writer.get_written_offset("nonexistent"), 0);
+    }
+
+    #[test]
+    fn path_traversal_parent_dir_rejected() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = ChunkWriter::new(dir.path());
+        let chunk = Chunk {
+            offset: 0,
+            size: 4,
+            data: b"evil".to_vec(),
+            file_path: "../../../etc/passwd".into(),
+            checksum: String::new(),
+        };
+        let result = writer.write_chunk(&chunk);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            TransferError::InvalidPath(_)
+        ));
+    }
+
+    #[test]
+    fn path_traversal_nested_rejected() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = ChunkWriter::new(dir.path());
+        let chunk = Chunk {
+            offset: 0,
+            size: 4,
+            data: b"evil".to_vec(),
+            file_path: "sub/../../../escape".into(),
+            checksum: String::new(),
+        };
+        let result = writer.write_chunk(&chunk);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            TransferError::InvalidPath(_)
+        ));
+    }
+
+    #[test]
+    fn path_traversal_absolute_rejected() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = ChunkWriter::new(dir.path());
+        let chunk = Chunk {
+            offset: 0,
+            size: 4,
+            data: b"evil".to_vec(),
+            file_path: "/tmp/malicious".into(),
+            checksum: String::new(),
+        };
+        let result = writer.write_chunk(&chunk);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            TransferError::InvalidPath(_)
+        ));
     }
 
     #[test]
