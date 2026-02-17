@@ -2,6 +2,9 @@
 
 use tauri::State;
 
+use capydeploy_protocol::constants::MessageType;
+use capydeploy_protocol::messages::ConfigResponse;
+
 use crate::agent_adapter::GamesAdapter;
 use crate::state::HubState;
 use crate::types::InstalledGameDto;
@@ -95,6 +98,22 @@ pub async fn update_game_artwork(
         .update_game_artwork(&adapter, app_id, &artwork)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_agent_install_path(state: State<'_, HubState>) -> Result<String, String> {
+    let mgr = state.connection_mgr.clone();
+    let resp = mgr
+        .send_request::<()>(MessageType::GetConfig, None)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let config: ConfigResponse = resp
+        .parse_payload::<ConfigResponse>()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "empty config response".to_string())?;
+
+    Ok(config.install_path)
 }
 
 #[tauri::command]
