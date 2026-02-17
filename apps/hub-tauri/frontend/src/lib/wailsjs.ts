@@ -35,7 +35,7 @@ export const RefreshDiscovery = () => invoke<DiscoveredAgent[]>('refresh_discove
 export const ConnectAgent = (agentID: string) => invoke<string>('connect_agent', { agentId: agentID });
 export const DisconnectAgent = () => invoke<void>('disconnect_agent');
 export const GetConnectionStatus = () => invoke<ConnectionStatus>('get_connection_status');
-export const GetAgentInstallPath = () => invoke<string>('get_game_log_directory');
+export const GetAgentInstallPath = () => invoke<string>('get_agent_install_path');
 
 // ---------------------------------------------------------------------------
 // Console log commands
