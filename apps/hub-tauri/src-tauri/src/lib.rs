@@ -100,6 +100,7 @@ pub fn run() {
             commands::games::delete_game,
             commands::games::update_game_artwork,
             commands::games::set_game_log_wrapper,
+            commands::games::get_agent_install_path,
             // SteamGridDB
             commands::steamgriddb::search_games,
             commands::steamgriddb::get_grids,
