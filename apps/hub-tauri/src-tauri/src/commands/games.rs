@@ -101,9 +101,7 @@ pub async fn update_game_artwork(
 }
 
 #[tauri::command]
-pub async fn get_agent_install_path(
-    state: State<'_, HubState>,
-) -> Result<String, String> {
+pub async fn get_agent_install_path(state: State<'_, HubState>) -> Result<String, String> {
     let mgr = state.connection_mgr.clone();
     let resp = mgr
         .send_request::<()>(MessageType::GetConfig, None)
