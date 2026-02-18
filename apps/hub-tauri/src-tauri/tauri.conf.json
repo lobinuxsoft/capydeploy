@@ -27,6 +27,12 @@
       "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' https://cdn2.steamgriddb.com data: blob:; media-src 'self' https://cdn2.steamgriddb.com blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost https://www.steamgriddb.com https://cdn2.steamgriddb.com; font-src 'self' data:"
     }
   },
+  "bundle": {
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
+  },
   "plugins": {
     "shell": {
       "open": true
