@@ -28,7 +28,7 @@ pub fn run() {
 
     let identity = capydeploy_hub_connection::HubIdentity {
         name: cfg.name.clone(),
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAPYDEPLOY_VERSION").into(),
         platform: std::env::consts::OS.into(),
         hub_id: cfg.hub_id.clone(),
     };

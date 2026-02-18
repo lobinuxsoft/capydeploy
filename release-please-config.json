@@ -17,7 +17,10 @@
         { "type": "test", "section": "Tests" },
         { "type": "chore", "section": "Miscellaneous", "hidden": true }
       ],
-      "extra-files": []
+      "extra-files": [
+        { "type": "json", "path": "apps/hub-tauri/src-tauri/tauri.conf.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "apps/agents/agent-tauri/src-tauri/tauri.conf.json", "jsonpath": "$.version" }
+      ]
     }
   }
 }

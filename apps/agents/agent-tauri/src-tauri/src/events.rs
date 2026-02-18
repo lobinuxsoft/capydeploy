@@ -92,7 +92,7 @@ fn start_discovery(name: &str, port: u16) -> Option<DiscoveryServer> {
         id,
         name: name.to_string(),
         platform: std::env::consts::OS.to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        version: env!("CAPYDEPLOY_VERSION").to_string(),
         port,
         ips: vec![],
     };
@@ -138,7 +138,7 @@ async fn emit_status(handle: &AppHandle, state: &AgentState) {
         running: true,
         name: config.name.clone(),
         platform: std::env::consts::OS.into(),
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAPYDEPLOY_VERSION").into(),
         port,
         ips,
         accept_connections: state.accept_connections.load(Ordering::Relaxed),
