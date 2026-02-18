@@ -35,7 +35,7 @@ pub async fn get_status(state: State<'_, Arc<AgentState>>) -> Result<AgentStatus
         running: true,
         name: config.name.clone(),
         platform: std::env::consts::OS.into(),
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAPYDEPLOY_VERSION").into(),
         port,
         ips,
         accept_connections: state.accept_connections.load(Ordering::Relaxed),
@@ -53,7 +53,7 @@ pub async fn get_status(state: State<'_, Arc<AgentState>>) -> Result<AgentStatus
 #[tauri::command]
 pub async fn get_version() -> Result<VersionInfoDto, String> {
     Ok(VersionInfoDto {
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAPYDEPLOY_VERSION").into(),
         commit: String::new(),
         build_date: String::new(),
     })

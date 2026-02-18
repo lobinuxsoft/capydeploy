@@ -10,7 +10,7 @@ use crate::types::{HubInfoDto, VersionInfoDto};
 #[tauri::command]
 pub async fn get_version() -> Result<VersionInfoDto, String> {
     Ok(VersionInfoDto {
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAPYDEPLOY_VERSION").into(),
         commit: option_env!("CAPYDEPLOY_COMMIT").unwrap_or("dev").into(),
         build_date: option_env!("CAPYDEPLOY_BUILD_DATE").unwrap_or("").into(),
     })
