@@ -48,7 +48,7 @@ pub async fn emit_status(app: &AppHandle, state: &Arc<AgentState>) {
         running: true,
         name: config.name.clone(),
         platform: std::env::consts::OS.into(),
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("CAPYDEPLOY_VERSION").into(),
         port,
         ips,
         accept_connections: state.accept_connections.load(Ordering::Relaxed),

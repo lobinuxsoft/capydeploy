@@ -234,7 +234,7 @@ impl Handler for TauriAgentHandler {
                 id: generate_agent_id(&config.name),
                 name: config.name.clone(),
                 platform: std::env::consts::OS.into(),
-                version: env!("CARGO_PKG_VERSION").into(),
+                version: env!("CAPYDEPLOY_VERSION").into(),
                 accept_connections: self.state.accept_connections.load(Ordering::Relaxed),
                 supported_image_formats: vec![
                     "png".into(),
@@ -1147,7 +1147,7 @@ impl TauriAgentHandler {
         let config = self.state.config.lock().await;
         let resp = messages::AgentStatusResponse {
             name: config.name.clone(),
-            version: env!("CARGO_PKG_VERSION").into(),
+            version: env!("CAPYDEPLOY_VERSION").into(),
             platform: std::env::consts::OS.into(),
             accept_connections: self.state.accept_connections.load(Ordering::Relaxed),
             telemetry_enabled: config.telemetry_enabled,
@@ -1196,7 +1196,7 @@ impl TauriAgentHandler {
             running: true,
             name: config.name.clone(),
             platform: std::env::consts::OS.into(),
-            version: env!("CARGO_PKG_VERSION").into(),
+            version: env!("CAPYDEPLOY_VERSION").into(),
             port,
             ips: local_ips(),
             accept_connections: self.state.accept_connections.load(Ordering::Relaxed),
