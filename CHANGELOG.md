@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.2](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.1...v0.8.2) (2026-02-18)
+
+
+### Bug Fixes
+
+* sync app versions with release-please VERSION file ([cbd3535](https://github.com/lobinuxsoft/capydeploy/commit/cbd3535c818be24329c818f264f3bdc7acde96a1))
+* sync app versions with release-please VERSION file ([36cc61e](https://github.com/lobinuxsoft/capydeploy/commit/36cc61e3c50758fd9493db41b5c335ba3dda5f05))
+* sync app versions with release-please VERSION file ([f0ab61e](https://github.com/lobinuxsoft/capydeploy/commit/f0ab61e40184b920c8e3477476986d0b0a020501)), closes [#165](https://github.com/lobinuxsoft/capydeploy/issues/165)
+
 ## [0.8.1](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.0...v0.8.1) (2026-02-17)
 
 
