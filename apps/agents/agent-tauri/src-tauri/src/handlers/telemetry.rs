@@ -84,13 +84,56 @@ impl TauriAgentHandler {
             req.enabled
         );
 
-        // TODO: wire to game-log crate
-        let resp = messages::OperationResult {
-            success: true,
-            message: String::new(),
-        };
-        if let Ok(reply) = msg.reply(MessageType::OperationResult, Some(&resp)) {
-            let _ = sender.send_msg(reply);
+        #[cfg(target_os = "linux")]
+        {
+            match self
+                .state
+                .game_log_wrapper
+                .set_wrapper(req.app_id, req.enabled)
+                .await
+            {
+                Ok(resp) => {
+                    // Start/stop log watcher.
+                    if req.enabled {
+                        let log_dir = capydeploy_game_log::log_dir();
+                        self.state
+                            .game_log_tailer
+                            .start_watch(req.app_id, log_dir)
+                            .await;
+                    } else {
+                        self.state.game_log_tailer.stop_tail(req.app_id).await;
+                    }
+
+                    // Reply with wrapper response.
+                    if let Ok(reply) = msg.reply(MessageType::SetGameLogWrapper, Some(&resp)) {
+                        let _ = sender.send_msg(reply);
+                    }
+
+                    // Broadcast updated wrapper status.
+                    self.send_game_log_wrapper_status(&sender).await;
+                }
+                Err(e) => {
+                    tracing::error!("game log wrapper failed: {e}");
+                    let _ = sender.send_error(&msg, 500, &e);
+                }
+            }
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = sender.send_error(&msg, 501, "game log wrapper not supported on this platform");
+        }
+    }
+
+    #[allow(unused_variables)]
+    async fn send_game_log_wrapper_status(&self, sender: &Sender) {
+        #[cfg(target_os = "linux")]
+        {
+            let status = self.state.game_log_wrapper.status().await;
+            let id = uuid::Uuid::new_v4().to_string();
+            if let Ok(msg) = Message::new(id, MessageType::GameLogWrapperStatus, Some(&status)) {
+                let _ = sender.send_msg(msg);
+            }
         }
     }
 }

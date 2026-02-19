@@ -235,6 +235,7 @@ dependencies = [
  "capydeploy-agent-server",
  "capydeploy-console-log",
  "capydeploy-discovery",
+ "capydeploy-game-log",
  "capydeploy-protocol",
  "capydeploy-steam",
  "capydeploy-telemetry",

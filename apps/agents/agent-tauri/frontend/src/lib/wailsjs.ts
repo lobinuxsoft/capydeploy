@@ -63,6 +63,8 @@ export const GetSteamUsers = () => invoke<SteamUserInfo[]>('get_steam_users');
 export const GetShortcuts = (userId: string) => invoke<ShortcutInfo[]>('get_shortcuts', { userId });
 export const DeleteShortcut = (userId: string, appId: number) =>
 	invoke<void>('delete_shortcut', { userId, appId });
+export const LaunchGame = (appId: number) =>
+	invoke<void>('launch_game', { appId });
 
 // ---------------------------------------------------------------------------
 // Telemetry
