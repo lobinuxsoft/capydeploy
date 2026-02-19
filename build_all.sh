@@ -219,6 +219,8 @@ DESKTOP
     echo -e "  ${GREEN}Libraries bundled${NC}"
 
     # Create AppRun with install/uninstall support
+    # Remove linuxdeploy's AppRun (symlink to binary) to avoid overwriting the binary
+    rm -f "$appdir/AppRun"
     cat > "$appdir/AppRun" << 'APPRUN'
 #!/bin/bash
 SELF=$(readlink -f "$0")

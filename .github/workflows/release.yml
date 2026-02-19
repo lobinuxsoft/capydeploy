@@ -220,6 +220,8 @@ jobs:
             local display_name="$3"
             local find_pattern="$4"
             local output="$5"
+            # Remove linuxdeploy's AppRun (symlink to binary) to avoid overwriting the binary
+            rm -f "$output"
             cat > "$output" << APPRUN_EOF
           #!/bin/bash
           SELF=\$(readlink -f "\$0")
