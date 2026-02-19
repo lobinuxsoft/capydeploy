@@ -248,10 +248,10 @@ APPRUN
 }
 
 # ============================================
-# [1/7] Check required tools
+# [1/6] Check required tools
 # ============================================
 
-echo -e "${YELLOW}[1/7]${NC} Checking required tools..."
+echo -e "${YELLOW}[1/6]${NC} Checking required tools..."
 echo
 
 if ! command -v cargo &> /dev/null; then
@@ -281,19 +281,19 @@ echo -e "  ${GREEN}All tools OK!${NC}"
 echo
 
 # ============================================
-# [2/7] Init submodules
+# [2/6] Init submodules
 # ============================================
 
-echo -e "${YELLOW}[2/7]${NC} Initializing submodules..."
+echo -e "${YELLOW}[2/6]${NC} Initializing submodules..."
 git submodule update --init --recursive
 echo -e "  ${GREEN}Done${NC}"
 echo
 
 # ============================================
-# [3/7] Build frontends
+# [3/6] Build frontends
 # ============================================
 
-echo -e "${YELLOW}[3/7]${NC} Building frontends..."
+echo -e "${YELLOW}[3/6]${NC} Building frontends..."
 echo
 
 build_frontend() {
@@ -325,10 +325,10 @@ fi
 echo
 
 # ============================================
-# [4/7] Build Linux (cargo)
+# [4/6] Build Linux (cargo)
 # ============================================
 
-echo -e "${YELLOW}[4/7]${NC} Building Linux binaries (cargo release)..."
+echo -e "${YELLOW}[4/6]${NC} Building Linux binaries (cargo release)..."
 echo
 
 if cargo build --release -p capydeploy-hub-tauri -p capydeploy-agent-tauri; then
@@ -346,39 +346,10 @@ fi
 echo
 
 # ============================================
-# [5/7] Cross-compile for Windows
+# [5/6] Generate AppImages
 # ============================================
 
-echo -e "${YELLOW}[5/7]${NC} Cross-compiling for Windows..."
-echo
-
-if rustup target list --installed 2>/dev/null | grep -q "x86_64-pc-windows-gnu" && \
-   command -v x86_64-w64-mingw32-gcc &> /dev/null; then
-    if cargo build --release --target x86_64-pc-windows-gnu \
-        -p capydeploy-hub-tauri -p capydeploy-agent-tauri 2>/dev/null; then
-        mkdir -p "$DIST_DIR/windows"
-        cp "target/x86_64-pc-windows-gnu/release/capydeploy-hub-tauri.exe" "$DIST_DIR/windows/"
-        cp "target/x86_64-pc-windows-gnu/release/capydeploy-agent-tauri.exe" "$DIST_DIR/windows/"
-        RESULTS[windows]="success"
-        echo -e "  ${GREEN}Windows binaries ready${NC}"
-    else
-        RESULTS[windows]="failed"
-        echo -e "  ${YELLOW}[WARN]${NC} Windows cross-compile failed"
-    fi
-else
-    RESULTS[windows]="skipped"
-    echo -e "  ${YELLOW}[INFO]${NC} Windows cross-compile not available"
-    echo "  Need: rustup target add x86_64-pc-windows-gnu"
-    echo "  Need: rpm-ostree install mingw64-gcc"
-fi
-
-echo
-
-# ============================================
-# [6/7] Generate AppImages
-# ============================================
-
-echo -e "${YELLOW}[6/7]${NC} Generating AppImages..."
+echo -e "${YELLOW}[5/6]${NC} Generating AppImages..."
 echo
 
 if [ "${RESULTS[linux]}" = "success" ]; then
@@ -404,10 +375,10 @@ fi
 echo
 
 # ============================================
-# [7/7] Build Decky plugin
+# [6/6] Build Decky plugin
 # ============================================
 
-echo -e "${YELLOW}[7/7]${NC} Building Decky plugin..."
+echo -e "${YELLOW}[6/6]${NC} Building Decky plugin..."
 echo
 
 if [ -f "apps/agents/decky/build.sh" ]; then
@@ -450,15 +421,6 @@ print_binary() {
 echo -e "${YELLOW}Linux:${NC}"
 print_binary "Hub" "$DIST_DIR/linux/capydeploy-hub-tauri"
 print_binary "Agent" "$DIST_DIR/linux/capydeploy-agent-tauri"
-
-# Windows
-echo -e "${YELLOW}Windows:${NC}"
-if [ "${RESULTS[windows]}" = "skipped" ]; then
-    echo -e "  ${YELLOW}–${NC} Skipped (no cross-compile toolchain)"
-else
-    print_binary "Hub" "$DIST_DIR/windows/capydeploy-hub-tauri.exe"
-    print_binary "Agent" "$DIST_DIR/windows/capydeploy-agent-tauri.exe"
-fi
 
 # AppImages
 echo -e "${YELLOW}AppImages:${NC}"
