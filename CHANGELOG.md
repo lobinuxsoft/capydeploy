@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.8.3](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.2...v0.8.3) (2026-02-19)
+
+
+### Bug Fixes
+
+* **ci:** use native OS runners for Windows builds (MSVC) ([48a9c8d](https://github.com/lobinuxsoft/capydeploy/commit/48a9c8d6d938b2d4bd0c8d595e90377fd0795d66))
+* **ci:** use native OS runners for Windows builds (MSVC) ([bcda324](https://github.com/lobinuxsoft/capydeploy/commit/bcda3242c7b6b82cdec0c9500dc972777cfb2879)), closes [#173](https://github.com/lobinuxsoft/capydeploy/issues/173)
+* **icons:** reemplazar iconos placeholder por mascota real ([96da7da](https://github.com/lobinuxsoft/capydeploy/commit/96da7dab6c56445e8a6d8e0ce0d9196efaa6414e)), closes [#169](https://github.com/lobinuxsoft/capydeploy/issues/169)
+* **icons:** replace placeholder icons with actual mascot ([95fc1e3](https://github.com/lobinuxsoft/capydeploy/commit/95fc1e3e9a628bbb790295281bdce804c2755c86))
+
+
+### Refactoring
+
+* **agent:** split handler.rs god object into domain handlers ([5d3fb11](https://github.com/lobinuxsoft/capydeploy/commit/5d3fb11f8fd93f7fc249ce50b0868ed013e25fe6)), closes [#145](https://github.com/lobinuxsoft/capydeploy/issues/145)
+* **decky:** split ws_server.py into focused handler modules ([b67d082](https://github.com/lobinuxsoft/capydeploy/commit/b67d08207f8c25750fc5d667d6b99cb246fdd2c7))
+* **hub:** split ArtworkSelector.svelte into focused sub-components ([e354dc0](https://github.com/lobinuxsoft/capydeploy/commit/e354dc0bea1b4aab494a11b36a487279a6741481)), closes [#147](https://github.com/lobinuxsoft/capydeploy/issues/147)
+* **hub:** split connection manager into focused modules ([0f2a565](https://github.com/lobinuxsoft/capydeploy/commit/0f2a565ab7fad0ef43f2ebea5de5774567efb78c))
+* **hub:** split ws_client.rs into focused modules ([c3afb94](https://github.com/lobinuxsoft/capydeploy/commit/c3afb947c2f70748444b32364b73f1c939d68408))
+* split monolithic code across codebase ([#144](https://github.com/lobinuxsoft/capydeploy/issues/144)) ([406133e](https://github.com/lobinuxsoft/capydeploy/commit/406133e5e5d4ec12557d5e7891777d973ec95238))
+
+
+### Documentation
+
+* fix critical docs issues and improve install guide ([bf7b6c8](https://github.com/lobinuxsoft/capydeploy/commit/bf7b6c893bf0360d4fae1e458f08f378ddcc6872))
+* fix Decky URL, add missing API types, and build deps ([15c98e9](https://github.com/lobinuxsoft/capydeploy/commit/15c98e9703fbe5582dd203a303e4218d4f686d09))
+* fix license, timing constants, and API response types ([77d1643](https://github.com/lobinuxsoft/capydeploy/commit/77d16439b8dbeeac54b00744906832b63e19fc0f))
+* **install:** mejorar guía de instalación para usuarios no técnicos ([2a06e3a](https://github.com/lobinuxsoft/capydeploy/commit/2a06e3aa76b728987e9ef3095277c231c2a4b753))
+* **site:** agregar Cloudflare Web Analytics ([f5bbf17](https://github.com/lobinuxsoft/capydeploy/commit/f5bbf1755ffb3b595da3a1cae089d7e80b2f4666))
+* **site:** agregar Cloudflare Web Analytics al sitio de documentación ([63df843](https://github.com/lobinuxsoft/capydeploy/commit/63df8430dae466f4a0ec3dd566468705ec16a68f))
+
 ## [0.8.2](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.1...v0.8.2) (2026-02-18)
 
 
