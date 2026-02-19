@@ -105,9 +105,7 @@ impl TauriAgentHandler {
                     }
 
                     // Reply with wrapper response.
-                    if let Ok(reply) =
-                        msg.reply(MessageType::SetGameLogWrapper, Some(&resp))
-                    {
+                    if let Ok(reply) = msg.reply(MessageType::SetGameLogWrapper, Some(&resp)) {
                         let _ = sender.send_msg(reply);
                     }
 
@@ -133,9 +131,7 @@ impl TauriAgentHandler {
         {
             let status = self.state.game_log_wrapper.status().await;
             let id = uuid::Uuid::new_v4().to_string();
-            if let Ok(msg) =
-                Message::new(id, MessageType::GameLogWrapperStatus, Some(&status))
-            {
+            if let Ok(msg) = Message::new(id, MessageType::GameLogWrapperStatus, Some(&status)) {
                 let _ = sender.send_msg(msg);
             }
         }

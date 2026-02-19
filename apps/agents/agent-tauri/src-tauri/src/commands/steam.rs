@@ -7,10 +7,7 @@ use crate::state::AgentState;
 use crate::types::{ShortcutDto, SteamUserDto};
 
 #[tauri::command]
-pub async fn launch_game(
-    app_id: u32,
-    state: State<'_, Arc<AgentState>>,
-) -> Result<(), String> {
+pub async fn launch_game(app_id: u32, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
     let cef = capydeploy_steam::CefClient::new();
 
     // 1. Inject wrapper into launch options (Linux only).

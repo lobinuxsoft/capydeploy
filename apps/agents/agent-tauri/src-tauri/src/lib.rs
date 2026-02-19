@@ -79,8 +79,7 @@ pub fn run() {
                         dropped: 0,
                     };
                     let id = uuid::Uuid::new_v4().to_string();
-                    if let Ok(msg) =
-                        Message::new(id, MessageType::ConsoleLogData, Some(&batch))
+                    if let Ok(msg) = Message::new(id, MessageType::ConsoleLogData, Some(&batch))
                         && let Err(e) = ws.send_msg(msg)
                     {
                         tracing::warn!(app_id, "game log send failed: {e}");
