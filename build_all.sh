@@ -143,7 +143,12 @@ DESKTOP
         --desktop-file "$appdir/$desktop_id.desktop" \
         --icon-file "$appdir/$desktop_id.png"
 
-    # Bundle WebKit helper processes (not detected by ldd)
+    # Bundle WebKit helper processes and patch hardcoded paths
+    # WebKit hardcodes the helper path at compile time and WEBKIT_EXEC_PATH
+    # only works in developer builds. We must binary-patch the .so to use
+    # relative paths (././ instead of /usr) and cd to AppDir before exec.
+    local webkit_hardcoded
+    webkit_hardcoded=$(strings "$appdir/usr/lib/libwebkit2gtk-4.1.so.0" 2>/dev/null | grep -m1 '/webkit2gtk-4.1$')
     local webkit_dir=""
     for candidate in /usr/libexec/webkit2gtk-4.1 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1 /usr/lib64/webkit2gtk-4.1; do
         if [ -d "$candidate" ]; then
@@ -151,7 +156,6 @@ DESKTOP
             break
         fi
     done
-    # Fallback: find by binary location
     if [ -z "$webkit_dir" ]; then
         local wkp
         wkp=$(find /usr -name "WebKitWebProcess" -path "*webkit2gtk*" 2>/dev/null | head -1)
@@ -159,13 +163,22 @@ DESKTOP
             webkit_dir=$(dirname "$wkp")
         fi
     fi
-    if [ -n "$webkit_dir" ]; then
-        echo "  Bundling WebKit helpers from $webkit_dir..."
-        mkdir -p "$appdir/usr/libexec/webkit2gtk-4.1"
-        cp "$webkit_dir/WebKitWebProcess" "$appdir/usr/libexec/webkit2gtk-4.1/"
-        cp "$webkit_dir/WebKitNetworkProcess" "$appdir/usr/libexec/webkit2gtk-4.1/"
+    if [ -n "$webkit_dir" ] && [ -n "$webkit_hardcoded" ]; then
+        local webkit_relative="././${webkit_hardcoded#/usr}"
+        echo "  Patching WebKit path: $webkit_hardcoded -> $webkit_relative"
+        LC_ALL=C sed -i "s|$webkit_hardcoded|$webkit_relative|g" "$appdir/usr/lib/libwebkit2gtk-4.1.so.0"
+        # Copy helpers to the relative path that the patched .so expects
+        local helpers_dest="$appdir${webkit_hardcoded#/usr}"
+        mkdir -p "$helpers_dest"
+        cp "$webkit_dir/WebKitWebProcess" "$helpers_dest/"
+        cp "$webkit_dir/WebKitNetworkProcess" "$helpers_dest/"
+        # Copy injected bundle if present
+        if [ -d "$webkit_dir/injected-bundle" ]; then
+            cp -r "$webkit_dir/injected-bundle" "$helpers_dest/"
+        fi
+        echo "  Bundling WebKit helpers from $webkit_dir"
     else
-        echo -e "  ${YELLOW}[WARN]${NC} WebKit helpers not found"
+        echo -e "  ${YELLOW}[WARN]${NC} WebKit helpers or library not found"
     fi
 
     # Bundle GLib compiled schemas
@@ -235,10 +248,13 @@ ICON_DIR="$HOME/.local/share/icons"
 
 # Bundled library paths
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-export WEBKIT_EXEC_PATH="${HERE}/usr/libexec/webkit2gtk-4.1"
 export GIO_MODULE_DIR="${HERE}/usr/lib/gio/modules"
 export GDK_PIXBUF_MODULE_FILE="${HERE}/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
 export GSETTINGS_SCHEMA_DIR="${HERE}/usr/share/glib-2.0/schemas"
+
+# WebKit helpers use paths patched to be relative (././ prefix),
+# so we must cd to the AppDir root for them to resolve correctly.
+cd "${HERE}"
 
 install_app() {
     echo "Installing $APP_NAME..."
