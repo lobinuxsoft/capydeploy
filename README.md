@@ -223,6 +223,7 @@ All communication happens over WebSocket at `ws://agent:<port>/ws`
 | Request | Response | Description |
 |---------|----------|-------------|
 | `hub_connected` | `pairing_required` / `pair_success` | Authentication handshake |
+| `ping` | `pong` | Keep-alive heartbeat |
 | `get_info` | `info_response` | Agent details |
 | `get_config` | `config_response` | Get agent configuration |
 | `get_steam_users` | `steam_users_response` | List Steam users |
@@ -230,15 +231,16 @@ All communication happens over WebSocket at `ws://agent:<port>/ws`
 | `create_shortcut` | `operation_result` | Create shortcut |
 | `delete_shortcut` | `operation_result` | Delete shortcut by appID |
 | `delete_game` | `operation_result` | Delete game (Agent handles everything) |
-| `apply_artwork` | `artwork_response` | Apply artwork |
+| `apply_artwork` | `artwork_response` | Apply artwork from URL |
+| `send_artwork_image` | `artwork_image_response` | Upload artwork image binary |
 | `restart_steam` | `steam_response` | Restart Steam client |
-| `init_upload` | `upload_response` | Start upload session |
+| `init_upload` | `upload_init_response` | Start upload session |
 | `upload_chunk` | `upload_chunk_response` | Send binary chunk |
-| `complete_upload` | `upload_response` | Finalize upload |
+| `complete_upload` | `operation_result` | Finalize upload |
 | `cancel_upload` | `operation_result` | Cancel active upload |
-| `set_console_log_filter` | `set_console_log_filter_response` | Set log level bitmask filter |
-| `set_console_log_enabled` | `set_console_log_enabled_response` | Enable/disable console log streaming |
-| `set_game_log_wrapper` | `set_game_log_wrapper_response` | Enable/disable game log wrapper (Linux only) |
+| `set_console_log_filter` | `operation_result` | Set log level bitmask filter |
+| `set_console_log_enabled` | `operation_result` | Enable/disable console log streaming |
+| `set_game_log_wrapper` | `operation_result` | Enable/disable game log wrapper (Linux only) |
 
 ### Push Events
 
