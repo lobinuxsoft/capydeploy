@@ -150,6 +150,65 @@ pub const WS_ERR_CODE_CONFLICT: i32 = 409;
 pub const WS_ERR_CODE_INTERNAL: i32 = 500;
 pub const WS_ERR_CODE_NOT_IMPLEMENTED: i32 = 501;
 
+// ---------------------------------------------------------------------------
+// Protocol versioning
+// ---------------------------------------------------------------------------
+
+/// Current protocol version advertised during the handshake.
+pub const PROTOCOL_VERSION: u32 = 1;
+
+/// Minimum protocol version this build can communicate with.
+pub const PROTOCOL_MIN_SUPPORTED: u32 = 1;
+
+/// Result of comparing our version range against a peer's advertised version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProtocolCompatibility {
+    /// Peer version falls within the supported range.
+    Compatible,
+    /// Peer version is within range but older than current (still works).
+    Deprecated { peer_version: u32 },
+    /// Peer version is outside the supported range.
+    Incompatible { peer_version: u32, reason: String },
+}
+
+/// Checks whether a peer's advertised protocol version is compatible.
+///
+/// A `peer_version` of `0` is treated as legacy v1 (pre-negotiation builds).
+pub fn check_protocol_compatibility(peer_version: u32) -> ProtocolCompatibility {
+    // Legacy peers that don't send the field default to 0 → treat as v1.
+    let effective = if peer_version == 0 { 1 } else { peer_version };
+
+    if effective < PROTOCOL_MIN_SUPPORTED {
+        return ProtocolCompatibility::Incompatible {
+            peer_version: effective,
+            reason: format!(
+                "peer protocol v{effective} is below minimum supported v{PROTOCOL_MIN_SUPPORTED}"
+            ),
+        };
+    }
+
+    if effective > PROTOCOL_VERSION {
+        return ProtocolCompatibility::Incompatible {
+            peer_version: effective,
+            reason: format!(
+                "peer protocol v{effective} is above our current v{PROTOCOL_VERSION}"
+            ),
+        };
+    }
+
+    if effective < PROTOCOL_VERSION {
+        return ProtocolCompatibility::Deprecated {
+            peer_version: effective,
+        };
+    }
+
+    ProtocolCompatibility::Compatible
+}
+
+// ---------------------------------------------------------------------------
+// Console log levels
+// ---------------------------------------------------------------------------
+
 /// Console log level bitmask: `log` messages.
 pub const LOG_LEVEL_LOG: u32 = 1;
 /// Console log level bitmask: `warn` messages.
@@ -223,5 +282,45 @@ mod tests {
     #[test]
     fn log_level_default() {
         assert_eq!(LOG_LEVEL_DEFAULT, 15);
+    }
+
+    #[test]
+    fn protocol_compat_current_version() {
+        assert_eq!(
+            check_protocol_compatibility(PROTOCOL_VERSION),
+            ProtocolCompatibility::Compatible
+        );
+    }
+
+    #[test]
+    fn protocol_compat_legacy_zero_treated_as_v1() {
+        // Legacy peers that don't send the field default to 0 → v1.
+        assert_eq!(
+            check_protocol_compatibility(0),
+            ProtocolCompatibility::Compatible
+        );
+    }
+
+    #[test]
+    fn protocol_compat_too_new() {
+        let result = check_protocol_compatibility(PROTOCOL_VERSION + 1);
+        assert!(matches!(
+            result,
+            ProtocolCompatibility::Incompatible { peer_version, .. }
+                if peer_version == PROTOCOL_VERSION + 1
+        ));
+    }
+
+    #[test]
+    fn protocol_compat_deprecated() {
+        // Only testable when PROTOCOL_VERSION > PROTOCOL_MIN_SUPPORTED.
+        if PROTOCOL_VERSION > PROTOCOL_MIN_SUPPORTED {
+            let result = check_protocol_compatibility(PROTOCOL_MIN_SUPPORTED);
+            assert!(matches!(
+                result,
+                ProtocolCompatibility::Deprecated { peer_version }
+                    if peer_version == PROTOCOL_MIN_SUPPORTED
+            ));
+        }
     }
 }

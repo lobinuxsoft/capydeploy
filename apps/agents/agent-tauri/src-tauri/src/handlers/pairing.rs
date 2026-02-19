@@ -3,7 +3,9 @@ use std::sync::atomic::Ordering;
 use tauri::Emitter;
 
 use capydeploy_agent_server::Sender;
-use capydeploy_protocol::constants::MessageType;
+use capydeploy_protocol::constants::{
+    self, MessageType, PROTOCOL_VERSION, check_protocol_compatibility,
+};
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages;
 
@@ -22,11 +24,21 @@ impl TauriAgentHandler {
         };
 
         tracing::info!(
-            "Hub connected: {} v{} (ID: {})",
+            "Hub connected: {} v{} (ID: {}, proto: v{})",
             req.name,
             req.version,
-            req.hub_id
+            req.hub_id,
+            req.protocol_version
         );
+
+        // Reject incompatible protocol versions before any auth.
+        if let constants::ProtocolCompatibility::Incompatible { reason, .. } =
+            check_protocol_compatibility(req.protocol_version)
+        {
+            tracing::warn!("Rejecting hub {}: {reason}", req.hub_id);
+            let _ = sender.send_error(&msg, 406, &reason);
+            return;
+        }
 
         // If Hub provided a token, validate it
         if !req.token.is_empty() && !req.hub_id.is_empty() {
@@ -188,6 +200,7 @@ impl TauriAgentHandler {
             telemetry_enabled: config.telemetry_enabled,
             telemetry_interval: config.telemetry_interval,
             console_log_enabled: config.console_log_enabled,
+            protocol_version: PROTOCOL_VERSION,
         };
 
         // Start collectors based on config

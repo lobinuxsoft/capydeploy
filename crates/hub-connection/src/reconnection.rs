@@ -253,6 +253,7 @@ pub(crate) fn reconnect_loop(
                 platform: ctx.hub.platform.clone(),
                 hub_id: ctx.hub.hub_id.clone(),
                 token,
+                protocol_version: capydeploy_protocol::constants::PROTOCOL_VERSION,
             };
 
             match WsClient::connect(&ws_url, &hub_req).await {

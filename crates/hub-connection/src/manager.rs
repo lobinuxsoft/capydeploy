@@ -14,7 +14,9 @@ use tracing::{debug, info, warn};
 
 use capydeploy_discovery::client::Client as DiscoveryClient;
 use capydeploy_discovery::types::DiscoveredAgent;
-use capydeploy_protocol::constants::MessageType;
+use capydeploy_protocol::constants::{
+    self, MessageType, PROTOCOL_VERSION, check_protocol_compatibility,
+};
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages::{HubConnectedRequest, InfoResponse};
 
@@ -139,6 +141,7 @@ impl ConnectionManager {
             platform: self.hub.platform.clone(),
             hub_id: self.hub.hub_id.clone(),
             token,
+            protocol_version: PROTOCOL_VERSION,
         };
 
         let (client, handshake) = match WsClient::connect(&ws_url, &hub_req).await {
@@ -153,6 +156,42 @@ impl ConnectionManager {
 
         match handshake {
             HandshakeResult::Connected(status) => {
+                // Check protocol compatibility before accepting.
+                match check_protocol_compatibility(status.protocol_version) {
+                    constants::ProtocolCompatibility::Incompatible {
+                        peer_version,
+                        reason,
+                    } => {
+                        warn!(
+                            agent = %agent_id,
+                            peer_version,
+                            "protocol incompatible: {reason}"
+                        );
+                        client.close().await;
+                        self.set_state(agent_id, ConnectionState::Disconnected)
+                            .await;
+                        return Err(WsError::AgentError {
+                            code: 406,
+                            message: reason,
+                        });
+                    }
+                    constants::ProtocolCompatibility::Deprecated { peer_version } => {
+                        let msg = format!(
+                            "agent protocol v{peer_version} is deprecated \
+                             (current: v{PROTOCOL_VERSION})"
+                        );
+                        warn!(agent = %agent_id, "{msg}");
+                        let _ = self
+                            .events_tx
+                            .send(ConnectionEvent::ProtocolWarning {
+                                agent_id: agent_id.to_string(),
+                                message: msg,
+                            })
+                            .await;
+                    }
+                    constants::ProtocolCompatibility::Compatible => {}
+                }
+
                 self.setup_client_callbacks(&client, agent_id).await;
 
                 let connected_agent = ConnectedAgent {

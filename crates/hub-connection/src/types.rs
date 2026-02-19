@@ -63,6 +63,11 @@ pub enum ConnectionEvent {
         attempt: u32,
         next_retry_secs: f64,
     },
+    /// Agent's protocol version is deprecated (still works, but outdated).
+    ProtocolWarning {
+        agent_id: String,
+        message: String,
+    },
 }
 
 /// Configuration for automatic reconnection with exponential backoff.
