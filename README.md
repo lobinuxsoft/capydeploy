@@ -307,7 +307,6 @@ capydeploy/
 │   ├── console-log/            # Console log collector
 │   ├── game-log/               # Game log wrapper
 │   ├── file-ops/               # File operations
-│   ├── tray/                   # System tray
 │   ├── agent-server/           # Agent WebSocket server
 │   ├── hub-connection/         # Hub WebSocket client
 │   ├── hub-deploy/             # Hub deploy logic

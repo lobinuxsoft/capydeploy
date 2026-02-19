@@ -19,7 +19,7 @@ tauri-build = { workspace = true }
 
 [dependencies]
 # Tauri
-tauri = { workspace = true, features = ["tray-icon"] }
+tauri = { workspace = true }
 tauri-plugin-shell = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 

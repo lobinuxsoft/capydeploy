@@ -484,13 +484,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capydeploy-tray"
-version = "0.1.0"
-dependencies = [
- "tracing",
-]
-
-[[package]]
 name = "cargo-platform"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
