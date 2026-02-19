@@ -203,7 +203,7 @@
 	</p>
 
 	<div class="space-y-2">
-		{#each $gameSetups as setup}
+		{#each $gameSetups as setup (setup.id)}
 			{@const artworkCount = countArtwork(setup)}
 			{@const isUploading = uploading === setup.id}
 			<div class="cd-section p-4">
