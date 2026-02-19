@@ -110,13 +110,14 @@ jobs:
           generate_desktop() {
             local binary_name="$1"
             local display_name="$2"
-            local output="$3"
+            local desktop_id="$3"
+            local output="$4"
             cat > "$output" << DESKTOP_EOF
           [Desktop Entry]
           Name=${display_name}
           Comment=Deploy games to Steam Deck and Linux devices
           Exec=${binary_name}
-          Icon=${binary_name}
+          Icon=${desktop_id}
           Type=Application
           Categories=Game;Development;
           Terminal=false
@@ -128,14 +129,14 @@ jobs:
           cp artifacts/hub/capydeploy-hub-tauri hub.AppDir/usr/bin/
           chmod +x hub.AppDir/usr/bin/capydeploy-hub-tauri
           cp apps/hub-tauri/src-tauri/icons/icon.png hub.AppDir/capydeploy-hub.png
-          generate_desktop "capydeploy-hub" "CapyDeploy Hub" "hub.AppDir/capydeploy-hub.desktop"
+          generate_desktop "capydeploy-hub-tauri" "CapyDeploy Hub" "capydeploy-hub" "hub.AppDir/capydeploy-hub.desktop"
 
           # Agent AppDir
           mkdir -p agent.AppDir/usr/bin
           cp artifacts/agent/capydeploy-agent-tauri agent.AppDir/usr/bin/
           chmod +x agent.AppDir/usr/bin/capydeploy-agent-tauri
           cp apps/agents/agent-tauri/src-tauri/icons/icon.png agent.AppDir/capydeploy-agent.png
-          generate_desktop "capydeploy-agent" "CapyDeploy Agent" "agent.AppDir/capydeploy-agent.desktop"
+          generate_desktop "capydeploy-agent-tauri" "CapyDeploy Agent" "capydeploy-agent" "agent.AppDir/capydeploy-agent.desktop"
 
       - name: Bundle libraries
         env:
@@ -160,6 +161,13 @@ jobs:
               break
             fi
           done
+          # Fallback: find by binary location
+          if [ -z "$WEBKIT_DIR" ]; then
+            WKP=$(find /usr -name "WebKitWebProcess" -path "*webkit2gtk*" 2>/dev/null | head -1)
+            if [ -n "$WKP" ]; then
+              WEBKIT_DIR=$(dirname "$WKP")
+            fi
+          fi
           if [ -n "$WEBKIT_DIR" ]; then
             echo "Bundling WebKit helpers from $WEBKIT_DIR..."
             for appdir in hub.AppDir agent.AppDir; do

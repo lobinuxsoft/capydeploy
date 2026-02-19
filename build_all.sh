@@ -151,6 +151,14 @@ DESKTOP
             break
         fi
     done
+    # Fallback: find by binary location
+    if [ -z "$webkit_dir" ]; then
+        local wkp
+        wkp=$(find /usr -name "WebKitWebProcess" -path "*webkit2gtk*" 2>/dev/null | head -1)
+        if [ -n "$wkp" ]; then
+            webkit_dir=$(dirname "$wkp")
+        fi
+    fi
     if [ -n "$webkit_dir" ]; then
         echo "  Bundling WebKit helpers from $webkit_dir..."
         mkdir -p "$appdir/usr/libexec/webkit2gtk-4.1"
