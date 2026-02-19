@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.3...v0.9.0) (2026-02-19)
+
+
+### Features
+
+* **docs:** mostrar versión del release en las cards de descarga ([7ef4d8c](https://github.com/lobinuxsoft/capydeploy/commit/7ef4d8c0de1694bdb5a1e38cf83abd0b4067bbee)), closes [#188](https://github.com/lobinuxsoft/capydeploy/issues/188)
+* **docs:** show release version in download cards ([8120277](https://github.com/lobinuxsoft/capydeploy/commit/8120277dcd7f24ce899978e266a3e4fc7f1dcf40))
+* **docs:** show release version in download cards ([3406cf6](https://github.com/lobinuxsoft/capydeploy/commit/3406cf63b1bed2b372bd9c447b6286f000ec3d35))
+
 ## [0.8.3](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.2...v0.8.3) (2026-02-19)
 
 
