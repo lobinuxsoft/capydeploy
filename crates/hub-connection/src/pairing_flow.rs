@@ -37,12 +37,12 @@ pub(crate) async fn perform_handshake(
     }
 
     // Parse agent status.
-    let status: AgentStatusResponse = resp
-        .parse_payload::<AgentStatusResponse>()?
-        .ok_or_else(|| WsError::AgentError {
-            code: 500,
-            message: "empty agent status".into(),
-        })?;
+    let status: AgentStatusResponse =
+        resp.parse_payload::<AgentStatusResponse>()?
+            .ok_or_else(|| WsError::AgentError {
+                code: 500,
+                message: "empty agent status".into(),
+            })?;
 
     Ok(HandshakeResult::Connected(status))
 }

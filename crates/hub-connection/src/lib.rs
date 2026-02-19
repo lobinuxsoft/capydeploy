@@ -5,8 +5,8 @@
 
 mod discovery;
 pub mod manager;
-pub(crate) mod pairing_flow;
 pub mod pairing;
+pub(crate) mod pairing_flow;
 pub(crate) mod pumps;
 pub(crate) mod reconnection;
 pub mod types;

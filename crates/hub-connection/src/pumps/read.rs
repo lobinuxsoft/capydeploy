@@ -1,11 +1,11 @@
 //! WebSocket read pump — dispatches incoming messages.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use futures_util::StreamExt;
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio_tungstenite::tungstenite;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, trace, warn};

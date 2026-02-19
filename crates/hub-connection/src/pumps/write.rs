@@ -44,11 +44,10 @@ mod tests {
         let (sink_tx, mut sink_rx) = mpsc::channel::<tungstenite::Message>(16);
         let cancel = CancellationToken::new();
 
-        let sink =
-            sink::unfold(sink_tx, |tx, msg: tungstenite::Message| async move {
-                let _ = tx.send(msg).await;
-                Ok::<_, tungstenite::Error>(tx)
-            });
+        let sink = sink::unfold(sink_tx, |tx, msg: tungstenite::Message| async move {
+            let _ = tx.send(msg).await;
+            Ok::<_, tungstenite::Error>(tx)
+        });
         let sink = Box::pin(sink);
 
         let (_write_tx, write_rx) = mpsc::channel(16);
