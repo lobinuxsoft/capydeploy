@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { Card, Badge, Button } from '$lib/components/ui';
-	import { GetSteamUsers, GetShortcuts, DeleteShortcut, EventsOn, EventsOff } from '$lib/wailsjs';
+	import { GetSteamUsers, GetShortcuts, DeleteShortcut, LaunchGame, EventsOn, EventsOff } from '$lib/wailsjs';
 	import { toast } from '$lib/stores/toast';
 	import type { SteamUserInfo, ShortcutInfo } from '$lib/types';
-	import { Users, Gamepad2, ChevronDown, ChevronRight, Trash2, Loader2 } from 'lucide-svelte';
+	import { Users, Gamepad2, ChevronDown, ChevronRight, Trash2, Loader2, Play } from 'lucide-svelte';
 
 	let users = $state<SteamUserInfo[]>([]);
 	let shortcuts = $state<Map<string, ShortcutInfo[]>>(new Map());
@@ -165,6 +165,14 @@
 												<Badge variant="secondary" class="text-xs flex-shrink-0 cd-mono">
 													{shortcut.appId}
 												</Badge>
+												<Button
+													variant="ghost"
+													size="icon"
+													onclick={() => LaunchGame(shortcut.appId)}
+													class="h-7 w-7 flex-shrink-0 text-primary hover:text-primary hover:bg-primary/10"
+												>
+													<Play class="w-3.5 h-3.5" />
+												</Button>
 												<Button
 													variant="ghost"
 													size="icon"

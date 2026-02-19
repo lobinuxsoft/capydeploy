@@ -66,6 +66,37 @@ pub fn run() {
         },
     )));
 
+    // Game log tailer — streams game output to Hub as ConsoleLogBatch (Linux only)
+    #[cfg(target_os = "linux")]
+    let game_log_tailer = {
+        let gl_ws = hub_sender.clone();
+        Arc::new(capydeploy_game_log::LogTailer::new(Box::new(
+            move |app_id, entries| {
+                let sender = gl_ws.lock().unwrap();
+                if let Some(ws) = sender.as_ref() {
+                    let batch = capydeploy_protocol::console_log::ConsoleLogBatch {
+                        entries,
+                        dropped: 0,
+                    };
+                    let id = uuid::Uuid::new_v4().to_string();
+                    if let Ok(msg) =
+                        Message::new(id, MessageType::ConsoleLogData, Some(&batch))
+                        && let Err(e) = ws.send_msg(msg)
+                    {
+                        tracing::warn!(app_id, "game log send failed: {e}");
+                    }
+                }
+            },
+        )))
+    };
+
+    // Game log wrapper manager (Linux only)
+    #[cfg(target_os = "linux")]
+    let game_log_wrapper = {
+        let log_dir = capydeploy_game_log::log_dir();
+        Arc::new(capydeploy_game_log::WrapperManager::new(log_dir))
+    };
+
     let shutdown_token = CancellationToken::new();
 
     let agent_state = AgentState {
@@ -81,6 +112,10 @@ pub fn run() {
         hub_sender,
         telemetry_collector,
         console_log_collector,
+        #[cfg(target_os = "linux")]
+        game_log_wrapper,
+        #[cfg(target_os = "linux")]
+        game_log_tailer,
         tracked_shortcuts: Arc::new(tokio::sync::Mutex::new(Vec::new())),
         deleted_app_ids: Arc::new(tokio::sync::Mutex::new(std::collections::HashSet::new())),
         shutdown_token: shutdown_token.clone(),
@@ -116,6 +151,7 @@ pub fn run() {
             commands::steam::get_steam_users,
             commands::steam::get_shortcuts,
             commands::steam::delete_shortcut,
+            commands::steam::launch_game,
             // Telemetry
             commands::telemetry::set_telemetry_enabled,
             commands::telemetry::set_telemetry_interval,

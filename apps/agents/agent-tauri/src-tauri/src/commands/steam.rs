@@ -7,6 +7,94 @@ use crate::state::AgentState;
 use crate::types::{ShortcutDto, SteamUserDto};
 
 #[tauri::command]
+pub async fn launch_game(
+    app_id: u32,
+    state: State<'_, Arc<AgentState>>,
+) -> Result<(), String> {
+    let cef = capydeploy_steam::CefClient::new();
+
+    // 1. Inject wrapper into launch options (Linux only).
+    #[cfg(target_os = "linux")]
+    {
+        let script_path = state.game_log_wrapper.ensure_script_installed().await?;
+        let marker = script_path.display().to_string();
+        let escaped_marker = serde_json::to_string(&marker).unwrap_or_default();
+
+        // Inject wrapper + register one-shot lifecycle listener that strips it
+        // when the game exits — all in a single CEF evaluate to avoid races.
+        let inject_js = format!(
+            r#"(function() {{
+                const MARKER = {escaped_marker};
+                const prefix = MARKER + " {app_id} ";
+                const d = appDetailsStore?.GetAppDetails({app_id});
+                const cur = d?.strLaunchOptions ?? "";
+
+                if (!cur.includes(MARKER)) {{
+                    let opts;
+                    if (!cur) {{
+                        opts = prefix + "%command%";
+                    }} else if (cur.includes("%command%")) {{
+                        opts = cur.replace("%command%", prefix + "%command%");
+                    }} else {{
+                        opts = prefix + cur + " %command%";
+                    }}
+                    SteamClient.Apps.SetAppLaunchOptions({app_id}, opts);
+                }}
+
+                // One-shot lifecycle listener: strip wrapper when game stops.
+                const reg = SteamClient.GameSessions.RegisterForAppLifetimeNotifications(
+                    (n) => {{
+                        if (n.unAppID === {app_id} && !n.bRunning) {{
+                            reg.unregister();
+                            try {{
+                                const d2 = appDetailsStore?.GetAppDetails({app_id});
+                                let o = d2?.strLaunchOptions ?? "";
+                                if (o.includes(MARKER)) {{
+                                    o = o.replace(
+                                        new RegExp("\\\\S*" + MARKER.replace(/[.*+?^${{}}()|[\\]\\\\]/g, "\\\\$&") + "\\\\s+" + {app_id} + "\\\\s*", "g"),
+                                        ""
+                                    ).trim();
+                                    if (o === "%command%") o = "";
+                                    SteamClient.Apps.SetAppLaunchOptions({app_id}, o);
+                                }}
+                            }} catch(e) {{}}
+                        }}
+                    }}
+                );
+            }})()"#
+        );
+
+        cef.evaluate_void(&inject_js)
+            .await
+            .map_err(|e| format!("failed to inject wrapper: {e}"))?;
+
+        // 2. Start log watcher.
+        let log_dir = capydeploy_game_log::log_dir();
+        state.game_log_tailer.start_watch(app_id, log_dir).await;
+    }
+
+    // 3. Small delay so Steam registers new launch options, then launch.
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+
+    let launch_js = format!(
+        r#"(function() {{
+            let gid = String({app_id});
+            try {{
+                const ov = appStore?.GetAppOverviewByAppID({app_id});
+                if (ov?.gameid) gid = String(ov.gameid);
+            }} catch(e) {{}}
+            SteamClient.Apps.RunGame(gid, "", -1, 100);
+        }})()"#
+    );
+
+    cef.evaluate_void(&launch_js)
+        .await
+        .map_err(|e| format!("failed to launch game: {e}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn get_steam_users() -> Result<Vec<SteamUserDto>, String> {
     let users = capydeploy_steam::get_users().map_err(|e| e.to_string())?;
     Ok(users
