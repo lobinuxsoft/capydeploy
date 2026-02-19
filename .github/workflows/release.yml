@@ -19,19 +19,17 @@ permissions:
 jobs:
   build:
     name: Build (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: linux-amd64
-            rust_target: ""
-            bin_dir: target/release
+            os: ubuntu-latest
             hub_bin: capydeploy-hub-tauri
             agent_bin: capydeploy-agent-tauri
           - target: windows-amd64
-            rust_target: x86_64-pc-windows-gnu
-            bin_dir: target/x86_64-pc-windows-gnu/release
+            os: windows-latest
             hub_bin: capydeploy-hub-tauri.exe
             agent_bin: capydeploy-agent-tauri.exe
     steps:
@@ -40,48 +38,40 @@ jobs:
           ref: ${{ inputs.tag_name }}
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust_target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
           key: ${{ matrix.target }}
 
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
-          if [ "${{ matrix.target }}" = "windows-amd64" ]; then
-            sudo apt-get install -y gcc-mingw-w64-x86-64
-          fi
 
       - uses: oven-sh/setup-bun@v2
 
       - name: Build frontends (required by tauri_build)
+        shell: bash
         run: |
           cd apps/hub-tauri/frontend && bun install && bun run build && cd ../../..
           cd apps/agents/agent-tauri/frontend && bun install && bun run build && cd ../../..
 
       - name: Build binaries
-        run: |
-          BUILD_CMD="cargo build --release -p capydeploy-hub-tauri -p capydeploy-agent-tauri"
-          if [ -n "${{ matrix.rust_target }}" ]; then
-            BUILD_CMD="$BUILD_CMD --target ${{ matrix.rust_target }}"
-          fi
-          $BUILD_CMD
+        run: cargo build --release -p capydeploy-hub-tauri -p capydeploy-agent-tauri
 
       - name: Upload Hub binary
         uses: actions/upload-artifact@v4
         with:
           name: hub-${{ matrix.target }}
-          path: ${{ matrix.bin_dir }}/${{ matrix.hub_bin }}
+          path: target/release/${{ matrix.hub_bin }}
 
       - name: Upload Agent binary
         uses: actions/upload-artifact@v4
         with:
           name: agent-${{ matrix.target }}
-          path: ${{ matrix.bin_dir }}/${{ matrix.agent_bin }}
+          path: target/release/${{ matrix.agent_bin }}
 
   appimage:
     name: AppImage

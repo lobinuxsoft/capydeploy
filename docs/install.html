@@ -2,9 +2,38 @@
 layout: default
 title: Installation
 ---
-<!-- Download Section (for users) -->
+<!-- Getting Started -->
 <section class="py-20 px-4 pt-32">
   <div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Getting Started</h2>
+    <p class="text-slate-400 text-center mb-12">CapyDeploy has two parts: the <strong class="text-slate-200">Hub</strong> (on your PC) and an <strong class="text-slate-200">Agent</strong> (on your handheld). Both must be on the same Wi-Fi network.</p>
+
+    <!-- What goes where -->
+    <div class="grid md:grid-cols-2 gap-6 mb-16">
+      <div class="bg-slate-900/50 border border-capy-500/20 rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-lg bg-capy-500/10 flex items-center justify-center">
+            <svg class="w-5 h-5 text-capy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-capy-400">Your PC</h3>
+        </div>
+        <p class="text-slate-400 text-sm">Install the <strong class="text-slate-200">Hub</strong>. This is where you select games and send them to your device.</p>
+      </div>
+      <div class="bg-slate-900/50 border border-water-500/20 rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-lg bg-water-500/10 flex items-center justify-center">
+            <svg class="w-5 h-5 text-water-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-water-400">Your Handheld</h3>
+        </div>
+        <p class="text-slate-400 text-sm">Install the <strong class="text-slate-200">Agent</strong> (desktop mode) or the <strong class="text-slate-200">Decky Plugin</strong> (gaming mode, Steam Deck only). This receives and installs games.</p>
+      </div>
+    </div>
+
     <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">Download</h2>
     <p class="text-slate-400 text-center mb-12">Pre-built binaries ready to use. No compilation required.</p>
 
@@ -89,14 +118,11 @@ title: Installation
         </h4>
         <div class="text-sm text-slate-400 space-y-2">
           <p>1. Download the <code class="text-capy-400">.AppImage</code> file</p>
-          <p>2. Make it executable:</p>
-          <div class="bg-slate-950 rounded-lg p-3 mt-1">
-            <code class="text-xs text-slate-300">chmod +x CapyDeploy_*.AppImage</code>
-          </div>
-          <p>3. Run it &mdash; it will prompt to install automatically</p>
+          <p>2. Make it executable: right-click the file &rarr; <strong class="text-slate-300">Properties</strong> &rarr; <strong class="text-slate-300">Permissions</strong> &rarr; check <strong class="text-slate-300">"Allow executing as program"</strong></p>
+          <p>3. Double-click to run &mdash; it will prompt to install automatically</p>
           <div class="mt-3 text-xs text-slate-500">
-            <p>Installs to <code>~/.local/bin/</code> with desktop entry and icon.</p>
-            <p class="mt-1">CLI: <code>--install</code>, <code>--uninstall</code>, <code>--help</code></p>
+            <p>The app installs itself to your application menu with its own icon.</p>
+            <p class="mt-1">Terminal users: <code>chmod +x</code>, <code>--install</code>, <code>--uninstall</code>, <code>--help</code></p>
           </div>
         </div>
       </div>
@@ -109,10 +135,11 @@ title: Installation
         </h4>
         <div class="text-sm text-slate-400 space-y-2">
           <p>1. Download the <code class="text-capy-400">.zip</code> file</p>
-          <p>2. Extract the ZIP</p>
-          <p>3. Run <code class="text-capy-400">capydeploy-hub-tauri.exe</code> or <code class="text-capy-400">capydeploy-agent-tauri.exe</code></p>
+          <p>2. Right-click the ZIP &rarr; <strong class="text-slate-300">Extract All</strong></p>
+          <p>3. Double-click <code class="text-capy-400">capydeploy-hub-tauri.exe</code> (on your PC) or <code class="text-capy-400">capydeploy-agent-tauri.exe</code> (on your handheld)</p>
           <div class="mt-3 text-xs text-slate-500">
             <p>WebView2 is pre-installed on Windows 10/11.</p>
+            <p class="mt-1 text-yellow-500/80">Windows SmartScreen may show a warning since the app is not signed. Click <strong>"More info"</strong> &rarr; <strong>"Run anyway"</strong> to proceed.</p>
           </div>
         </div>
       </div>
@@ -135,6 +162,33 @@ title: Installation
               <div class="flex justify-between"><span>Steam restart</span><span class="text-slate-300">Not needed</span></div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-16">
+      <h3 class="text-lg font-semibold mb-4">Troubleshooting</h3>
+      <div class="space-y-4 text-sm">
+        <div>
+          <h4 class="text-slate-200 font-medium mb-1">The Hub doesn't find my device</h4>
+          <p class="text-slate-400">Both devices must be on the <strong class="text-slate-300">same Wi-Fi network</strong>. Some routers block mDNS between devices &mdash; try disabling "AP Isolation" or "Client Isolation" in your router settings. VPNs and guest networks may also prevent discovery.</p>
+        </div>
+        <div>
+          <h4 class="text-slate-200 font-medium mb-1">Windows shows a SmartScreen warning</h4>
+          <p class="text-slate-400">The app is not code-signed. Click <strong class="text-slate-300">"More info"</strong> then <strong class="text-slate-300">"Run anyway"</strong>. This is safe &mdash; you can verify the download with the checksums file.</p>
+        </div>
+        <div>
+          <h4 class="text-slate-200 font-medium mb-1">Linux AppImage won't run</h4>
+          <p class="text-slate-400">Make sure the file has execute permission: right-click &rarr; Properties &rarr; Permissions &rarr; "Allow executing as program". On some distros you may also need <code class="text-capy-400">libfuse2</code> installed.</p>
+        </div>
+        <div>
+          <h4 class="text-slate-200 font-medium mb-1">Pairing code expired</h4>
+          <p class="text-slate-400">The 6-digit code expires after 60 seconds. Disconnect from the Hub and reconnect to generate a new code.</p>
+        </div>
+        <div>
+          <h4 class="text-slate-200 font-medium mb-1">Where do I get a SteamGridDB API key?</h4>
+          <p class="text-slate-400">Go to <a href="https://www.steamgriddb.com" class="text-capy-400 hover:underline">steamgriddb.com</a>, create a free account, then go to <strong class="text-slate-300">Preferences &rarr; API</strong> to generate your key. Paste it in the Hub's Settings tab.</p>
         </div>
       </div>
     </div>
@@ -206,15 +260,15 @@ cd apps/agents/agent-tauri && ./build.sh</code></pre>
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-capy-400 mb-2">Fedora / Bazzite</h4>
-          <code class="text-slate-400 text-xs">rpm-ostree install webkit2gtk4.1-devel gtk3-devel</code>
+          <code class="text-slate-400 text-xs">rpm-ostree install webkit2gtk4.1-devel gtk3-devel pkg-config</code>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-water-400 mb-2">Ubuntu / Debian</h4>
-          <code class="text-slate-400 text-xs">apt install libwebkit2gtk-4.1-dev libgtk-3-dev</code>
+          <code class="text-slate-400 text-xs">apt install libwebkit2gtk-4.1-dev libgtk-3-dev pkg-config build-essential</code>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-purple-400 mb-2">Arch Linux</h4>
-          <code class="text-slate-400 text-xs">pacman -S webkit2gtk-4.1 gtk3</code>
+          <code class="text-slate-400 text-xs">pacman -S webkit2gtk-4.1 gtk3 pkgconf base-devel</code>
         </div>
         <div class="bg-slate-950 rounded-xl p-4">
           <h4 class="font-semibold text-blue-400 mb-2">Windows</h4>

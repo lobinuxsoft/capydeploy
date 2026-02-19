@@ -3,6 +3,8 @@ mod commands;
 mod config;
 mod events;
 mod handler;
+mod handlers;
+mod helpers;
 mod state;
 mod types;
 
