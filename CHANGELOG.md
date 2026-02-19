@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.10.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.9.0...v0.10.0) (2026-02-19)
+
+
+### Features
+
+* add protocol version negotiation to handshake ([0eed92c](https://github.com/lobinuxsoft/capydeploy/commit/0eed92c31db91ccc4671b95a9e0a1b811549238b)), closes [#196](https://github.com/lobinuxsoft/capydeploy/issues/196)
+* bundle libwebkit2gtk-4.1 and runtime deps in AppImages ([414a0e6](https://github.com/lobinuxsoft/capydeploy/commit/414a0e6877f9963cdbe1035045687ae782791214)), closes [#194](https://github.com/lobinuxsoft/capydeploy/issues/194)
+* protocol version negotiation ([#196](https://github.com/lobinuxsoft/capydeploy/issues/196)) ([f7a5944](https://github.com/lobinuxsoft/capydeploy/commit/f7a594461d0c44bd4114d2efc95641cf1eec82af))
+* wire game-log crate to Tauri agent with play button and log capture ([61627ec](https://github.com/lobinuxsoft/capydeploy/commit/61627ecb04486177dace7319d6ddbad6160d844c))
+* wire game-log crate to Tauri agent with play button and log capture ([7834ec3](https://github.com/lobinuxsoft/capydeploy/commit/7834ec391f1dca2482f94b6bf39d687690318908)), closes [#192](https://github.com/lobinuxsoft/capydeploy/issues/192)
+
+
+### Bug Fixes
+
+* **agent:** remove system tray to fix SteamOS/AppImage compatibility ([f6f9c79](https://github.com/lobinuxsoft/capydeploy/commit/f6f9c7996c2b389a37defc37a5dfab1261f84a54))
+* **agent:** remove system tray to fix SteamOS/AppImage compatibility ([490e39f](https://github.com/lobinuxsoft/capydeploy/commit/490e39f3168ecf3a8afe314bce8d36fa831007bd)), closes [#193](https://github.com/lobinuxsoft/capydeploy/issues/193)
+* apply rustfmt formatting for CI compatibility ([d370a77](https://github.com/lobinuxsoft/capydeploy/commit/d370a77056a511aef9deed41f25c68fa38bbb4b2))
+* apply rustfmt formatting for CI compatibility ([38daad3](https://github.com/lobinuxsoft/capydeploy/commit/38daad33f3f07470ca84fb4308df0d384affddcf))
+* binary-patch webkit2gtk hardcoded helper paths ([04d7fb0](https://github.com/lobinuxsoft/capydeploy/commit/04d7fb09d68c6b0669e6f8983dd309baf9daf275))
+* correct desktop Exec field and WebKit helper detection ([3d752ea](https://github.com/lobinuxsoft/capydeploy/commit/3d752ea467648e461d84eca151c639fbe31e5a3a))
+* guard gdk-pixbuf-query-loaders and add missing CI dep ([aa36209](https://github.com/lobinuxsoft/capydeploy/commit/aa362094b9e8abb509b26b3c7eb94dd5ebe4126d))
+* **hub:** generate UUID for new game setups to prevent wrong deploy ([7ee091d](https://github.com/lobinuxsoft/capydeploy/commit/7ee091d09e08dd5eea508089a351e2b79ef2a761))
+* **hub:** generate UUID for new game setups to prevent wrong deploy ([dfab393](https://github.com/lobinuxsoft/capydeploy/commit/dfab3934b8f1ef64a8509f32bdd30337df31d79b)), closes [#197](https://github.com/lobinuxsoft/capydeploy/issues/197)
+* remove linuxdeploy AppRun symlink before writing custom AppRun ([b668a88](https://github.com/lobinuxsoft/capydeploy/commit/b668a881e67d6fc7cefe8010c266c0644b605294))
+* **telemetry:** implement Windows CPU, memory, and battery metrics ([28590d9](https://github.com/lobinuxsoft/capydeploy/commit/28590d9b8d0ad7a3c5824ab32af59da702a90cc9))
+* **telemetry:** implement Windows CPU, memory, and battery metrics ([17d8b05](https://github.com/lobinuxsoft/capydeploy/commit/17d8b059f25f07e3135652ecdf60f6fa99379595)), closes [#191](https://github.com/lobinuxsoft/capydeploy/issues/191)
+
 ## [0.9.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.8.3...v0.9.0) (2026-02-19)
 
 
