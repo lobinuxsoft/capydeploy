@@ -14,9 +14,6 @@ use std::sync::atomic::AtomicBool;
 
 use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::envelope::Message;
-use tauri::Manager;
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
-use tauri::tray::TrayIconBuilder;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -32,7 +29,6 @@ pub fn run() {
         .init();
 
     let cfg = AgentConfig::load().unwrap_or_default();
-    let agent_name = cfg.name.clone();
 
     // Shared WS sender for forwarding telemetry/console-log to Hub
     let hub_sender: Arc<std::sync::Mutex<Option<capydeploy_agent_server::Sender>>> =
@@ -97,34 +93,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(state_arc.clone())
         .setup(move |app| {
-            // System tray
-            let show = MenuItemBuilder::with_id("show", "Show Window").build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let menu = MenuBuilder::new(app)
-                .item(&show)
-                .separator()
-                .item(&quit)
-                .build()?;
-
-            TrayIconBuilder::new()
-                .tooltip(format!("CapyDeploy Agent — {agent_name}"))
-                .icon(app.default_window_icon().cloned().unwrap())
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    "quit" => {
-                        tracing::info!("Quit requested from tray");
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .build(app)?;
-
             // Start WS server + discovery
             let handle = app.handle().clone();
             let state = state_arc.clone();

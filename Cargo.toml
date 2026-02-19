@@ -9,7 +9,7 @@ members = [
     "crates/console-log",
     "crates/game-log",
     "crates/file-ops",
-    "crates/tray",
+
     "crates/steamgriddb",
     "crates/hub-connection",
     "crates/hub-deploy",
@@ -55,7 +55,7 @@ capydeploy-telemetry = { path = "crates/telemetry" }
 capydeploy-console-log = { path = "crates/console-log" }
 capydeploy-game-log = { path = "crates/game-log" }
 capydeploy-file-ops = { path = "crates/file-ops" }
-capydeploy-tray = { path = "crates/tray" }
+
 capydeploy-steamgriddb = { path = "crates/steamgriddb" }
 capydeploy-hub-connection = { path = "crates/hub-connection" }
 capydeploy-hub-deploy = { path = "crates/hub-deploy" }
