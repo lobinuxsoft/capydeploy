@@ -66,7 +66,7 @@ Pre-built binaries are available for each release:
 |-----------|-------|---------|
 | **Hub** (your PC) | [AppImage](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Hub.AppImage) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip) |
 | **Agent** (handheld) | [AppImage](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy_Agent.AppImage) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-windows-amd64.zip) |
-| **Decky Plugin** (gaming mode) | [ZIP](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/CapyDeploy-Decky.zip) | — |
+| **Decky Plugin** (gaming mode) | [ZIP](https://github.com/lobinuxsoft/decky-capydeploy/releases/latest/download/CapyDeploy.zip) | — |
 
 Also available: [Linux tar.gz](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/capydeploy-linux-amd64.tar.gz) (Hub + Agent) · [Checksums](https://github.com/lobinuxsoft/capydeploy/releases/latest/download/checksums-sha256.txt) · [All releases](https://github.com/lobinuxsoft/capydeploy/releases)
 
@@ -82,9 +82,9 @@ See the [Installation Guide](https://lobinuxsoft.github.io/capydeploy/install) f
 
 | Platform | Dependencies |
 |----------|--------------|
-| Fedora/Bazzite | `rpm-ostree install webkit2gtk4.1-devel gtk3-devel` |
-| Ubuntu/Debian | `apt install libwebkit2gtk-4.1-dev libgtk-3-dev` |
-| Arch | `pacman -S webkit2gtk-4.1 gtk3` |
+| Fedora/Bazzite | `rpm-ostree install webkit2gtk4.1-devel gtk3-devel pkg-config` |
+| Ubuntu/Debian | `apt install libwebkit2gtk-4.1-dev libgtk-3-dev pkg-config build-essential` |
+| Arch | `pacman -S webkit2gtk-4.1 gtk3 pkgconf base-devel` |
 | Windows | WebView2 (pre-installed on Win10/11) |
 
 ### Build

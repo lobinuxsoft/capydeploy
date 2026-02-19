@@ -118,6 +118,12 @@ title: API Reference
         <div class="px-6 pb-6">
           <div class="grid gap-2 text-sm">
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-capy-400 font-mono w-40">ping</code>
+              <span class="text-slate-400">→</span>
+              <code class="text-water-400 font-mono w-40">pong</code>
+              <span class="text-slate-500">Keep-alive heartbeat</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-capy-400 font-mono w-40">get_info</code>
               <span class="text-slate-400">→</span>
               <code class="text-water-400 font-mono w-40">info_response</code>
@@ -151,7 +157,13 @@ title: API Reference
               <code class="text-capy-400 font-mono w-40">apply_artwork</code>
               <span class="text-slate-400">→</span>
               <code class="text-water-400 font-mono w-40">artwork_response</code>
-              <span class="text-slate-500">Apply artwork to shortcut</span>
+              <span class="text-slate-500">Apply artwork from URL</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
+              <code class="text-capy-400 font-mono w-40">send_artwork_image</code>
+              <span class="text-slate-400">→</span>
+              <code class="text-water-400 font-mono w-40">artwork_image_response</code>
+              <span class="text-slate-500">Upload artwork image binary</span>
             </div>
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-capy-400 font-mono w-40">delete_game</code>
@@ -198,19 +210,19 @@ title: API Reference
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-capy-400 font-mono w-48">set_console_log_filter</code>
               <span class="text-slate-400">→</span>
-              <code class="text-water-400 font-mono w-48">set_console_log_filter_response</code>
+              <code class="text-water-400 font-mono w-48">operation_result</code>
               <span class="text-slate-500">Set log level bitmask</span>
             </div>
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-capy-400 font-mono w-48">set_console_log_enabled</code>
               <span class="text-slate-400">→</span>
-              <code class="text-water-400 font-mono w-48">set_console_log_enabled_response</code>
+              <code class="text-water-400 font-mono w-48">operation_result</code>
               <span class="text-slate-500">Enable/disable console log</span>
             </div>
             <div class="flex items-center gap-4 p-3 bg-slate-950 rounded-lg">
               <code class="text-capy-400 font-mono w-48">set_game_log_wrapper</code>
               <span class="text-slate-400">→</span>
-              <code class="text-water-400 font-mono w-48">set_game_log_wrapper_response</code>
+              <code class="text-water-400 font-mono w-48">operation_result</code>
               <span class="text-slate-500">Enable/disable game log wrapper (Linux)</span>
             </div>
           </div>
@@ -218,9 +230,19 @@ title: API Reference
             <div class="bg-slate-950 rounded-xl p-4">
               <h4 class="text-sm font-semibold text-slate-300 mb-3">set_console_log_filter payload</h4>
               <pre class="text-xs text-slate-400 overflow-x-auto"><code>{
-  <span class="text-slate-600">// Bitmask: Log=1, Warn=2, Error=4, Info=8, Debug=16</span>
   "levelMask": 15  <span class="text-slate-600">// Default: all except Debug</span>
 }</code></pre>
+              <div class="mt-3 text-xs text-slate-500">
+                <p class="mb-1 font-semibold text-slate-400">Bitmask values:</p>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <span><code class="text-capy-400">1</code> — Log</span>
+                  <span><code class="text-capy-400">2</code> — Warn</span>
+                  <span><code class="text-capy-400">4</code> — Error</span>
+                  <span><code class="text-capy-400">8</code> — Info</span>
+                  <span><code class="text-capy-400">16</code> — Debug</span>
+                  <span><code class="text-capy-400">15</code> — Default (all except Debug)</span>
+                </div>
+              </div>
             </div>
             <div class="bg-slate-950 rounded-xl p-4">
               <h4 class="text-sm font-semibold text-slate-300 mb-3">set_game_log_wrapper payload</h4>
