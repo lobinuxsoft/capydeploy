@@ -15,7 +15,13 @@ pub async fn get_game_setups(state: State<'_, HubState>) -> Result<Vec<GameSetup
 }
 
 #[tauri::command]
-pub async fn add_game_setup(state: State<'_, HubState>, setup: GameSetup) -> Result<(), String> {
+pub async fn add_game_setup(
+    state: State<'_, HubState>,
+    mut setup: GameSetup,
+) -> Result<(), String> {
+    if setup.id.is_empty() {
+        setup.id = uuid::Uuid::new_v4().to_string();
+    }
     let mut cfg = state.config.lock().await;
     cfg.game_setups.push(setup);
     cfg.save().map_err(|e| e.to_string())
