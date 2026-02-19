@@ -30,9 +30,12 @@ struct TailerState {
 }
 
 struct TailContext {
-    /// Cancellation token for this specific tail.
+    /// Cancellation token for this specific tail/watcher.
     cancel: CancellationToken,
 }
+
+/// Interval between log directory polls in `start_watch`.
+const WATCH_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
 
 impl LogTailer {
     /// Creates a new log tailer with the given line callback.
@@ -75,6 +78,37 @@ impl LogTailer {
         tracing::info!(app_id, "started tailing log file");
     }
 
+    /// Starts watching for new log files for the given appID.
+    ///
+    /// Polls `find_latest_log()` every 2 seconds. When a new file appears,
+    /// starts tailing it (stopping any previous tail for this appID).
+    /// Cancelled by `stop_tail(app_id)` or `stop_all()`.
+    pub async fn start_watch(&self, app_id: u32, log_dir: PathBuf) {
+        let mut state = self.inner.lock().await;
+
+        // Stop existing watcher/tail for this app if any.
+        if let Some(ctx) = state.tails.remove(&app_id) {
+            ctx.cancel.cancel();
+            tracing::debug!(app_id, "stopped previous watcher");
+        }
+
+        let cancel = CancellationToken::new();
+        state.tails.insert(
+            app_id,
+            TailContext {
+                cancel: cancel.clone(),
+            },
+        );
+
+        let inner = Arc::clone(&self.inner);
+
+        tokio::spawn(async move {
+            watch_and_tail(app_id, log_dir, cancel, inner).await;
+        });
+
+        tracing::info!(app_id, "started log watcher");
+    }
+
     /// Stops tailing the log file for the given appID.
     pub async fn stop_tail(&self, app_id: u32) {
         let mut state = self.inner.lock().await;
@@ -105,6 +139,67 @@ impl LogTailer {
     pub async fn is_tailing(&self, app_id: u32) -> bool {
         self.inner.lock().await.tails.contains_key(&app_id)
     }
+}
+
+/// Watches a log directory for new files matching an appID, then tails the latest one.
+///
+/// When a new file appears (different from the one currently being tailed),
+/// the previous tail is stopped and a new one starts. The outer watcher loop
+/// runs until the parent `cancel` token is cancelled.
+async fn watch_and_tail(
+    app_id: u32,
+    log_dir: PathBuf,
+    cancel: CancellationToken,
+    inner: Arc<Mutex<TailerState>>,
+) {
+    let mut current_file: Option<PathBuf> = None;
+    let mut tail_cancel: Option<CancellationToken> = None;
+    let mut poll_interval = tokio::time::interval(WATCH_POLL_INTERVAL);
+    poll_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => break,
+            _ = poll_interval.tick() => {
+                let latest = find_latest_log(&log_dir, app_id);
+
+                if latest.as_ref() != current_file.as_ref() {
+                    // Stop previous tail if running.
+                    if let Some(tc) = tail_cancel.take() {
+                        tc.cancel();
+                    }
+
+                    if let Some(ref path) = latest {
+                        tracing::info!(
+                            app_id,
+                            file = %path.display(),
+                            "new log file detected, starting tail"
+                        );
+
+                        let child_cancel = CancellationToken::new();
+                        tail_cancel = Some(child_cancel.clone());
+                        let inner2 = Arc::clone(&inner);
+                        let path2 = path.clone();
+
+                        tokio::spawn(async move {
+                            tail_file(app_id, &path2, child_cancel, inner2).await;
+                        });
+                    }
+
+                    current_file = latest;
+                }
+            }
+        }
+    }
+
+    // Clean up: stop active tail.
+    if let Some(tc) = tail_cancel.take() {
+        tc.cancel();
+    }
+
+    // Remove from active tails.
+    let mut state = inner.lock().await;
+    state.tails.remove(&app_id);
 }
 
 /// Watches a single log file and emits new lines.
@@ -365,6 +460,65 @@ mod tests {
 
         let count = line_count.load(Ordering::SeqCst);
         assert!(count >= 3, "expected at least 3 lines, got {count}");
+    }
+
+    #[tokio::test]
+    async fn start_watch_detects_new_log_file() {
+        use std::io::Write;
+        use std::sync::atomic::{AtomicI32, Ordering};
+
+        let line_count = Arc::new(AtomicI32::new(0));
+        let line_count2 = Arc::clone(&line_count);
+
+        let tailer = LogTailer::new(Box::new(move |_app_id, lines| {
+            line_count2.fetch_add(lines.len() as i32, Ordering::SeqCst);
+        }));
+
+        let tmp = tempfile::tempdir().unwrap();
+        let log_dir = tmp.path().to_path_buf();
+
+        // Start watcher before any log file exists.
+        tailer.start_watch(42, log_dir.clone()).await;
+        assert!(tailer.is_tailing(42).await);
+
+        // Wait a bit, then create a log file.
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let log_file = log_dir.join("game_42_20260101_120000.log");
+        {
+            let mut f = std::fs::File::create(&log_file).unwrap();
+            writeln!(f, "hello from game").unwrap();
+        }
+
+        // Wait for watcher to detect and tail the file.
+        tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+
+        // Append more lines.
+        {
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&log_file)
+                .unwrap();
+            writeln!(f, "another line").unwrap();
+        }
+
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tailer.stop_tail(42).await;
+
+        let count = line_count.load(Ordering::SeqCst);
+        assert!(count >= 1, "expected at least 1 line, got {count}");
+    }
+
+    #[tokio::test]
+    async fn start_watch_replaces_on_stop() {
+        let tailer = LogTailer::new(Box::new(|_, _| {}));
+        let tmp = tempfile::tempdir().unwrap();
+
+        tailer.start_watch(10, tmp.path().to_path_buf()).await;
+        assert!(tailer.is_tailing(10).await);
+
+        tailer.stop_tail(10).await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert!(!tailer.is_tailing(10).await);
     }
 
     #[test]

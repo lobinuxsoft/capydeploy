@@ -3,5 +3,6 @@
   "version": "0.6.0",
   "platform": "windows",
   "hubId": "hub-123",
-  "token": "auth-token-abc"
+  "token": "auth-token-abc",
+  "protocolVersion": 1
 }

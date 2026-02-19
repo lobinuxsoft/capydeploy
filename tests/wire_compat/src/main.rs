@@ -192,6 +192,41 @@ mod tests {
         roundtrip_test::<capydeploy_protocol::messages::OperationEvent>("operation_event.json");
     }
 
+    // --- Backward compatibility: legacy JSON without protocolVersion ---
+
+    #[test]
+    fn legacy_hub_connected_no_protocol_version() {
+        let json = r#"{
+            "name": "OldHub",
+            "version": "0.5.0",
+            "platform": "linux",
+            "hubId": "hub-old",
+            "token": "tok"
+        }"#;
+        let req: capydeploy_protocol::messages::HubConnectedRequest =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(req.protocol_version, 0, "missing field should default to 0");
+    }
+
+    #[test]
+    fn legacy_agent_status_no_protocol_version() {
+        let json = r#"{
+            "name": "OldAgent",
+            "version": "0.5.0",
+            "platform": "steamdeck",
+            "acceptConnections": true,
+            "telemetryEnabled": false,
+            "telemetryInterval": 2,
+            "consoleLogEnabled": false
+        }"#;
+        let resp: capydeploy_protocol::messages::AgentStatusResponse =
+            serde_json::from_str(json).unwrap();
+        assert_eq!(
+            resp.protocol_version, 0,
+            "missing field should default to 0"
+        );
+    }
+
     // --- Steam crate tests ---
 
     #[test]

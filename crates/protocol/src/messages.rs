@@ -127,6 +127,9 @@ pub struct HubConnectedRequest {
     pub hub_id: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub token: String,
+    /// Protocol version advertised by the Hub (0 = legacy/pre-negotiation).
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub protocol_version: u32,
 }
 
 /// Agent's response to a Hub connection.
@@ -140,6 +143,9 @@ pub struct AgentStatusResponse {
     pub telemetry_enabled: bool,
     pub telemetry_interval: i32,
     pub console_log_enabled: bool,
+    /// Protocol version advertised by the Agent (0 = legacy/pre-negotiation).
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub protocol_version: u32,
 }
 
 /// Sent when a Hub needs to pair.
@@ -506,11 +512,34 @@ mod tests {
             platform: String::new(),
             hub_id: String::new(),
             token: String::new(),
+            protocol_version: 0,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("platform"));
         assert!(!json.contains("hubId"));
         assert!(!json.contains("token"));
+        assert!(!json.contains("protocolVersion"));
+    }
+
+    #[test]
+    fn hub_connected_protocol_version_present() {
+        let req = HubConnectedRequest {
+            name: "Hub".into(),
+            version: "0.1.0".into(),
+            platform: String::new(),
+            hub_id: String::new(),
+            token: String::new(),
+            protocol_version: 1,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"protocolVersion\":1"));
+    }
+
+    #[test]
+    fn hub_connected_legacy_json_defaults_to_zero() {
+        let json = r#"{"name":"Hub","version":"0.1.0"}"#;
+        let req: HubConnectedRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.protocol_version, 0);
     }
 
     #[test]
@@ -523,11 +552,24 @@ mod tests {
             telemetry_enabled: true,
             telemetry_interval: 5,
             console_log_enabled: false,
+            protocol_version: 1,
         };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"acceptConnections\":true"));
+        assert!(json.contains("\"protocolVersion\":1"));
         let parsed: AgentStatusResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(resp, parsed);
+    }
+
+    #[test]
+    fn agent_status_legacy_json_defaults_to_zero() {
+        let json = r#"{
+            "name":"Agent","version":"0.6.0","platform":"steamdeck",
+            "acceptConnections":true,"telemetryEnabled":true,
+            "telemetryInterval":5,"consoleLogEnabled":false
+        }"#;
+        let resp: AgentStatusResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.protocol_version, 0);
     }
 
     #[test]

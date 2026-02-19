@@ -23,6 +23,12 @@ pub struct AgentState {
     pub hub_sender: Arc<std::sync::Mutex<Option<capydeploy_agent_server::Sender>>>,
     pub telemetry_collector: Arc<capydeploy_telemetry::Collector>,
     pub console_log_collector: Arc<capydeploy_console_log::Collector>,
+    /// Wrapper manager for game log injection (Linux only).
+    #[cfg(target_os = "linux")]
+    pub game_log_wrapper: Arc<capydeploy_game_log::WrapperManager>,
+    /// Log tailer for game output (Linux only).
+    #[cfg(target_os = "linux")]
+    pub game_log_tailer: Arc<capydeploy_game_log::LogTailer>,
     /// Tracked shortcuts created/managed by this agent (mirrors Go agent's Manager.tracked).
     /// Used for listing since CEF-created shortcuts may not be flushed to VDF immediately.
     pub tracked_shortcuts: Arc<Mutex<Vec<TrackedShortcut>>>,

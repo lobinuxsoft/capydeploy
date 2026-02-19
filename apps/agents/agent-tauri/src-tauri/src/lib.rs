@@ -14,9 +14,6 @@ use std::sync::atomic::AtomicBool;
 
 use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::envelope::Message;
-use tauri::Manager;
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
-use tauri::tray::TrayIconBuilder;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -32,7 +29,6 @@ pub fn run() {
         .init();
 
     let cfg = AgentConfig::load().unwrap_or_default();
-    let agent_name = cfg.name.clone();
 
     // Shared WS sender for forwarding telemetry/console-log to Hub
     let hub_sender: Arc<std::sync::Mutex<Option<capydeploy_agent_server::Sender>>> =
@@ -70,6 +66,36 @@ pub fn run() {
         },
     )));
 
+    // Game log tailer — streams game output to Hub as ConsoleLogBatch (Linux only)
+    #[cfg(target_os = "linux")]
+    let game_log_tailer = {
+        let gl_ws = hub_sender.clone();
+        Arc::new(capydeploy_game_log::LogTailer::new(Box::new(
+            move |app_id, entries| {
+                let sender = gl_ws.lock().unwrap();
+                if let Some(ws) = sender.as_ref() {
+                    let batch = capydeploy_protocol::console_log::ConsoleLogBatch {
+                        entries,
+                        dropped: 0,
+                    };
+                    let id = uuid::Uuid::new_v4().to_string();
+                    if let Ok(msg) = Message::new(id, MessageType::ConsoleLogData, Some(&batch))
+                        && let Err(e) = ws.send_msg(msg)
+                    {
+                        tracing::warn!(app_id, "game log send failed: {e}");
+                    }
+                }
+            },
+        )))
+    };
+
+    // Game log wrapper manager (Linux only)
+    #[cfg(target_os = "linux")]
+    let game_log_wrapper = {
+        let log_dir = capydeploy_game_log::log_dir();
+        Arc::new(capydeploy_game_log::WrapperManager::new(log_dir))
+    };
+
     let shutdown_token = CancellationToken::new();
 
     let agent_state = AgentState {
@@ -85,6 +111,10 @@ pub fn run() {
         hub_sender,
         telemetry_collector,
         console_log_collector,
+        #[cfg(target_os = "linux")]
+        game_log_wrapper,
+        #[cfg(target_os = "linux")]
+        game_log_tailer,
         tracked_shortcuts: Arc::new(tokio::sync::Mutex::new(Vec::new())),
         deleted_app_ids: Arc::new(tokio::sync::Mutex::new(std::collections::HashSet::new())),
         shutdown_token: shutdown_token.clone(),
@@ -97,34 +127,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(state_arc.clone())
         .setup(move |app| {
-            // System tray
-            let show = MenuItemBuilder::with_id("show", "Show Window").build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let menu = MenuBuilder::new(app)
-                .item(&show)
-                .separator()
-                .item(&quit)
-                .build()?;
-
-            TrayIconBuilder::new()
-                .tooltip(format!("CapyDeploy Agent — {agent_name}"))
-                .icon(app.default_window_icon().cloned().unwrap())
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    "quit" => {
-                        tracing::info!("Quit requested from tray");
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .build(app)?;
-
             // Start WS server + discovery
             let handle = app.handle().clone();
             let state = state_arc.clone();
@@ -148,6 +150,7 @@ pub fn run() {
             commands::steam::get_steam_users,
             commands::steam::get_shortcuts,
             commands::steam::delete_shortcut,
+            commands::steam::launch_game,
             // Telemetry
             commands::telemetry::set_telemetry_enabled,
             commands::telemetry::set_telemetry_interval,

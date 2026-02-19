@@ -235,6 +235,7 @@ dependencies = [
  "capydeploy-agent-server",
  "capydeploy-console-log",
  "capydeploy-discovery",
+ "capydeploy-game-log",
  "capydeploy-protocol",
  "capydeploy-steam",
  "capydeploy-telemetry",
@@ -405,6 +406,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -466,6 +468,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -480,13 +483,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
-]
-
-[[package]]
-name = "capydeploy-tray"
-version = "0.1.0"
-dependencies = [
- "tracing",
 ]
 
 [[package]]

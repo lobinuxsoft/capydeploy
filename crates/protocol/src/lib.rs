@@ -6,7 +6,7 @@ pub mod telemetry;
 pub mod types;
 
 // Re-export primary types for convenience.
-pub use constants::MessageType;
+pub use constants::{MessageType, PROTOCOL_VERSION};
 pub use envelope::{Message, WsError};
 pub use types::{
     AgentInfo, ArtworkConfig, ShortcutConfig, ShortcutInfo, UploadConfig, UploadProgress,
