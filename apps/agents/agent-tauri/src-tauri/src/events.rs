@@ -75,18 +75,7 @@ pub async fn start_server(handle: AppHandle, state: Arc<AgentState>) {
 }
 
 fn start_discovery(name: &str, port: u16) -> Option<DiscoveryServer> {
-    // Generate a stable agent ID from the name
-    let id = {
-        use std::fmt::Write;
-        let platform = std::env::consts::OS;
-        let data = format!("{name}-{platform}-agent");
-        let digest = <sha2::Sha256 as sha2::Digest>::digest(data.as_bytes());
-        let mut hex = String::with_capacity(8);
-        for byte in &digest[..4] {
-            let _ = write!(hex, "{byte:02x}");
-        }
-        hex
-    };
+    let id = crate::helpers::generate_agent_id(name);
 
     let info = ServiceInfo {
         id,
@@ -115,32 +104,13 @@ async fn emit_status(handle: &AppHandle, state: &AgentState) {
     let hub = state.connected_hub.lock().await;
     let port = *state.server_port.lock().await;
 
-    let ips: Vec<String> = if_addrs::get_if_addrs()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|iface| {
-            if iface.is_loopback() {
-                return None;
-            }
-            match iface.addr.ip() {
-                std::net::IpAddr::V4(ip) => {
-                    if ip.octets()[0] == 169 && ip.octets()[1] == 254 {
-                        return None;
-                    }
-                    Some(ip.to_string())
-                }
-                _ => None,
-            }
-        })
-        .collect();
-
     let status = AgentStatusDto {
         running: true,
         name: config.name.clone(),
         platform: std::env::consts::OS.into(),
         version: env!("CAPYDEPLOY_VERSION").into(),
         port,
-        ips,
+        ips: crate::helpers::local_ips(),
         accept_connections: state.accept_connections.load(Ordering::Relaxed),
         connected_hub: hub.as_ref().map(|h| crate::types::ConnectedHubDto {
             id: h.id.clone(),
