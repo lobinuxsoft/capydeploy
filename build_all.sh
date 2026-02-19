@@ -98,6 +98,17 @@ generate_appimage() {
         echo -e "  ${GREEN}Downloaded${NC}"
     fi
 
+    # Download linuxdeploy if needed (for bundling shared libraries)
+    local linuxdeploy="$TOOLS_DIR/linuxdeploy-$appimage_arch.AppImage"
+    if [ ! -f "$linuxdeploy" ]; then
+        echo "  Downloading linuxdeploy..."
+        mkdir -p "$TOOLS_DIR"
+        curl -L -o "$linuxdeploy" \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$appimage_arch.AppImage"
+        chmod +x "$linuxdeploy"
+        echo -e "  ${GREEN}Downloaded${NC}"
+    fi
+
     # Create AppDir
     rm -rf "$appdir"
     mkdir -p "$appdir/usr/bin"
@@ -124,7 +135,105 @@ Categories=Game;Development;
 Terminal=false
 DESKTOP
 
+    # Bundle shared libraries with linuxdeploy
+    echo "  Bundling shared libraries..."
+    APPIMAGE_EXTRACT_AND_RUN=1 "$linuxdeploy" \
+        --appdir "$appdir" \
+        --executable "$appdir/usr/bin/$binary_name" \
+        --desktop-file "$appdir/$desktop_id.desktop" \
+        --icon-file "$appdir/$desktop_id.png"
+
+    # Bundle WebKit helper processes and patch hardcoded paths
+    # WebKit hardcodes the helper path at compile time and WEBKIT_EXEC_PATH
+    # only works in developer builds. We must binary-patch the .so to use
+    # relative paths (././ instead of /usr) and cd to AppDir before exec.
+    local webkit_hardcoded
+    webkit_hardcoded=$(strings "$appdir/usr/lib/libwebkit2gtk-4.1.so.0" 2>/dev/null | grep -m1 '/webkit2gtk-4.1$')
+    local webkit_dir=""
+    for candidate in /usr/libexec/webkit2gtk-4.1 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1 /usr/lib64/webkit2gtk-4.1; do
+        if [ -d "$candidate" ]; then
+            webkit_dir="$candidate"
+            break
+        fi
+    done
+    if [ -z "$webkit_dir" ]; then
+        local wkp
+        wkp=$(find /usr -name "WebKitWebProcess" -path "*webkit2gtk*" 2>/dev/null | head -1)
+        if [ -n "$wkp" ]; then
+            webkit_dir=$(dirname "$wkp")
+        fi
+    fi
+    if [ -n "$webkit_dir" ] && [ -n "$webkit_hardcoded" ]; then
+        local webkit_relative="././${webkit_hardcoded#/usr}"
+        echo "  Patching WebKit path: $webkit_hardcoded -> $webkit_relative"
+        LC_ALL=C sed -i "s|$webkit_hardcoded|$webkit_relative|g" "$appdir/usr/lib/libwebkit2gtk-4.1.so.0"
+        # Copy helpers to the relative path that the patched .so expects
+        local helpers_dest="$appdir${webkit_hardcoded#/usr}"
+        mkdir -p "$helpers_dest"
+        cp "$webkit_dir/WebKitWebProcess" "$helpers_dest/"
+        cp "$webkit_dir/WebKitNetworkProcess" "$helpers_dest/"
+        # Copy injected bundle if present
+        if [ -d "$webkit_dir/injected-bundle" ]; then
+            cp -r "$webkit_dir/injected-bundle" "$helpers_dest/"
+        fi
+        echo "  Bundling WebKit helpers from $webkit_dir"
+    else
+        echo -e "  ${YELLOW}[WARN]${NC} WebKit helpers or library not found"
+    fi
+
+    # Bundle GLib compiled schemas
+    if [ -f "/usr/share/glib-2.0/schemas/gschemas.compiled" ]; then
+        echo "  Bundling GLib schemas..."
+        mkdir -p "$appdir/usr/share/glib-2.0/schemas"
+        cp /usr/share/glib-2.0/schemas/gschemas.compiled "$appdir/usr/share/glib-2.0/schemas/"
+    fi
+
+    # Bundle GIO modules (TLS support)
+    local gio_dir
+    gio_dir=$(pkg-config --variable=giomoduledir gio-2.0 2>/dev/null)
+    if [ -z "$gio_dir" ] || [ ! -d "$gio_dir" ]; then
+        for candidate in /usr/lib/x86_64-linux-gnu/gio/modules /usr/lib64/gio/modules; do
+            if [ -d "$candidate" ]; then
+                gio_dir="$candidate"
+                break
+            fi
+        done
+    fi
+    if [ -n "$gio_dir" ] && [ -d "$gio_dir" ]; then
+        echo "  Bundling GIO modules from $gio_dir..."
+        mkdir -p "$appdir/usr/lib/gio/modules"
+        cp "$gio_dir"/*.so "$appdir/usr/lib/gio/modules/"
+    fi
+
+    # Bundle GDK pixbuf loaders
+    local pixbuf_module_dir
+    pixbuf_module_dir=$(pkg-config --variable=gdk_pixbuf_moduledir gdk-pixbuf-2.0 2>/dev/null)
+    local pixbuf_dir=""
+    if [ -n "$pixbuf_module_dir" ] && [ -d "$pixbuf_module_dir" ]; then
+        pixbuf_dir=$(dirname "$pixbuf_module_dir")
+    else
+        for candidate in /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0 /usr/lib64/gdk-pixbuf-2.0/2.10.0; do
+            if [ -d "$candidate" ]; then
+                pixbuf_dir="$candidate"
+                break
+            fi
+        done
+    fi
+    if [ -n "$pixbuf_dir" ] && compgen -G "$pixbuf_dir/loaders/*.so" > /dev/null 2>&1; then
+        echo "  Bundling GDK pixbuf loaders..."
+        mkdir -p "$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+        cp "$pixbuf_dir/loaders"/*.so "$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/"
+        if command -v gdk-pixbuf-query-loaders &>/dev/null; then
+            GDK_PIXBUF_MODULEDIR="$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders" \
+                gdk-pixbuf-query-loaders > "$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+        fi
+    fi
+
+    echo -e "  ${GREEN}Libraries bundled${NC}"
+
     # Create AppRun with install/uninstall support
+    # Remove linuxdeploy's AppRun (symlink to binary) to avoid overwriting the binary
+    rm -f "$appdir/AppRun"
     cat > "$appdir/AppRun" << 'APPRUN'
 #!/bin/bash
 SELF=$(readlink -f "$0")
@@ -136,6 +245,16 @@ DESKTOP_ID="__DESKTOP_ID__"
 INSTALL_DIR="$HOME/.local/bin"
 DESKTOP_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons"
+
+# Bundled library paths
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+export GIO_MODULE_DIR="${HERE}/usr/lib/gio/modules"
+export GDK_PIXBUF_MODULE_FILE="${HERE}/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+export GSETTINGS_SCHEMA_DIR="${HERE}/usr/share/glib-2.0/schemas"
+
+# WebKit helpers use paths patched to be relative (././ prefix),
+# so we must cd to the AppDir root for them to resolve correctly.
+cd "${HERE}"
 
 install_app() {
     echo "Installing $APP_NAME..."
