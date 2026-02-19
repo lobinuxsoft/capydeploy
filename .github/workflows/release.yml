@@ -94,12 +94,115 @@ jobs:
           name: agent-linux-amd64
           path: artifacts/agent
 
-      - name: Download appimagetool
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Download tools
         run: |
           curl -L -o appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
+          curl -L -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x appimagetool linuxdeploy
 
-      - name: Generate AppRun script
+      - name: Prepare AppDirs
+        run: |
+          generate_desktop() {
+            local binary_name="$1"
+            local display_name="$2"
+            local output="$3"
+            cat > "$output" << DESKTOP_EOF
+          [Desktop Entry]
+          Name=${display_name}
+          Comment=Deploy games to Steam Deck and Linux devices
+          Exec=${binary_name}
+          Icon=${binary_name}
+          Type=Application
+          Categories=Game;Development;
+          Terminal=false
+          DESKTOP_EOF
+          }
+
+          # Hub AppDir
+          mkdir -p hub.AppDir/usr/bin
+          cp artifacts/hub/capydeploy-hub-tauri hub.AppDir/usr/bin/
+          chmod +x hub.AppDir/usr/bin/capydeploy-hub-tauri
+          cp apps/hub-tauri/src-tauri/icons/icon.png hub.AppDir/capydeploy-hub.png
+          generate_desktop "capydeploy-hub" "CapyDeploy Hub" "hub.AppDir/capydeploy-hub.desktop"
+
+          # Agent AppDir
+          mkdir -p agent.AppDir/usr/bin
+          cp artifacts/agent/capydeploy-agent-tauri agent.AppDir/usr/bin/
+          chmod +x agent.AppDir/usr/bin/capydeploy-agent-tauri
+          cp apps/agents/agent-tauri/src-tauri/icons/icon.png agent.AppDir/capydeploy-agent.png
+          generate_desktop "capydeploy-agent" "CapyDeploy Agent" "agent.AppDir/capydeploy-agent.desktop"
+
+      - name: Bundle libraries
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          # Bundle shared libraries with linuxdeploy
+          ./linuxdeploy --appdir hub.AppDir \
+            --executable hub.AppDir/usr/bin/capydeploy-hub-tauri \
+            --desktop-file hub.AppDir/capydeploy-hub.desktop \
+            --icon-file hub.AppDir/capydeploy-hub.png
+
+          ./linuxdeploy --appdir agent.AppDir \
+            --executable agent.AppDir/usr/bin/capydeploy-agent-tauri \
+            --desktop-file agent.AppDir/capydeploy-agent.desktop \
+            --icon-file agent.AppDir/capydeploy-agent.png
+
+          # Bundle WebKit helper processes (not detected by ldd)
+          WEBKIT_DIR=""
+          for candidate in /usr/libexec/webkit2gtk-4.1 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1; do
+            if [ -d "$candidate" ]; then
+              WEBKIT_DIR="$candidate"
+              break
+            fi
+          done
+          if [ -n "$WEBKIT_DIR" ]; then
+            echo "Bundling WebKit helpers from $WEBKIT_DIR..."
+            for appdir in hub.AppDir agent.AppDir; do
+              mkdir -p "$appdir/usr/libexec/webkit2gtk-4.1"
+              cp "$WEBKIT_DIR/WebKitWebProcess" "$appdir/usr/libexec/webkit2gtk-4.1/"
+              cp "$WEBKIT_DIR/WebKitNetworkProcess" "$appdir/usr/libexec/webkit2gtk-4.1/"
+            done
+          else
+            echo "::warning::WebKit helpers not found"
+          fi
+
+          # Bundle GLib compiled schemas
+          if [ -f "/usr/share/glib-2.0/schemas/gschemas.compiled" ]; then
+            echo "Bundling GLib schemas..."
+            for appdir in hub.AppDir agent.AppDir; do
+              mkdir -p "$appdir/usr/share/glib-2.0/schemas"
+              cp /usr/share/glib-2.0/schemas/gschemas.compiled "$appdir/usr/share/glib-2.0/schemas/"
+            done
+          fi
+
+          # Bundle GIO modules (TLS support)
+          GIO_DIR=$(pkg-config --variable=giomoduledir gio-2.0 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/gio/modules")
+          if [ -d "$GIO_DIR" ]; then
+            echo "Bundling GIO modules from $GIO_DIR..."
+            for appdir in hub.AppDir agent.AppDir; do
+              mkdir -p "$appdir/usr/lib/gio/modules"
+              cp "$GIO_DIR"/*.so "$appdir/usr/lib/gio/modules/"
+            done
+          fi
+
+          # Bundle GDK pixbuf loaders
+          PIXBUF_DIR="/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0"
+          if compgen -G "$PIXBUF_DIR/loaders/*.so" > /dev/null 2>&1; then
+            echo "Bundling GDK pixbuf loaders..."
+            for appdir in hub.AppDir agent.AppDir; do
+              mkdir -p "$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+              cp "$PIXBUF_DIR/loaders"/*.so "$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/"
+              GDK_PIXBUF_MODULEDIR="$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders" \
+                gdk-pixbuf-query-loaders > "$appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+            done
+          fi
+
+      - name: Generate AppRun scripts
         run: |
           generate_apprun() {
             local binary_name="$1"
@@ -112,11 +215,19 @@ jobs:
           SELF=\$(readlink -f "\$0")
           HERE=\${SELF%/*}
           APPIMAGE="\${APPIMAGE:-\$SELF}"
-          APP_NAME="${binary_name}"
+          APP_NAME="${display_name}"
+          BINARY_NAME="${binary_name}"
           DESKTOP_NAME="${desktop_name}"
           INSTALL_DIR="\$HOME/.local/bin"
           DESKTOP_DIR="\$HOME/.local/share/applications"
           ICON_DIR="\$HOME/.local/share/icons"
+
+          # Bundled library paths
+          export LD_LIBRARY_PATH="\${HERE}/usr/lib:\${LD_LIBRARY_PATH}"
+          export WEBKIT_EXEC_PATH="\${HERE}/usr/libexec/webkit2gtk-4.1"
+          export GIO_MODULE_DIR="\${HERE}/usr/lib/gio/modules"
+          export GDK_PIXBUF_MODULE_FILE="\${HERE}/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+          export GSETTINGS_SCHEMA_DIR="\${HERE}/usr/share/glib-2.0/schemas"
 
           install_app() {
               echo "Installing \$APP_NAME..."
@@ -205,36 +316,7 @@ jobs:
             chmod +x "$output"
           }
 
-          generate_desktop() {
-            local binary_name="$1"
-            local display_name="$2"
-            local output="$3"
-            cat > "$output" << DESKTOP_EOF
-          [Desktop Entry]
-          Name=${display_name}
-          Comment=Deploy games to Steam Deck and Linux devices
-          Exec=${binary_name}
-          Icon=${binary_name}
-          Type=Application
-          Categories=Game;Development;
-          Terminal=false
-          DESKTOP_EOF
-          }
-
-          # Hub AppDir
-          mkdir -p hub.AppDir/usr/bin
-          cp artifacts/hub/capydeploy-hub-tauri hub.AppDir/usr/bin/
-          chmod +x hub.AppDir/usr/bin/capydeploy-hub-tauri
-          cp apps/hub-tauri/src-tauri/icons/icon.png hub.AppDir/capydeploy-hub.png
-          generate_desktop "capydeploy-hub" "CapyDeploy Hub" "hub.AppDir/capydeploy-hub.desktop"
           generate_apprun "capydeploy-hub-tauri" "capydeploy-hub" "CapyDeploy Hub" "*capydeploy*hub*.AppImage" "hub.AppDir/AppRun"
-
-          # Agent AppDir
-          mkdir -p agent.AppDir/usr/bin
-          cp artifacts/agent/capydeploy-agent-tauri agent.AppDir/usr/bin/
-          chmod +x agent.AppDir/usr/bin/capydeploy-agent-tauri
-          cp apps/agents/agent-tauri/src-tauri/icons/icon.png agent.AppDir/capydeploy-agent.png
-          generate_desktop "capydeploy-agent" "CapyDeploy Agent" "agent.AppDir/capydeploy-agent.desktop"
           generate_apprun "capydeploy-agent-tauri" "capydeploy-agent" "CapyDeploy Agent" "*capydeploy*agent*.AppImage" "agent.AppDir/AppRun"
 
       - name: Build AppImages
