@@ -221,7 +221,10 @@ mod tests {
         }"#;
         let resp: capydeploy_protocol::messages::AgentStatusResponse =
             serde_json::from_str(json).unwrap();
-        assert_eq!(resp.protocol_version, 0, "missing field should default to 0");
+        assert_eq!(
+            resp.protocol_version, 0,
+            "missing field should default to 0"
+        );
     }
 
     // --- Steam crate tests ---

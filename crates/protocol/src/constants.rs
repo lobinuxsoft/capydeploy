@@ -190,9 +190,7 @@ pub fn check_protocol_compatibility(peer_version: u32) -> ProtocolCompatibility 
     if effective > PROTOCOL_VERSION {
         return ProtocolCompatibility::Incompatible {
             peer_version: effective,
-            reason: format!(
-                "peer protocol v{effective} is above our current v{PROTOCOL_VERSION}"
-            ),
+            reason: format!("peer protocol v{effective} is above our current v{PROTOCOL_VERSION}"),
         };
     }
 

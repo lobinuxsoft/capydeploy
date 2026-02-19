@@ -109,10 +109,7 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                 let _ = handle.emit("connection:reconnecting", &dto);
             }
 
-            ConnectionEvent::ProtocolWarning {
-                agent_id,
-                message,
-            } => {
+            ConnectionEvent::ProtocolWarning { agent_id, message } => {
                 #[derive(serde::Serialize, Clone)]
                 struct ProtocolWarningDto {
                     agent_id: String,
