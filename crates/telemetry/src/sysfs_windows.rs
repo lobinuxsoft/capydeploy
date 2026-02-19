@@ -28,13 +28,7 @@ pub fn read_cpu_times() -> (u64, u64) {
     let mut user = MaybeUninit::<FILETIME>::zeroed();
 
     // SAFETY: GetSystemTimes writes to the provided pointers.
-    let ret = unsafe {
-        GetSystemTimes(
-            idle.as_mut_ptr(),
-            kernel.as_mut_ptr(),
-            user.as_mut_ptr(),
-        )
-    };
+    let ret = unsafe { GetSystemTimes(idle.as_mut_ptr(), kernel.as_mut_ptr(), user.as_mut_ptr()) };
 
     if ret == 0 {
         return (0, 0);
