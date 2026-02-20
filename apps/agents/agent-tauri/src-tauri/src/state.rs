@@ -67,6 +67,10 @@ pub struct UploadSession {
     pub transferred: i64,
     pub current_file: String,
     pub active: bool,
+    /// Last progress percentage emitted to the Hub (for throttling).
+    pub last_progress_pct: f64,
+    /// Last time a progress event was emitted (time-based safety net).
+    pub last_progress_time: std::time::Instant,
 }
 
 impl UploadSession {

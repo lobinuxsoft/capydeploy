@@ -19,8 +19,8 @@ pub const WS_PING_PERIOD: Duration = Duration::from_secs(5);
 /// Maximum message size in bytes (50 MB).
 pub const WS_MAX_MESSAGE_SIZE: usize = 50 * 1024 * 1024;
 
-/// Size for binary chunks (1 MB).
-pub const WS_CHUNK_SIZE: usize = 1024 * 1024;
+/// Size for binary chunks (4 MB).
+pub const WS_CHUNK_SIZE: usize = 4 * 1024 * 1024;
 
 /// Timeout for request/response operations (text messages).
 pub const WS_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);

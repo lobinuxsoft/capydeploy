@@ -6,6 +6,7 @@
 use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
+use std::time::{Duration, Instant};
 
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages::{
@@ -22,6 +23,32 @@ use crate::error::DeployError;
 use crate::types::{
     CompleteUploadResult, DeployConfig, DeployEvent, GameSetup, InitUploadResult, LocalArtwork,
 };
+
+/// Minimum chunk size for adaptive sizing (256 KB).
+const MIN_CHUNK_SIZE: usize = 256 * 1024;
+
+/// Initial chunk size before adaptation kicks in (1 MB).
+const INITIAL_CHUNK_SIZE: usize = 1024 * 1024;
+
+/// Adjusts chunk size based on round-trip time, TCP slow-start style.
+///
+/// Targets an RTT sweet spot of 1–3 seconds per chunk:
+/// - RTT < 1s: double (network has headroom)
+/// - 1s ≤ RTT < 3s: grow 25% (approaching sweet spot)
+/// - 3s ≤ RTT < 5s: hold (good balance)
+/// - RTT ≥ 5s: halve (approaching timeout risk)
+fn adapt_chunk_size(current: usize, rtt: Duration, max: usize) -> usize {
+    let new_size = if rtt < Duration::from_secs(1) {
+        current.saturating_mul(2)
+    } else if rtt < Duration::from_secs(3) {
+        current.saturating_add(current / 4)
+    } else if rtt < Duration::from_secs(5) {
+        current
+    } else {
+        current / 2
+    };
+    new_size.clamp(MIN_CHUNK_SIZE, max)
+}
 
 /// Abstract connection to an Agent.
 ///
@@ -95,7 +122,7 @@ impl<'a> AgentDeploy<'a> {
 
         let init_result = self.init_upload(&config.setup, &files, total_size).await?;
 
-        let chunk_size = if init_result.chunk_size > 0 {
+        let max_chunk_size = if init_result.chunk_size > 0 {
             init_result.chunk_size as usize
         } else {
             capydeploy_transfer::DEFAULT_CHUNK_SIZE
@@ -110,7 +137,7 @@ impl<'a> AgentDeploy<'a> {
             &files,
             total_size,
             &init_result,
-            chunk_size,
+            max_chunk_size,
             events_tx,
         )
         .await?;
@@ -179,25 +206,31 @@ impl<'a> AgentDeploy<'a> {
         })
     }
 
-    /// Uploads all files in chunks with resume support.
+    /// Uploads all files in chunks with resume support and adaptive sizing.
+    ///
+    /// Chunk size starts at [`INITIAL_CHUNK_SIZE`] and adapts per-chunk based
+    /// on measured RTT (TCP slow-start style). The Agent-negotiated
+    /// `max_chunk_size` acts as a ceiling.
     async fn upload_files(
         &self,
         setup: &GameSetup,
         files: &[FileEntry],
         total_size: i64,
         init_result: &InitUploadResult,
-        chunk_size: usize,
+        max_chunk_size: usize,
         events_tx: &tokio::sync::mpsc::Sender<DeployEvent>,
     ) -> Result<(), DeployError> {
+        let mut chunk_size = INITIAL_CHUNK_SIZE.min(max_chunk_size);
         let mut uploaded: i64 = 0;
 
         for file_entry in files {
             self.check_cancelled()?;
 
             let local_path = Path::new(&setup.local_path).join(&file_entry.relative_path);
+            let cs = chunk_size;
             let mut reader = tokio::task::spawn_blocking({
                 let path = local_path.clone();
-                move || ChunkReader::new(&path, chunk_size)
+                move || ChunkReader::new(&path, cs)
             })
             .await
             .map_err(|e| DeployError::Upload(format!("task join error: {e}")))??;
@@ -214,6 +247,9 @@ impl<'a> AgentDeploy<'a> {
             // Read and send chunks.
             loop {
                 self.check_cancelled()?;
+
+                // Apply latest adaptive chunk size before reading.
+                reader.set_chunk_size(chunk_size);
 
                 let chunk = tokio::task::spawn_blocking({
                     let mut r = unsafe_reader_send_wrapper(reader);
@@ -241,7 +277,21 @@ impl<'a> AgentDeploy<'a> {
                     "offset": chunk_data.offset,
                     "checksum": chunk_data.checksum,
                 });
+
+                let start = Instant::now();
                 let _resp = self.conn.send_binary(&header, &chunk_data.data).await?;
+                let rtt = start.elapsed();
+
+                let prev_size = chunk_size;
+                chunk_size = adapt_chunk_size(chunk_size, rtt, max_chunk_size);
+                if chunk_size != prev_size {
+                    debug!(
+                        prev_bytes = prev_size,
+                        new_bytes = chunk_size,
+                        rtt_ms = rtt.as_millis() as u64,
+                        "adaptive chunk size adjusted"
+                    );
+                }
 
                 uploaded += chunk_data.size as i64;
 
@@ -492,6 +542,45 @@ mod tests {
             logo_image: String::new(),
             icon_image: String::new(),
         }
+    }
+
+    #[test]
+    fn adapt_doubles_on_fast_rtt() {
+        let size = adapt_chunk_size(1024 * 1024, Duration::from_millis(500), 16 * 1024 * 1024);
+        assert_eq!(size, 2 * 1024 * 1024);
+    }
+
+    #[test]
+    fn adapt_grows_on_moderate_rtt() {
+        // 4MB + 25% = 5MB
+        let size = adapt_chunk_size(4 * 1024 * 1024, Duration::from_millis(2000), 16 * 1024 * 1024);
+        assert_eq!(size, 5 * 1024 * 1024);
+    }
+
+    #[test]
+    fn adapt_holds_on_good_rtt() {
+        let size = adapt_chunk_size(4 * 1024 * 1024, Duration::from_millis(4000), 16 * 1024 * 1024);
+        assert_eq!(size, 4 * 1024 * 1024);
+    }
+
+    #[test]
+    fn adapt_halves_on_slow_rtt() {
+        let size = adapt_chunk_size(4 * 1024 * 1024, Duration::from_millis(6000), 16 * 1024 * 1024);
+        assert_eq!(size, 2 * 1024 * 1024);
+    }
+
+    #[test]
+    fn adapt_respects_max() {
+        let size = adapt_chunk_size(8 * 1024 * 1024, Duration::from_millis(500), 4 * 1024 * 1024);
+        assert_eq!(size, 4 * 1024 * 1024);
+    }
+
+    #[test]
+    fn adapt_respects_min() {
+        // MIN_CHUNK_SIZE / 2 = 128KB, but clamp keeps it at MIN
+        let size =
+            adapt_chunk_size(MIN_CHUNK_SIZE, Duration::from_millis(6000), 16 * 1024 * 1024);
+        assert_eq!(size, MIN_CHUNK_SIZE);
     }
 
     #[tokio::test]
