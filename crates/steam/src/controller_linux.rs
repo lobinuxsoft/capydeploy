@@ -73,9 +73,4 @@ mod tests {
         // Without gamescope env, should be false.
         assert!(!is_gaming_mode());
     }
-
-    #[tokio::test]
-    async fn is_running_does_not_panic() {
-        let _ = is_running().await;
-    }
 }

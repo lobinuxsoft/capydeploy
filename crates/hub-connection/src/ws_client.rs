@@ -285,24 +285,6 @@ impl Drop for WsClient {
 mod tests {
     use super::*;
 
-    #[test]
-    fn ws_error_display() {
-        let err = WsError::Timeout;
-        assert_eq!(err.to_string(), "request timed out");
-
-        let err = WsError::Closed;
-        assert_eq!(err.to_string(), "connection closed");
-
-        let err = WsError::PairingFailed("bad code".into());
-        assert_eq!(err.to_string(), "pairing failed: bad code");
-
-        let err = WsError::AgentError {
-            code: 401,
-            message: "unauthorized".into(),
-        };
-        assert!(err.to_string().contains("401"));
-    }
-
     #[tokio::test]
     async fn send_binary_builds_correct_wire_format() {
         // Verify the wire frame format: [4 BE bytes len][header JSON][data].

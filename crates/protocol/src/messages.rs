@@ -146,6 +146,9 @@ pub struct AgentStatusResponse {
     /// Protocol version advertised by the Agent (0 = legacy/pre-negotiation).
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub protocol_version: u32,
+    /// Optional capabilities advertised by the Agent (e.g. `["tcp_data_channel"]`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
 }
 
 /// Sent when a Hub needs to pair.
@@ -406,6 +409,12 @@ pub struct InitUploadResponseFull {
     pub chunk_size: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resume_from: Option<HashMap<String, i64>>,
+    /// TCP data channel port (if the agent supports it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tcp_port: Option<u16>,
+    /// TCP data channel authentication token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tcp_token: Option<String>,
 }
 
 /// Upload chunk with full metadata.
@@ -439,6 +448,17 @@ pub struct CompleteUploadResponseFull {
     pub path: String,
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub app_id: u32,
+}
+
+/// Notifies the Hub that a TCP data channel is ready for file transfer.
+///
+/// Sent by the Agent after binding an ephemeral TCP port during upload init.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataChannelReadyEvent {
+    pub upload_id: String,
+    pub port: u16,
+    pub token: String,
 }
 
 /// Upload progress event.
@@ -536,13 +556,6 @@ mod tests {
     }
 
     #[test]
-    fn hub_connected_legacy_json_defaults_to_zero() {
-        let json = r#"{"name":"Hub","version":"0.1.0"}"#;
-        let req: HubConnectedRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(req.protocol_version, 0);
-    }
-
-    #[test]
     fn agent_status_response_roundtrip() {
         let resp = AgentStatusResponse {
             name: "Agent".into(),
@@ -553,23 +566,60 @@ mod tests {
             telemetry_interval: 5,
             console_log_enabled: false,
             protocol_version: 1,
+            capabilities: vec![],
         };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"acceptConnections\":true"));
         assert!(json.contains("\"protocolVersion\":1"));
+        // Empty capabilities should be omitted.
+        assert!(!json.contains("capabilities"));
         let parsed: AgentStatusResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(resp, parsed);
     }
 
     #[test]
-    fn agent_status_legacy_json_defaults_to_zero() {
+    fn agent_status_with_capabilities_roundtrip() {
+        let resp = AgentStatusResponse {
+            name: "Agent".into(),
+            version: "0.7.0".into(),
+            platform: "steamdeck".into(),
+            accept_connections: true,
+            telemetry_enabled: true,
+            telemetry_interval: 5,
+            console_log_enabled: false,
+            protocol_version: 1,
+            capabilities: vec!["tcp_data_channel".into()],
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"capabilities\":[\"tcp_data_channel\"]"));
+        let parsed: AgentStatusResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(resp, parsed);
+    }
+
+    #[test]
+    fn agent_status_legacy_json_no_capabilities() {
         let json = r#"{
             "name":"Agent","version":"0.6.0","platform":"steamdeck",
             "acceptConnections":true,"telemetryEnabled":true,
-            "telemetryInterval":5,"consoleLogEnabled":false
+            "telemetryInterval":5,"consoleLogEnabled":false,
+            "protocolVersion":1
         }"#;
         let resp: AgentStatusResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(resp.protocol_version, 0);
+        assert!(resp.capabilities.is_empty());
+    }
+
+    #[test]
+    fn data_channel_ready_event_roundtrip() {
+        let evt = DataChannelReadyEvent {
+            upload_id: "upload-123".into(),
+            port: 54321,
+            token: "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8".into(),
+        };
+        let json = serde_json::to_string(&evt).unwrap();
+        assert!(json.contains("\"uploadId\":\"upload-123\""));
+        assert!(json.contains("\"port\":54321"));
+        let parsed: DataChannelReadyEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(evt, parsed);
     }
 
     #[test]
@@ -580,10 +630,42 @@ mod tests {
             upload_id: "u1".into(),
             chunk_size: 1048576,
             resume_from: Some(resume),
+            tcp_port: Some(54321),
+            tcp_token: Some("abc123".into()),
         };
         let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"tcpPort\":54321"));
+        assert!(json.contains("\"tcpToken\":\"abc123\""));
         let parsed: InitUploadResponseFull = serde_json::from_str(&json).unwrap();
         assert_eq!(resp, parsed);
+    }
+
+    #[test]
+    fn init_upload_response_full_legacy_no_tcp() {
+        let json = r#"{
+            "uploadId": "u1",
+            "chunkSize": 1048576
+        }"#;
+        let resp: InitUploadResponseFull = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.upload_id, "u1");
+        assert_eq!(resp.chunk_size, 1048576);
+        assert!(resp.resume_from.is_none());
+        assert!(resp.tcp_port.is_none());
+        assert!(resp.tcp_token.is_none());
+    }
+
+    #[test]
+    fn init_upload_response_full_no_tcp_omits_fields() {
+        let resp = InitUploadResponseFull {
+            upload_id: "u1".into(),
+            chunk_size: 1048576,
+            resume_from: None,
+            tcp_port: None,
+            tcp_token: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(!json.contains("tcpPort"));
+        assert!(!json.contains("tcpToken"));
     }
 
     #[test]

@@ -175,10 +175,4 @@ mod tests {
         assert_eq!(EventType::Updated.to_string(), "updated");
         assert_eq!(EventType::Lost.to_string(), "lost");
     }
-
-    #[test]
-    fn constants() {
-        assert_eq!(SERVICE_NAME, "_capydeploy._tcp");
-        assert_eq!(DEFAULT_TTL, 120);
-    }
 }

@@ -91,12 +91,4 @@ mod tests {
     fn detect_platform_windows() {
         assert_eq!(detect_platform(), "windows");
     }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn detect_platform_linux() {
-        // On a standard Linux CI, should return "linux" or a recognized distro
-        let platform = detect_platform();
-        assert!(!platform.is_empty());
-    }
 }

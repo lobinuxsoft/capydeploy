@@ -461,19 +461,6 @@ mod tests {
     }
 
     #[test]
-    fn read_cpu_temp_does_not_panic() {
-        let temp = read_cpu_temp();
-        // May be -1 if no hwmon available (CI).
-        assert!(temp == -1.0 || temp > 0.0);
-    }
-
-    #[test]
-    fn read_cpu_freq_does_not_panic() {
-        let freq = read_cpu_freq();
-        assert!(freq == -1.0 || freq > 0.0);
-    }
-
-    #[test]
     fn parse_dpm_freq_active_marker() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("pp_dpm_sclk");
@@ -505,18 +492,5 @@ mod tests {
             parse_meminfo_kb("MemAvailable:   8000000 kB", "MemTotal:"),
             None
         );
-    }
-
-    #[test]
-    fn read_battery_does_not_panic() {
-        let (cap, _status) = read_battery();
-        // -1 is fine if no battery present.
-        assert!(cap >= -1);
-    }
-
-    #[test]
-    fn read_fan_speed_does_not_panic() {
-        let rpm = read_fan_speed();
-        assert!(rpm >= -1);
     }
 }

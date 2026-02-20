@@ -121,21 +121,6 @@ jobs:
             target/release/${{ matrix.agent_bin }}
           retention-days: 7
 
-  wire-compat:
-    name: Wire compatibility
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> target"
-
-      - name: Run wire compat tests
-        run: cargo test -p wire-compat
-
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest

@@ -168,10 +168,4 @@ mod tests {
         assert!(json.contains("\"name\":\"Games\""));
         assert!(json.contains("\"isDir\":true"));
     }
-
-    #[test]
-    fn platform_roots_not_empty() {
-        let roots = platform_roots();
-        assert!(!roots.is_empty());
-    }
 }

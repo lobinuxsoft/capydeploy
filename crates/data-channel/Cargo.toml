@@ -1,0 +1,19 @@
+[package]
+name = "capydeploy-data-channel"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "TCP data channel for bulk file transfers between Hub and Agent"
+
+[dependencies]
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = "0.8"
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tempfile = "3"

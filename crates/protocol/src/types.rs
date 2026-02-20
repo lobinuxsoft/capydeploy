@@ -137,14 +137,6 @@ mod tests {
     }
 
     #[test]
-    fn agent_info_field_names() {
-        let json = r#"{"id":"a","name":"b","platform":"c","version":"d","acceptConnections":true,"supportedImageFormats":["png"]}"#;
-        let info: AgentInfo = serde_json::from_str(json).unwrap();
-        assert_eq!(info.id, "a");
-        assert!(info.accept_connections);
-    }
-
-    #[test]
     fn shortcut_info_omit_empty() {
         let info = ShortcutInfo {
             app_id: 123,

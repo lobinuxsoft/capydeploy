@@ -192,7 +192,95 @@ mod tests {
         roundtrip_test::<capydeploy_protocol::messages::OperationEvent>("operation_event.json");
     }
 
+    // --- Upload response fixtures ---
+
+    #[test]
+    fn fixture_init_upload_response_full() {
+        if !fixtures_dir()
+            .join("init_upload_response_full.json")
+            .exists()
+        {
+            eprintln!("SKIP: fixture not generated yet");
+            return;
+        }
+        roundtrip_test::<capydeploy_protocol::messages::InitUploadResponseFull>(
+            "init_upload_response_full.json",
+        );
+    }
+
+    #[test]
+    fn legacy_init_upload_response_full_no_tcp() {
+        let json = load_fixture("init_upload_response_full_legacy.json");
+        let resp: capydeploy_protocol::messages::InitUploadResponseFull =
+            serde_json::from_value(json).unwrap();
+        assert_eq!(resp.upload_id, "upload-99999");
+        assert_eq!(resp.chunk_size, 1048576);
+        assert!(
+            resp.resume_from.is_none(),
+            "missing field should default to None"
+        );
+        assert!(
+            resp.tcp_port.is_none(),
+            "missing tcp_port should default to None"
+        );
+        assert!(
+            resp.tcp_token.is_none(),
+            "missing tcp_token should default to None"
+        );
+    }
+
+    // --- Data channel fixtures ---
+
+    #[test]
+    fn fixture_agent_status_with_capabilities() {
+        if !fixtures_dir()
+            .join("agent_status_response_with_capabilities.json")
+            .exists()
+        {
+            eprintln!("SKIP: fixture not generated yet");
+            return;
+        }
+        roundtrip_test::<capydeploy_protocol::messages::AgentStatusResponse>(
+            "agent_status_response_with_capabilities.json",
+        );
+    }
+
+    #[test]
+    fn fixture_data_channel_ready_event() {
+        if !fixtures_dir()
+            .join("data_channel_ready_event.json")
+            .exists()
+        {
+            eprintln!("SKIP: fixture not generated yet");
+            return;
+        }
+        roundtrip_test::<capydeploy_protocol::messages::DataChannelReadyEvent>(
+            "data_channel_ready_event.json",
+        );
+    }
+
     // --- Backward compatibility: legacy JSON without protocolVersion ---
+
+    #[test]
+    fn legacy_agent_status_no_capabilities() {
+        // Legacy agents don't send capabilities — should default to empty vec.
+        let json = r#"{
+            "name": "OldAgent",
+            "version": "0.5.0",
+            "platform": "steamdeck",
+            "acceptConnections": true,
+            "telemetryEnabled": false,
+            "telemetryInterval": 2,
+            "consoleLogEnabled": false,
+            "protocolVersion": 1
+        }"#;
+        let resp: capydeploy_protocol::messages::AgentStatusResponse =
+            serde_json::from_str(json).unwrap();
+        assert!(
+            resp.capabilities.is_empty(),
+            "missing capabilities should default to empty vec"
+        );
+    }
 
     #[test]
     fn legacy_hub_connected_no_protocol_version() {

@@ -201,6 +201,7 @@ impl TauriAgentHandler {
             telemetry_interval: config.telemetry_interval,
             console_log_enabled: config.console_log_enabled,
             protocol_version: PROTOCOL_VERSION,
+            capabilities: vec![capydeploy_data_channel::CAPABILITY_TCP_DATA_CHANNEL.into()],
         };
 
         // Start collectors based on config
