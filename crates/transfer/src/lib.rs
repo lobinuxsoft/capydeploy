@@ -14,8 +14,11 @@ pub use progress::{ProgressTracker, SpeedCalculator};
 pub use types::{Chunk, UploadSession};
 pub use validation::validate_upload_path;
 
-/// Default chunk size: 1 MiB.
-pub const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
+/// Default chunk size: 4 MiB.
+///
+/// Larger chunks reduce per-chunk overhead (SHA-256, ACKs, syscalls).
+/// The agent negotiates the actual size via `InitUploadResponseFull.chunk_size`.
+pub const DEFAULT_CHUNK_SIZE: usize = 4 * 1024 * 1024;
 
 /// Errors produced by the transfer crate.
 #[derive(Debug, thiserror::Error)]

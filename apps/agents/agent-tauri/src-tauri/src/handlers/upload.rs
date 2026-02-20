@@ -41,6 +41,8 @@ impl TauriAgentHandler {
             transferred: 0,
             current_file: String::new(),
             active: true,
+            last_progress_pct: 0.0,
+            last_progress_time: std::time::Instant::now(),
         };
 
         self.state
@@ -68,7 +70,7 @@ impl TauriAgentHandler {
 
         let resp = messages::InitUploadResponseFull {
             upload_id,
-            chunk_size: 1_048_576, // 1MB
+            chunk_size: 4_194_304, // 4MB
             resume_from: None,
         };
         if let Ok(reply) = msg.reply(MessageType::UploadInitResponse, Some(&resp)) {
@@ -87,25 +89,28 @@ impl TauriAgentHandler {
         header: BinaryChunkHeader,
         data: Vec<u8>,
     ) {
-        let mut uploads = self.state.uploads.lock().await;
-        let session = match uploads.get_mut(&header.upload_id) {
-            Some(s) if s.active => s,
-            _ => {
-                tracing::warn!(
-                    "binary chunk for unknown/inactive upload: {}",
-                    header.upload_id
-                );
-                return;
-            }
+        // ── Phase 1 (async): extract session info, drop lock ──────────
+        let game_path = {
+            let uploads = self.state.uploads.lock().await;
+            let session = match uploads.get(&header.upload_id) {
+                Some(s) if s.active => s,
+                _ => {
+                    tracing::warn!(
+                        "binary chunk for unknown/inactive upload: {}",
+                        header.upload_id
+                    );
+                    return;
+                }
+            };
+
+            let config = self.state.config.lock().await;
+            let base_path = expand_path(&config.install_path);
+            drop(config);
+            PathBuf::from(&base_path).join(&session.game_name)
         };
 
-        // Build game path
-        let config = self.state.config.lock().await;
-        let base_path = expand_path(&config.install_path);
-        drop(config);
-        let game_path = PathBuf::from(&base_path).join(&session.game_name);
-
-        // Write chunk to disk using transfer crate
+        // ── Phase 2 (spawn_blocking): disk I/O off the tokio runtime ──
+        let chunk_len = data.len() as i64;
         let chunk = capydeploy_transfer::Chunk {
             offset: header.offset,
             size: data.len(),
@@ -114,14 +119,45 @@ impl TauriAgentHandler {
             checksum: header.checksum.clone(),
         };
 
-        let mut writer = capydeploy_transfer::ChunkWriter::new(&game_path);
-        if let Err(e) = writer.write_chunk(&chunk) {
-            session.active = false;
-            tracing::error!("failed to write chunk: {e}");
-            return;
+        let write_path = game_path.clone();
+        let write_result = tokio::task::spawn_blocking(move || {
+            let mut writer = capydeploy_transfer::ChunkWriter::new(&write_path);
+            writer.write_chunk(&chunk)
+        })
+        .await;
+
+        match write_result {
+            Ok(Err(e)) => {
+                // Disk write failed — mark session inactive.
+                let mut uploads = self.state.uploads.lock().await;
+                if let Some(s) = uploads.get_mut(&header.upload_id) {
+                    s.active = false;
+                }
+                tracing::error!("failed to write chunk: {e}");
+                return;
+            }
+            Err(e) => {
+                // spawn_blocking panicked or was cancelled.
+                let mut uploads = self.state.uploads.lock().await;
+                if let Some(s) = uploads.get_mut(&header.upload_id) {
+                    s.active = false;
+                }
+                tracing::error!("chunk write task failed: {e}");
+                return;
+            }
+            Ok(Ok(())) => {}
         }
 
-        let chunk_len = chunk.size as i64;
+        // ── Phase 3 (async): update state, throttled progress, ACK ────
+        let mut uploads = self.state.uploads.lock().await;
+        let session = match uploads.get_mut(&header.upload_id) {
+            Some(s) if s.active => s,
+            _ => {
+                // Session was cancelled while we were writing — silently bail.
+                return;
+            }
+        };
+
         session.transferred += chunk_len;
         session.current_file = header.file_path.clone();
         let percentage = session.percentage();
@@ -129,20 +165,32 @@ impl TauriAgentHandler {
         let total = session.total_size;
         let transferred = session.transferred;
         let game_name = session.game_name.clone();
+
+        // Throttle progress events: emit only on ≥2% change, ≥500ms, or 100%.
+        let elapsed = session.last_progress_time.elapsed();
+        let should_emit = percentage >= 100.0
+            || (percentage - session.last_progress_pct) >= 2.0
+            || elapsed >= std::time::Duration::from_millis(500);
+
+        if should_emit {
+            session.last_progress_pct = percentage;
+            session.last_progress_time = std::time::Instant::now();
+        }
         drop(uploads);
 
-        // Emit progress
-        let progress_evt = messages::UploadProgressEvent {
-            upload_id: upload_id.clone(),
-            transferred_bytes: transferred,
-            total_bytes: total,
-            current_file: header.file_path.clone(),
-            percentage,
-        };
-        self.send_event(&sender, MessageType::UploadProgress, &progress_evt);
-        self.emit_operation(&sender, "install", "progress", &game_name, percentage, "");
+        if should_emit {
+            let progress_evt = messages::UploadProgressEvent {
+                upload_id: upload_id.clone(),
+                transferred_bytes: transferred,
+                total_bytes: total,
+                current_file: header.file_path.clone(),
+                percentage,
+            };
+            self.send_event(&sender, MessageType::UploadProgress, &progress_evt);
+            self.emit_operation(&sender, "install", "progress", &game_name, percentage, "");
+        }
 
-        // Send chunk ack
+        // ACK is ALWAYS sent — Hub blocks waiting for it.
         let resp = messages::UploadChunkResponse {
             upload_id,
             bytes_written: chunk_len,
