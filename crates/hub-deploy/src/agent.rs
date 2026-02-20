@@ -400,7 +400,6 @@ impl<'a> AgentDeploy<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -543,19 +542,31 @@ mod tests {
     #[test]
     fn adapt_grows_on_moderate_rtt() {
         // 4MB + 25% = 5MB
-        let size = adapt_chunk_size(4 * 1024 * 1024, Duration::from_millis(2000), 16 * 1024 * 1024);
+        let size = adapt_chunk_size(
+            4 * 1024 * 1024,
+            Duration::from_millis(2000),
+            16 * 1024 * 1024,
+        );
         assert_eq!(size, 5 * 1024 * 1024);
     }
 
     #[test]
     fn adapt_holds_on_good_rtt() {
-        let size = adapt_chunk_size(4 * 1024 * 1024, Duration::from_millis(4000), 16 * 1024 * 1024);
+        let size = adapt_chunk_size(
+            4 * 1024 * 1024,
+            Duration::from_millis(4000),
+            16 * 1024 * 1024,
+        );
         assert_eq!(size, 4 * 1024 * 1024);
     }
 
     #[test]
     fn adapt_halves_on_slow_rtt() {
-        let size = adapt_chunk_size(4 * 1024 * 1024, Duration::from_millis(6000), 16 * 1024 * 1024);
+        let size = adapt_chunk_size(
+            4 * 1024 * 1024,
+            Duration::from_millis(6000),
+            16 * 1024 * 1024,
+        );
         assert_eq!(size, 2 * 1024 * 1024);
     }
 
@@ -568,8 +579,11 @@ mod tests {
     #[test]
     fn adapt_respects_min() {
         // MIN_CHUNK_SIZE / 2 = 128KB, but clamp keeps it at MIN
-        let size =
-            adapt_chunk_size(MIN_CHUNK_SIZE, Duration::from_millis(6000), 16 * 1024 * 1024);
+        let size = adapt_chunk_size(
+            MIN_CHUNK_SIZE,
+            Duration::from_millis(6000),
+            16 * 1024 * 1024,
+        );
         assert_eq!(size, MIN_CHUNK_SIZE);
     }
 
