@@ -71,6 +71,8 @@ pub struct UploadSession {
     pub last_progress_pct: f64,
     /// Last time a progress event was emitted (time-based safety net).
     pub last_progress_time: std::time::Instant,
+    /// Cancel token for an active TCP data channel (None if using WS).
+    pub data_channel_cancel: Option<tokio_util::sync::CancellationToken>,
 }
 
 impl UploadSession {

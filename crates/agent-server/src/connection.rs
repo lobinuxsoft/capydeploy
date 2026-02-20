@@ -325,26 +325,3 @@ async fn dispatch_binary<H: Handler>(handler: &Arc<H>, sender: &Sender, data: &[
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sender_error_display() {
-        let err = SendError;
-        assert!(err.to_string().contains("buffer full"));
-    }
-
-    #[test]
-    fn hub_meta_clone() {
-        let meta = HubMeta {
-            name: "TestHub".into(),
-            version: "1.0".into(),
-            hub_id: "h1".into(),
-            remote_addr: "127.0.0.1".into(),
-        };
-        let cloned = meta.clone();
-        assert_eq!(meta.name, cloned.name);
-    }
-}

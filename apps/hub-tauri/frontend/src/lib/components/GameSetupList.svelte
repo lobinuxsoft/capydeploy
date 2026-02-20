@@ -168,7 +168,11 @@
 			await UploadGame(setup.id);
 		} catch (e) {
 			console.error('Failed to start upload:', e);
-			toast.error('Error starting upload', String(e));
+			// Only show error toast if the event forwarder hasn't already
+			// handled it (e.g. pre-deployment errors like setup not found).
+			if (!$uploadProgress?.done) {
+				toast.error('Error starting upload', String(e));
+			}
 			uploading = null;
 			uploadProgress.set(null);
 		}

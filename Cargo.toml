@@ -9,6 +9,7 @@ members = [
     "crates/console-log",
     "crates/game-log",
     "crates/file-ops",
+    "crates/data-channel",
 
     "crates/steamgriddb",
     "crates/hub-connection",
@@ -63,6 +64,7 @@ capydeploy-hub-games = { path = "crates/hub-games" }
 capydeploy-hub-telemetry = { path = "crates/hub-telemetry" }
 capydeploy-hub-console-log = { path = "crates/hub-console-log" }
 capydeploy-hub-settings = { path = "crates/hub-settings" }
+capydeploy-data-channel = { path = "crates/data-channel" }
 sha2 = "0.10"
 hex = "0.4"
 tokio-tungstenite = "0.26"

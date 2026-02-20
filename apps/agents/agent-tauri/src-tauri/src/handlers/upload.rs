@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use tauri::Emitter;
+use tokio_util::sync::CancellationToken;
 
 use capydeploy_agent_server::{BinaryChunkHeader, Sender};
+use capydeploy_data_channel::server::TcpDataServer;
 use capydeploy_protocol::constants::MessageType;
 use capydeploy_protocol::envelope::Message;
 use capydeploy_protocol::messages;
@@ -32,6 +34,18 @@ impl TauriAgentHandler {
         }
 
         let upload_id = uuid::Uuid::new_v4().to_string();
+
+        // Resolve the game installation directory.
+        let config = self.state.config.lock().await;
+        let base_path = expand_path(&config.install_path);
+        drop(config);
+        let game_path = PathBuf::from(&base_path).join(&req.config.game_name);
+        tokio::fs::create_dir_all(&game_path).await.ok();
+
+        // Start TCP data channel listener.
+        let dc_cancel = CancellationToken::new();
+        let tcp_server = TcpDataServer::new(game_path.clone(), dc_cancel.clone());
+
         let session = UploadSession {
             id: upload_id.clone(),
             game_name: req.config.game_name.clone(),
@@ -43,6 +57,7 @@ impl TauriAgentHandler {
             active: true,
             last_progress_pct: 0.0,
             last_progress_time: std::time::Instant::now(),
+            data_channel_cancel: Some(dc_cancel),
         };
 
         self.state
@@ -68,14 +83,119 @@ impl TauriAgentHandler {
             "Iniciando instalación...",
         );
 
+        // Bind TCP data channel *before* sending the response so the Hub
+        // receives tcp_port/tcp_token in the InitUploadResponse itself.
+        let (tcp_port, tcp_token, tcp_listener) = match tcp_server.listen().await {
+            Ok((dc_info, listener)) => (
+                Some(dc_info.port),
+                Some(dc_info.token.clone()),
+                Some((dc_info, listener)),
+            ),
+            Err(e) => {
+                tracing::warn!("TCP data channel listen failed: {e}");
+                (None, None, None)
+            }
+        };
+
         let resp = messages::InitUploadResponseFull {
-            upload_id,
+            upload_id: upload_id.clone(),
             chunk_size: 4_194_304, // 4MB
             resume_from: None,
+            tcp_port,
+            tcp_token: tcp_token.clone(),
         };
         if let Ok(reply) = msg.reply(MessageType::UploadInitResponse, Some(&resp)) {
             let _ = sender.send_msg(reply);
         }
+
+        // Spawn TCP data channel receiver if bind succeeded.
+        let Some((dc_info, listener)) = tcp_listener else {
+            return;
+        };
+
+        let state = self.state.clone();
+        let sender_clone = sender.clone();
+        let upload_id_tcp = upload_id.clone();
+        let game_name_tcp = req.config.game_name.clone();
+        tokio::spawn(async move {
+            // Receive files via TCP.
+            let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel::<(i64, String)>(64);
+
+            // Spawn progress forwarder.
+            let state_progress = state.clone();
+            let sender_progress = sender_clone.clone();
+            let uid_progress = upload_id_tcp.clone();
+            let game_name_progress = game_name_tcp.clone();
+            let progress_task = tokio::spawn(async move {
+                while let Some((bytes, file)) = progress_rx.recv().await {
+                    let mut uploads = state_progress.uploads.lock().await;
+                    if let Some(session) = uploads.get_mut(&uid_progress) {
+                        session.transferred = bytes;
+                        session.current_file = file.clone();
+                        let pct = session.percentage();
+                        let total = session.total_size;
+                        let elapsed = session.last_progress_time.elapsed();
+                        let should_emit = pct >= 100.0
+                            || (pct - session.last_progress_pct) >= 2.0
+                            || elapsed >= std::time::Duration::from_millis(500);
+                        if should_emit {
+                            session.last_progress_pct = pct;
+                            session.last_progress_time = std::time::Instant::now();
+                            drop(uploads);
+                            let evt = messages::UploadProgressEvent {
+                                upload_id: uid_progress.clone(),
+                                transferred_bytes: bytes,
+                                total_bytes: total,
+                                current_file: file,
+                                percentage: pct,
+                            };
+                            if let Ok(m) = Message::new(
+                                uuid::Uuid::new_v4().to_string(),
+                                MessageType::UploadProgress,
+                                Some(&evt),
+                            ) {
+                                let _ = sender_progress.send_msg(m);
+                            }
+                            // Also emit operation event for frontend.
+                            let op_evt = messages::OperationEvent {
+                                event_type: "install".into(),
+                                status: "progress".into(),
+                                game_name: game_name_progress.clone(),
+                                progress: pct,
+                                message: String::new(),
+                            };
+                            if let Ok(m) = Message::new(
+                                uuid::Uuid::new_v4().to_string(),
+                                MessageType::OperationEvent,
+                                Some(&op_evt),
+                            ) {
+                                let _ = sender_progress.send_msg(m);
+                            }
+                        } else {
+                            drop(uploads);
+                        }
+                    }
+                }
+            });
+
+            match tcp_server
+                .accept_and_receive(listener, &dc_info.token, progress_tx)
+                .await
+            {
+                Ok(total) => {
+                    tracing::info!(
+                        total_bytes = total,
+                        "TCP data channel transfer complete for {upload_id_tcp}"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!("TCP data channel transfer failed for {upload_id_tcp}: {e}");
+                    // WS fallback will handle the upload if Hub retries via WS.
+                }
+            }
+
+            progress_task.abort();
+        });
     }
 
     pub(crate) async fn handle_upload_chunk(&self, sender: Sender, msg: Message) {
@@ -223,6 +343,11 @@ impl TauriAgentHandler {
             }
         };
         drop(uploads);
+
+        // Clean up TCP data channel if it was active.
+        if let Some(cancel) = &session.data_channel_cancel {
+            cancel.cancel();
+        }
 
         let config = self.state.config.lock().await;
         let base_path = expand_path(&config.install_path);
@@ -372,6 +497,11 @@ impl TauriAgentHandler {
 
         let mut uploads = self.state.uploads.lock().await;
         if let Some(session) = uploads.remove(&req.upload_id) {
+            // Cancel TCP data channel if active.
+            if let Some(cancel) = &session.data_channel_cancel {
+                cancel.cancel();
+            }
+
             let config = self.state.config.lock().await;
             let base_path = expand_path(&config.install_path);
             drop(config);

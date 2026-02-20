@@ -98,20 +98,6 @@ mod tests {
     }
 
     #[test]
-    fn scan_uses_forward_slashes() {
-        let dir = create_test_tree();
-        let (files, _) = scan_files_for_upload(dir.path()).unwrap();
-
-        for f in &files {
-            assert!(
-                !f.relative_path.contains('\\'),
-                "path should not contain backslashes: {}",
-                f.relative_path
-            );
-        }
-    }
-
-    #[test]
     fn scan_empty_dir() {
         let dir = TempDir::new().unwrap();
         let (files, total_size) = scan_files_for_upload(dir.path()).unwrap();

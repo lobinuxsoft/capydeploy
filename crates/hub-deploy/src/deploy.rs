@@ -185,6 +185,8 @@ mod tests {
             upload_id: "u1".into(),
             chunk_size: 1024 * 1024,
             resume_from: None,
+            tcp_port: None,
+            tcp_token: None,
         };
         let complete = CompleteUploadResponseFull {
             success: true,

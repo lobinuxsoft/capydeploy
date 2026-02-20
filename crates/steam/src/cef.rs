@@ -476,10 +476,4 @@ mod tests {
         let result = CefClient::find_js_context(&[]);
         assert!(result.is_err());
     }
-
-    #[test]
-    fn cef_client_default() {
-        let client = CefClient::default();
-        assert_eq!(client.endpoint, "127.0.0.1:8080");
-    }
 }

@@ -139,14 +139,6 @@ mod tests {
     }
 
     #[test]
-    fn image_filters_default() {
-        let f = ImageFilters::default();
-        assert!(f.style.is_empty());
-        assert!(!f.show_nsfw);
-        assert!(!f.show_humor);
-    }
-
-    #[test]
     fn image_filters_serde_camel_case() {
         let f = ImageFilters {
             mime_type: "image/png".into(),

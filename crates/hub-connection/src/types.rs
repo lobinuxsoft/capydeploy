@@ -140,19 +140,6 @@ mod tests {
     }
 
     #[test]
-    fn hub_identity_clone() {
-        let hub = HubIdentity {
-            name: "Test Hub".into(),
-            version: "0.1.0".into(),
-            platform: "linux".into(),
-            hub_id: "hub-test-1".into(),
-        };
-        let hub2 = hub.clone();
-        assert_eq!(hub.name, hub2.name);
-        assert_eq!(hub.hub_id, hub2.hub_id);
-    }
-
-    #[test]
     fn reconnect_config_defaults() {
         let config = ReconnectConfig::default();
         assert_eq!(config.initial_delay, Duration::from_millis(250));

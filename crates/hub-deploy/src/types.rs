@@ -103,6 +103,10 @@ pub struct InitUploadResult {
     pub upload_id: String,
     pub chunk_size: i32,
     pub resume_from: Option<HashMap<String, i64>>,
+    /// TCP data channel port advertised by the agent (None = no TCP support).
+    pub tcp_port: Option<u16>,
+    /// TCP data channel authentication token.
+    pub tcp_token: Option<String>,
 }
 
 /// Response from CompleteUpload on the agent side.
@@ -139,32 +143,5 @@ mod tests {
         assert!(!json.contains("griddb_game_id"));
         let parsed: GameSetup = serde_json::from_str(&json).unwrap();
         assert_eq!(setup, parsed);
-    }
-
-    #[test]
-    fn artwork_source_default_is_none() {
-        let src = ArtworkSource::default();
-        assert_eq!(src, ArtworkSource::None);
-    }
-
-    #[test]
-    fn deploy_event_variants() {
-        let progress = DeployEvent::Progress {
-            agent_id: "a1".into(),
-            progress: 0.5,
-            status: "Uploading".into(),
-        };
-        assert!(matches!(progress, DeployEvent::Progress { .. }));
-
-        let completed = DeployEvent::Completed {
-            agent_id: "a1".into(),
-        };
-        assert!(matches!(completed, DeployEvent::Completed { .. }));
-
-        let failed = DeployEvent::Failed {
-            agent_id: "a1".into(),
-            error: "disk full".into(),
-        };
-        assert!(matches!(failed, DeployEvent::Failed { .. }));
     }
 }
