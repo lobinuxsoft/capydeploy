@@ -252,10 +252,10 @@ impl<'a> AgentDeploy<'a> {
                 reader.set_chunk_size(chunk_size);
 
                 let chunk = tokio::task::spawn_blocking({
-                    let mut r = unsafe_reader_send_wrapper(reader);
+                    let mut reader = reader;
                     move || {
-                        let chunk = r.0.next_chunk();
-                        (r.0, chunk)
+                        let chunk = reader.next_chunk();
+                        (reader, chunk)
                     }
                 })
                 .await
@@ -400,16 +400,6 @@ impl<'a> AgentDeploy<'a> {
     }
 }
 
-/// Wrapper to make ChunkReader Send-able across spawn_blocking boundaries.
-///
-/// ChunkReader is inherently single-threaded (holds a File handle)
-/// but is used exclusively within spawn_blocking closures.
-struct SendWrapper(ChunkReader);
-unsafe impl Send for SendWrapper {}
-
-fn unsafe_reader_send_wrapper(reader: ChunkReader) -> SendWrapper {
-    SendWrapper(reader)
-}
 
 #[cfg(test)]
 mod tests {
