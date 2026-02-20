@@ -1,0 +1,11 @@
+{
+  "name": "Agent",
+  "version": "0.7.0",
+  "platform": "steamdeck",
+  "acceptConnections": true,
+  "telemetryEnabled": true,
+  "telemetryInterval": 5,
+  "consoleLogEnabled": false,
+  "protocolVersion": 1,
+  "capabilities": ["tcp_data_channel"]
+}

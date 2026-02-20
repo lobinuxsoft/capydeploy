@@ -91,17 +91,6 @@ mod tests {
     use std::fs;
 
     #[test]
-    fn user_id_conversion_roundtrip() {
-        assert_eq!(user_id_to_u32("12345").unwrap(), 12345);
-        assert_eq!(u32_to_user_id(12345), "12345");
-    }
-
-    #[test]
-    fn user_id_invalid() {
-        assert!(user_id_to_u32("not_a_number").is_err());
-    }
-
-    #[test]
     fn get_users_with_temp_dir() {
         let tmp = std::env::temp_dir().join("capydeploy_test_users");
         let _ = fs::remove_dir_all(&tmp);

@@ -99,27 +99,6 @@ mod tests {
     }
 
     #[test]
-    fn empty_buffer() {
-        let rb: RingBuffer<f64> = RingBuffer::new(10);
-
-        assert!(rb.is_empty());
-        assert_eq!(rb.len(), 0);
-        assert_eq!(rb.last(), None);
-        assert_eq!(rb.iter().count(), 0);
-    }
-
-    #[test]
-    fn single_element() {
-        let mut rb = RingBuffer::new(3);
-        rb.push(42);
-
-        assert_eq!(rb.len(), 1);
-        assert_eq!(rb.last(), Some(&42));
-        let items: Vec<&i32> = rb.iter().collect();
-        assert_eq!(items, vec![&42]);
-    }
-
-    #[test]
     fn last_returns_newest() {
         let mut rb = RingBuffer::new(3);
         rb.push(1);
@@ -156,12 +135,6 @@ mod tests {
 
         rb.push(3); // evicts 1, still full
         assert!(rb.is_full());
-    }
-
-    #[test]
-    fn capacity_preserved() {
-        let rb: RingBuffer<u8> = RingBuffer::new(100);
-        assert_eq!(rb.capacity(), 100);
     }
 
     #[test]

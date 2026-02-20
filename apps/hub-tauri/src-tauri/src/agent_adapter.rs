@@ -20,11 +20,30 @@ use capydeploy_protocol::envelope::Message;
 pub struct DeployAdapter {
     mgr: Arc<ConnectionManager>,
     agent_id: String,
+    agent_ip: Option<std::net::IpAddr>,
 }
 
 impl DeployAdapter {
+    #[allow(dead_code)]
     pub fn new(mgr: Arc<ConnectionManager>, agent_id: String) -> Self {
-        Self { mgr, agent_id }
+        Self {
+            mgr,
+            agent_id,
+            agent_ip: None,
+        }
+    }
+
+    /// Creates a DeployAdapter with cached agent IP address.
+    pub fn with_agent_info(
+        mgr: Arc<ConnectionManager>,
+        agent_id: String,
+        connected: &capydeploy_hub_connection::ConnectedAgent,
+    ) -> Self {
+        Self {
+            mgr,
+            agent_id,
+            agent_ip: connected.agent.ips.first().copied(),
+        }
     }
 }
 
@@ -64,6 +83,10 @@ impl capydeploy_hub_deploy::AgentConnection for DeployAdapter {
 
     fn agent_id(&self) -> &str {
         &self.agent_id
+    }
+
+    fn agent_addr(&self) -> Option<std::net::IpAddr> {
+        self.agent_ip
     }
 }
 

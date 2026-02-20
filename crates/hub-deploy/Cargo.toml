@@ -9,6 +9,7 @@ description = "Hub game deploy flow: scan, upload, artwork, shortcut creation"
 [dependencies]
 capydeploy-protocol = { workspace = true }
 capydeploy-transfer = { workspace = true }
+capydeploy-data-channel = { workspace = true }
 capydeploy-steamgriddb = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

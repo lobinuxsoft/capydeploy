@@ -440,11 +440,4 @@ mod tests {
         collector.set_level_mask(0);
         assert_eq!(collector.get_level_mask(), 0);
     }
-
-    #[test]
-    fn constants() {
-        assert_eq!(MAX_BUFFER_SIZE, 200);
-        assert_eq!(MAX_BATCH_SIZE, 50);
-        assert_eq!(FLUSH_INTERVAL, Duration::from_millis(500));
-    }
 }

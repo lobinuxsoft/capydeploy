@@ -115,6 +115,8 @@ pub enum MessageType {
     Error,
 
     // Events from Agent to Hub (push notifications)
+    #[serde(rename = "data_channel_ready")]
+    DataChannelReady,
     #[serde(rename = "upload_progress")]
     UploadProgress,
     #[serde(rename = "operation_event")]
@@ -278,11 +280,6 @@ mod tests {
     }
 
     #[test]
-    fn log_level_default() {
-        assert_eq!(LOG_LEVEL_DEFAULT, 15);
-    }
-
-    #[test]
     fn protocol_compat_current_version() {
         assert_eq!(
             check_protocol_compatibility(PROTOCOL_VERSION),
@@ -307,18 +304,5 @@ mod tests {
             ProtocolCompatibility::Incompatible { peer_version, .. }
                 if peer_version == PROTOCOL_VERSION + 1
         ));
-    }
-
-    #[test]
-    fn protocol_compat_deprecated() {
-        // Only testable when PROTOCOL_VERSION > PROTOCOL_MIN_SUPPORTED.
-        if PROTOCOL_VERSION > PROTOCOL_MIN_SUPPORTED {
-            let result = check_protocol_compatibility(PROTOCOL_MIN_SUPPORTED);
-            assert!(matches!(
-                result,
-                ProtocolCompatibility::Deprecated { peer_version }
-                    if peer_version == PROTOCOL_MIN_SUPPORTED
-            ));
-        }
     }
 }

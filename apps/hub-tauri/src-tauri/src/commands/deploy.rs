@@ -76,7 +76,7 @@ pub async fn upload_game(
 
     let mgr = state.connection_mgr.clone();
     let agent_id = connected.agent.info.id.clone();
-    let adapter = DeployAdapter::new(mgr, agent_id);
+    let adapter = DeployAdapter::with_agent_info(mgr, agent_id, &connected);
 
     let artwork = capydeploy_hub_deploy::build_artwork_assignment(&setup);
     let deploy_config = capydeploy_hub_deploy::DeployConfig { setup, artwork };
@@ -84,9 +84,11 @@ pub async fn upload_game(
     let mut orchestrator = capydeploy_hub_deploy::DeployOrchestrator::new();
     let events_rx = orchestrator.take_events();
 
-    // Spawn event forwarder.
+    // Spawn event forwarder — we keep the JoinHandle so we can await
+    // it after deploy() to guarantee the Completed/Failed event reaches
+    // the frontend before the command returns.
     let app_clone = app.clone();
-    if let Some(mut rx) = events_rx {
+    let forwarder = events_rx.map(|mut rx| {
         tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
                 let dto = match event {
@@ -113,10 +115,17 @@ pub async fn upload_game(
                 };
                 let _ = app_clone.emit("upload:progress", &dto);
             }
-        });
-    }
+        })
+    });
 
     let results = orchestrator.deploy(deploy_config, vec![&adapter]).await;
+
+    // Drop the orchestrator (and its events_tx sender) so the forwarder
+    // channel closes and the task can drain remaining events.
+    drop(orchestrator);
+    if let Some(handle) = forwarder {
+        let _ = handle.await;
+    }
 
     if let Some(result) = results.first()
         && !result.success

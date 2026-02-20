@@ -234,6 +234,7 @@ dependencies = [
  "base64 0.22.1",
  "capydeploy-agent-server",
  "capydeploy-console-log",
+ "capydeploy-data-channel",
  "capydeploy-discovery",
  "capydeploy-game-log",
  "capydeploy-protocol",
@@ -270,6 +271,19 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "capydeploy-data-channel"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "rand 0.8.5",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
  "tokio-util",
  "tracing",
 ]
@@ -348,6 +362,7 @@ dependencies = [
 name = "capydeploy-hub-deploy"
 version = "0.1.0"
 dependencies = [
+ "capydeploy-data-channel",
  "capydeploy-protocol",
  "capydeploy-steamgriddb",
  "capydeploy-transfer",

@@ -4,7 +4,8 @@
 //! deploy logic to the actual WebSocket transport.
 
 use std::future::Future;
-use std::path::Path;
+use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::time::{Duration, Instant};
 
@@ -16,7 +17,7 @@ use capydeploy_protocol::messages::{
 use capydeploy_protocol::types::{ShortcutConfig, UploadConfig};
 use capydeploy_transfer::ChunkReader;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::artwork_selector::{build_shortcut_config, collect_local_artwork};
 use crate::error::DeployError;
@@ -71,6 +72,11 @@ pub trait AgentConnection: Send + Sync {
 
     /// Returns the agent's unique identifier.
     fn agent_id(&self) -> &str;
+
+    /// Returns the agent's IP address (for TCP data channel).
+    fn agent_addr(&self) -> Option<std::net::IpAddr> {
+        None
+    }
 }
 
 /// Manages a deploy session to a single agent.
@@ -203,15 +209,123 @@ impl<'a> AgentDeploy<'a> {
             upload_id: init_resp.upload_id,
             chunk_size: init_resp.chunk_size,
             resume_from: init_resp.resume_from,
+            tcp_port: init_resp.tcp_port,
+            tcp_token: init_resp.tcp_token,
         })
     }
 
-    /// Uploads all files in chunks with resume support and adaptive sizing.
+    /// Uploads all files, trying TCP data channel first with WS fallback.
+    ///
+    /// TCP info (port + token) is carried in the `InitUploadResult` — no need
+    /// to wait for a separate push event from the agent.
+    async fn upload_files(
+        &self,
+        setup: &GameSetup,
+        files: &[FileEntry],
+        total_size: i64,
+        init_result: &InitUploadResult,
+        max_chunk_size: usize,
+        events_tx: &tokio::sync::mpsc::Sender<DeployEvent>,
+    ) -> Result<(), DeployError> {
+        if let (Some(port), Some(token)) = (init_result.tcp_port, &init_result.tcp_token)
+            && let Some(agent_ip) = self.conn.agent_addr()
+        {
+            let addr = SocketAddr::new(agent_ip, port);
+            info!(%addr, "attempting TCP data channel");
+
+            match self
+                .upload_files_tcp(setup, files, total_size, addr, token, events_tx)
+                .await
+            {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    warn!(
+                        error = %e,
+                        "TCP data channel failed, falling back to WS"
+                    );
+                }
+            }
+        }
+
+        // Fallback to WebSocket upload.
+        self.upload_files_ws(
+            setup,
+            files,
+            total_size,
+            init_result,
+            max_chunk_size,
+            events_tx,
+        )
+        .await
+    }
+
+    /// Uploads files via TCP data channel (direct socket, no WS framing).
+    async fn upload_files_tcp(
+        &self,
+        setup: &GameSetup,
+        files: &[FileEntry],
+        total_size: i64,
+        addr: SocketAddr,
+        token: &str,
+        events_tx: &tokio::sync::mpsc::Sender<DeployEvent>,
+    ) -> Result<(), DeployError> {
+        let root = PathBuf::from(&setup.local_path);
+        let file_pairs: Vec<(PathBuf, String)> = files
+            .iter()
+            .map(|f| (root.join(&f.relative_path), f.relative_path.clone()))
+            .collect();
+
+        let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel::<(i64, String)>(64);
+
+        // Spawn progress forwarder.
+        let events_tx_clone = events_tx.clone();
+        let agent_id = self.conn.agent_id().to_string();
+        let total = total_size;
+        let progress_task = tokio::spawn(async move {
+            while let Some((bytes, file)) = progress_rx.recv().await {
+                if total > 0 {
+                    let progress = 0.1 + (bytes as f64 / total as f64) * 0.75;
+                    let status = format!("Uploading (TCP): {file}");
+                    let _ = events_tx_clone
+                        .send(DeployEvent::Progress {
+                            agent_id: agent_id.clone(),
+                            progress,
+                            status,
+                        })
+                        .await;
+                }
+            }
+        });
+
+        let result = capydeploy_data_channel::client::TcpDataClient::connect_and_send(
+            addr,
+            token,
+            &file_pairs,
+            self.cancel.clone(),
+            progress_tx,
+        )
+        .await;
+
+        // progress_tx was moved into connect_and_send — now dropped,
+        // closing the channel.  Await the forwarder so it drains any
+        // remaining progress events before we continue.
+        let _ = progress_task.await;
+
+        match result {
+            Ok(bytes) => {
+                info!(bytes, "TCP data channel upload complete");
+                Ok(())
+            }
+            Err(e) => Err(DeployError::Upload(format!("TCP data channel: {e}"))),
+        }
+    }
+
+    /// Uploads all files in chunks via WebSocket with resume support and adaptive sizing.
     ///
     /// Chunk size starts at [`INITIAL_CHUNK_SIZE`] and adapts per-chunk based
     /// on measured RTT (TCP slow-start style). The Agent-negotiated
     /// `max_chunk_size` acts as a ceiling.
-    async fn upload_files(
+    async fn upload_files_ws(
         &self,
         setup: &GameSetup,
         files: &[FileEntry],
@@ -492,6 +606,8 @@ mod tests {
             upload_id: upload_id.into(),
             chunk_size: 1024 * 1024,
             resume_from: None,
+            tcp_port: None,
+            tcp_token: None,
         };
         Message::new(
             "init-resp",
@@ -680,6 +796,8 @@ mod tests {
             upload_id: "upload-resume".into(),
             chunk_size: 1024 * 1024,
             resume_from: Some(resume),
+            tcp_port: None,
+            tcp_token: None,
         };
         let init_msg = Message::new(
             "init-resp",

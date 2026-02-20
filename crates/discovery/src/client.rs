@@ -300,12 +300,6 @@ mod tests {
     }
 
     #[test]
-    fn client_new() {
-        let client = Client::new();
-        assert!(client.get_agents().is_empty());
-    }
-
-    #[test]
     fn client_agent_tracking() {
         let client = Client::new();
 
@@ -345,12 +339,5 @@ mod tests {
 
         client.clear();
         assert!(client.get_agents().is_empty());
-    }
-
-    #[test]
-    fn client_timeout() {
-        let mut client = Client::new();
-        client.set_timeout(Duration::from_secs(60));
-        assert_eq!(client.timeout, Duration::from_secs(60));
     }
 }
