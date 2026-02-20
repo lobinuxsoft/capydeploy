@@ -16,8 +16,12 @@ pub use connection::{HubConnection, Sender};
 pub use handler::{Handler, HandlerFuture};
 pub use server::{AgentServer, ServerConfig};
 
-/// Send buffer capacity (matches Go's channel size).
-pub const SEND_BUFFER_SIZE: usize = 256;
+/// Send buffer capacity.
+///
+/// During file transfers the agent sends 2 progress messages per chunk in
+/// addition to the ACK.  A small buffer can saturate and cause `try_send()`
+/// to silently drop messages.  2048 gives comfortable headroom.
+pub const SEND_BUFFER_SIZE: usize = 2048;
 
 /// Errors produced by the agent server.
 #[derive(Debug, thiserror::Error)]

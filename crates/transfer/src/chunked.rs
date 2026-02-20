@@ -42,7 +42,10 @@ pub fn calculate_file_checksum(path: &Path) -> Result<String, TransferError> {
 // ChunkReader
 // ---------------------------------------------------------------------------
 
-/// Reads a file in fixed-size chunks with automatic SHA-256 checksums.
+/// Reads a file in chunks with automatic SHA-256 checksums.
+///
+/// The chunk size can be adjusted between reads via [`set_chunk_size`](Self::set_chunk_size)
+/// for adaptive transfer optimization.
 pub struct ChunkReader {
     file: std::fs::File,
     chunk_size: usize,
@@ -54,7 +57,7 @@ pub struct ChunkReader {
 impl ChunkReader {
     /// Opens `path` for chunked reading.
     ///
-    /// If `chunk_size` is 0, [`DEFAULT_CHUNK_SIZE`] (1 MiB) is used.
+    /// If `chunk_size` is 0, [`DEFAULT_CHUNK_SIZE`] (4 MiB) is used.
     pub fn new(path: &Path, chunk_size: usize) -> Result<Self, TransferError> {
         let file = std::fs::File::open(path)?;
         let file_size = file.metadata()?.len() as i64;
@@ -77,6 +80,14 @@ impl ChunkReader {
         self.file.seek(SeekFrom::Start(offset as u64))?;
         self.offset = offset;
         Ok(())
+    }
+
+    /// Updates the chunk size for subsequent reads.
+    ///
+    /// Use this for adaptive chunk sizing based on network conditions.
+    /// If `size` is 0, [`DEFAULT_CHUNK_SIZE`] is used.
+    pub fn set_chunk_size(&mut self, size: usize) {
+        self.chunk_size = if size == 0 { DEFAULT_CHUNK_SIZE } else { size };
     }
 
     /// Reads the next chunk. Returns `None` at EOF.
@@ -274,6 +285,28 @@ mod tests {
         let c = reader.next_chunk().unwrap().unwrap();
         assert_eq!(c.offset, 6);
         assert_eq!(&c.data, b"6789");
+
+        assert!(reader.next_chunk().unwrap().is_none());
+    }
+
+    #[test]
+    fn chunk_reader_set_chunk_size() {
+        let dir = TempDir::new().unwrap();
+        let data = b"AABBCCDDEE"; // 10 bytes.
+        let path = create_test_file(dir.path(), "test.bin", data);
+
+        // Start with 4-byte chunks, then switch to 6-byte.
+        let mut reader = ChunkReader::new(&path, 4).unwrap();
+
+        let c1 = reader.next_chunk().unwrap().unwrap();
+        assert_eq!(c1.size, 4);
+        assert_eq!(&c1.data, b"AABB");
+
+        reader.set_chunk_size(6);
+
+        let c2 = reader.next_chunk().unwrap().unwrap();
+        assert_eq!(c2.size, 6);
+        assert_eq!(&c2.data, b"CCDDEE");
 
         assert!(reader.next_chunk().unwrap().is_none());
     }
