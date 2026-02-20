@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.11.0...v0.12.0) (2026-02-20)
+
+
+### Features
+
+* implement TCP data channel for high-throughput file transfers ([933e713](https://github.com/lobinuxsoft/capydeploy/commit/933e713ab307dc8137638d9bae88d07789c9d74c))
+* implement TCP data channel for high-throughput file transfers ([ec19512](https://github.com/lobinuxsoft/capydeploy/commit/ec1951289e833ca7336f63378a4ecf9eb81b693d))
+* TCP data channel for high-throughput file transfers ([ff42e75](https://github.com/lobinuxsoft/capydeploy/commit/ff42e753f50837279f97d9674b259521a185f07a))
+
 ## [0.11.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.10.0...v0.11.0) (2026-02-20)
 
 
