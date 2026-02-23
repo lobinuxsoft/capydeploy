@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.13.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.12.0...v0.13.0) (2026-02-23)
+
+
+### Features
+
+* add MD5 checksum verification, transfer ACK, and bidirectional cancel ([54c36d5](https://github.com/lobinuxsoft/capydeploy/commit/54c36d5f62de5f3f878d585f434180fee39586c5))
+* MD5 checksum verification, transfer ACK, and bidirectional cancel ([a03497d](https://github.com/lobinuxsoft/capydeploy/commit/a03497dd78bfe3a0f4b941a84fbd7cec1225b4d2))
+
+
+### Bug Fixes
+
+* bundle GStreamer plugins in AppImage for WebM video playback ([42e6dc0](https://github.com/lobinuxsoft/capydeploy/commit/42e6dc0331f08471d7c17eb78a7d6fc97ae6504e))
+* bundle GStreamer plugins in AppImage for WebM video playback ([3e6ca72](https://github.com/lobinuxsoft/capydeploy/commit/3e6ca7253f804f6b8bfa6d5d844c8336d337b14a)), closes [#214](https://github.com/lobinuxsoft/capydeploy/issues/214)
+* replace vec![0xFF] with array literal (clippy useless_vec) ([0a10b13](https://github.com/lobinuxsoft/capydeploy/commit/0a10b135fb1e9c5b8f625a70f7f3acbc218abff3))
+* rustfmt formatting and remove unsupported Button title prop ([221bfb6](https://github.com/lobinuxsoft/capydeploy/commit/221bfb6d216c1b734d4af4f3550d864a108e1d2a))
+* rustfmt formatting in data-channel crate ([a1671aa](https://github.com/lobinuxsoft/capydeploy/commit/a1671aa9cb5d1aef0bbc96a8d30b4e81c7b9fc29))
+
+
+### Documentation
+
+* **site:** actualizar documentación para arquitectura TCP data channel ([fb8b897](https://github.com/lobinuxsoft/capydeploy/commit/fb8b8976f167d22d8d08940b1f135e2cdc1fcbd4))
+
 ## [0.12.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.11.0...v0.12.0) (2026-02-20)
 
 
