@@ -319,7 +319,7 @@ mod tests {
 
     #[tokio::test]
     async fn transfer_ack_wrong_byte() {
-        let buf = vec![0xFF];
+        let buf = [0xFF];
         let mut cursor = &buf[..];
         let result = read_transfer_ack(&mut cursor).await;
         assert!(result.is_err());
