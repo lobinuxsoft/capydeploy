@@ -13,7 +13,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 use crate::error::DataChannelError;
-use crate::wire::{read_file_checksum, read_file_header, read_token, write_auth_response, write_transfer_ack};
+use crate::wire::{
+    read_file_checksum, read_file_header, read_token, write_auth_response, write_transfer_ack,
+};
 use crate::{TCP_AUTH_TIMEOUT, TCP_BUFFER_SIZE, TCP_CONNECT_TIMEOUT};
 
 /// Info returned after binding the listener (sent to Hub via WS).
@@ -324,10 +326,9 @@ mod tests {
         let server_handle =
             tokio::spawn(async move { server.accept_and_receive(listener, &token, s_tx).await });
 
-        let client_bytes =
-            TcpDataClient::connect_and_send(addr, &info.token, &files, cancel, c_tx)
-                .await
-                .unwrap();
+        let client_bytes = TcpDataClient::connect_and_send(addr, &info.token, &files, cancel, c_tx)
+            .await
+            .unwrap();
 
         let server_bytes = server_handle.await.unwrap().unwrap();
 
@@ -336,7 +337,10 @@ mod tests {
 
         let received = std::fs::read(server_dir.path().join("large_game.bin")).unwrap();
         assert_eq!(received.len(), original.len(), "file size mismatch");
-        assert_eq!(received, original, "file content mismatch — data corruption detected");
+        assert_eq!(
+            received, original,
+            "file content mismatch — data corruption detected"
+        );
     }
 
     #[tokio::test]
@@ -449,10 +453,9 @@ mod tests {
         let server_handle =
             tokio::spawn(async move { server.accept_and_receive(listener, &token, s_tx).await });
 
-        let client_bytes =
-            TcpDataClient::connect_and_send(addr, &info.token, &files, cancel, c_tx)
-                .await
-                .unwrap();
+        let client_bytes = TcpDataClient::connect_and_send(addr, &info.token, &files, cancel, c_tx)
+            .await
+            .unwrap();
 
         let server_bytes = server_handle.await.unwrap().unwrap();
 
