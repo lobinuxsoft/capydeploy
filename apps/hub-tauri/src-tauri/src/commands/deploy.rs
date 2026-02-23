@@ -82,6 +82,13 @@ pub async fn upload_game(
     let deploy_config = capydeploy_hub_deploy::DeployConfig { setup, artwork };
 
     let mut orchestrator = capydeploy_hub_deploy::DeployOrchestrator::new();
+
+    // Store cancel token so the UI can trigger cancellation.
+    {
+        let mut guard = state.deploy_cancel.lock().await;
+        *guard = Some(orchestrator.cancel_token());
+    }
+
     let events_rx = orchestrator.take_events();
 
     // Spawn event forwarder — we keep the JoinHandle so we can await
@@ -120,6 +127,12 @@ pub async fn upload_game(
 
     let results = orchestrator.deploy(deploy_config, vec![&adapter]).await;
 
+    // Clear cancel token now that deploy is done.
+    {
+        let mut guard = state.deploy_cancel.lock().await;
+        *guard = None;
+    }
+
     // Drop the orchestrator (and its events_tx sender) so the forwarder
     // channel closes and the task can drain remaining events.
     drop(orchestrator);
@@ -136,5 +149,15 @@ pub async fn upload_game(
             .unwrap_or_else(|| "upload failed".into()));
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cancel_upload(state: State<'_, HubState>) -> Result<(), String> {
+    let mut guard = state.deploy_cancel.lock().await;
+    if let Some(token) = guard.take() {
+        token.cancel();
+        tracing::info!("deploy cancelled by user");
+    }
     Ok(())
 }

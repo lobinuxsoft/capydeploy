@@ -20,4 +20,11 @@ pub enum DataChannelError {
 
     #[error("protocol error: {0}")]
     Protocol(String),
+
+    #[error("checksum mismatch for {file}: expected {expected}, got {actual}")]
+    ChecksumMismatch {
+        file: String,
+        expected: String,
+        actual: String,
+    },
 }

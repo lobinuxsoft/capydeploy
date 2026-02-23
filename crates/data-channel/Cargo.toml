@@ -13,6 +13,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 rand = "0.8"
 hex = { workspace = true }
+md-5 = "0.10"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

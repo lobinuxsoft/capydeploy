@@ -52,6 +52,7 @@ pub fn run() {
             capydeploy_hub_console_log::ConsoleLogHub::new(),
         )),
         config: Arc::new(tokio::sync::Mutex::new(cfg)),
+        deploy_cancel: Arc::new(tokio::sync::Mutex::new(None)),
     };
 
     let app = tauri::Builder::default()
@@ -95,6 +96,7 @@ pub fn run() {
             commands::deploy::update_game_setup,
             commands::deploy::remove_game_setup,
             commands::deploy::upload_game,
+            commands::deploy::cancel_upload,
             // Games
             commands::games::get_installed_games,
             commands::games::delete_game,

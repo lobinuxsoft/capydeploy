@@ -80,6 +80,7 @@ export const UpdateGameSetup = (id: string, setup: any) =>
 export const RemoveGameSetup = (id: string) => invoke<void>('remove_game_setup', { id });
 export const SelectFolder = () => invoke<string>('select_folder');
 export const UploadGame = (id: string) => invoke<void>('upload_game', { id });
+export const CancelUpload = () => invoke<void>('cancel_upload');
 
 // ---------------------------------------------------------------------------
 // Installed games commands

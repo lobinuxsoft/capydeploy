@@ -128,6 +128,29 @@ impl<'a> AgentDeploy<'a> {
 
         let init_result = self.init_upload(&config.setup, &files, total_size).await?;
 
+        // Run the rest of the pipeline; on any failure, notify the agent
+        // to clean up partial uploads before propagating the error.
+        let result = self
+            .deploy_after_init(config, &files, total_size, &init_result, events_tx)
+            .await;
+
+        if result.is_err() {
+            self.send_cancel_upload(&init_result.upload_id).await;
+        }
+
+        result
+    }
+
+    /// Pipeline stages 3–5 (after init). Factored out so `deploy()` can
+    /// send `cancel_upload` to the agent on any failure.
+    async fn deploy_after_init(
+        &self,
+        config: &DeployConfig,
+        files: &[FileEntry],
+        total_size: i64,
+        init_result: &InitUploadResult,
+        events_tx: &tokio::sync::mpsc::Sender<DeployEvent>,
+    ) -> Result<CompleteUploadResult, DeployError> {
         let max_chunk_size = if init_result.chunk_size > 0 {
             init_result.chunk_size as usize
         } else {
@@ -140,9 +163,9 @@ impl<'a> AgentDeploy<'a> {
 
         self.upload_files(
             &config.setup,
-            &files,
+            files,
             total_size,
-            &init_result,
+            init_result,
             max_chunk_size,
             events_tx,
         )
@@ -169,6 +192,22 @@ impl<'a> AgentDeploy<'a> {
         self.emit_progress(events_tx, 1.0, "Upload complete!").await;
 
         Ok(result)
+    }
+
+    /// Best-effort: tell the agent to clean up a failed/cancelled upload.
+    async fn send_cancel_upload(&self, upload_id: &str) {
+        let payload = serde_json::json!({ "uploadId": upload_id });
+        match self
+            .conn
+            .send_request(
+                capydeploy_protocol::constants::MessageType::CancelUpload,
+                &payload,
+            )
+            .await
+        {
+            Ok(_) => info!(upload_id, "sent cancel_upload to agent"),
+            Err(e) => warn!(upload_id, error = %e, "failed to send cancel_upload"),
+        }
     }
 
     /// Initializes the upload session on the agent.
