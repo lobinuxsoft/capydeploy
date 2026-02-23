@@ -20,7 +20,6 @@ use crate::wire::{
 };
 use crate::{TCP_AUTH_TIMEOUT, TCP_BUFFER_SIZE, TCP_CONNECT_TIMEOUT};
 
-
 /// TCP data client for sending file transfers.
 pub struct TcpDataClient;
 
@@ -154,7 +153,10 @@ impl TcpDataClient {
             }
         };
 
-        info!(total_bytes, "TCP data channel: all files sent, ACK received");
+        info!(
+            total_bytes,
+            "TCP data channel: all files sent, ACK received"
+        );
         Ok(total_bytes)
     }
 }

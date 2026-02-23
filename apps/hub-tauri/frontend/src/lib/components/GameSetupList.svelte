@@ -284,7 +284,6 @@
 						size="icon"
 						onclick={cancelUploadHandler}
 						disabled={cancelling}
-						title="Cancel upload"
 					>
 						{#if cancelling}
 							<Loader2 class="w-4 h-4 animate-spin" />

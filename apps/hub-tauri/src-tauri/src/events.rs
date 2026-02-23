@@ -225,8 +225,9 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                             .ok()
                             .flatten()
                         {
-                            let is_terminal =
-                                evt.status == "complete" || evt.status == "failed" || evt.status == "error";
+                            let is_terminal = evt.status == "complete"
+                                || evt.status == "failed"
+                                || evt.status == "error";
 
                             // If the agent reports failure/cancellation, cancel any
                             // in-progress deploy so the Hub side stops sending data.
@@ -234,7 +235,10 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                                 let mut guard = state.deploy_cancel.lock().await;
                                 if let Some(token) = guard.take() {
                                     token.cancel();
-                                    debug!("deploy cancelled: agent sent operation_event status={}", evt.status);
+                                    debug!(
+                                        "deploy cancelled: agent sent operation_event status={}",
+                                        evt.status
+                                    );
                                 }
                             }
 
