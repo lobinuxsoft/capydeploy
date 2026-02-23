@@ -11,8 +11,10 @@
 //!   [path_len bytes: relative_path UTF-8]
 //!   [8 bytes BE: file_size]
 //!   [file_size bytes: raw file data]
+//!   [16 bytes: MD5 digest of file data]
 //!
 //! END MARKER: [2 bytes: 0x0000]
+//! TRANSFER ACK (Agent -> Hub): [1 byte: 0x02]
 //! ```
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -24,6 +26,12 @@ pub const AUTH_OK: u8 = 0x01;
 
 /// Authentication response: rejected.
 pub const AUTH_REJECTED: u8 = 0x00;
+
+/// Transfer acknowledgement byte (Agent -> Hub after end marker).
+pub const TRANSFER_ACK: u8 = 0x02;
+
+/// MD5 digest length in bytes.
+pub const MD5_DIGEST_LEN: usize = 16;
 
 /// Token length in bytes (32 hex characters).
 pub const TOKEN_LEN: usize = 32;
@@ -130,6 +138,47 @@ pub async fn read_auth_response<R: AsyncRead + Unpin>(
 ) -> Result<bool, DataChannelError> {
     let byte = reader.read_u8().await?;
     Ok(byte == AUTH_OK)
+}
+
+/// Writes a 16-byte raw MD5 digest to the stream.
+pub async fn write_file_checksum<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    digest: &[u8; MD5_DIGEST_LEN],
+) -> Result<(), DataChannelError> {
+    writer.write_all(digest).await?;
+    Ok(())
+}
+
+/// Reads a 16-byte raw MD5 digest from the stream.
+pub async fn read_file_checksum<R: AsyncRead + Unpin>(
+    reader: &mut R,
+) -> Result<[u8; MD5_DIGEST_LEN], DataChannelError> {
+    let mut buf = [0u8; MD5_DIGEST_LEN];
+    reader.read_exact(&mut buf).await?;
+    Ok(buf)
+}
+
+/// Writes the transfer ACK byte (Agent -> Hub).
+pub async fn write_transfer_ack<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+) -> Result<(), DataChannelError> {
+    writer.write_u8(TRANSFER_ACK).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+/// Reads the transfer ACK byte (Hub waits for Agent).
+pub async fn read_transfer_ack<R: AsyncRead + Unpin>(
+    reader: &mut R,
+) -> Result<(), DataChannelError> {
+    let byte = reader.read_u8().await?;
+    if byte != TRANSFER_ACK {
+        return Err(DataChannelError::Protocol(format!(
+            "expected ACK byte 0x{:02X}, got 0x{byte:02X}",
+            TRANSFER_ACK
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -239,6 +288,40 @@ mod tests {
         };
         let mut buf = Vec::new();
         let result = write_file_header(&mut buf, &header).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn checksum_roundtrip() {
+        let digest: [u8; MD5_DIGEST_LEN] = [
+            0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x00, 0xb2, 0x04, 0xe9, 0x80, 0x09, 0x98, 0xec, 0xf8,
+            0x42, 0x7e,
+        ];
+
+        let mut buf = Vec::new();
+        write_file_checksum(&mut buf, &digest).await.unwrap();
+        assert_eq!(buf.len(), MD5_DIGEST_LEN);
+
+        let mut cursor = &buf[..];
+        let parsed = read_file_checksum(&mut cursor).await.unwrap();
+        assert_eq!(parsed, digest);
+    }
+
+    #[tokio::test]
+    async fn transfer_ack_roundtrip() {
+        let mut buf = Vec::new();
+        write_transfer_ack(&mut buf).await.unwrap();
+        assert_eq!(buf[0], TRANSFER_ACK);
+
+        let mut cursor = &buf[..];
+        read_transfer_ack(&mut cursor).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn transfer_ack_wrong_byte() {
+        let buf = [0xFF];
+        let mut cursor = &buf[..];
+        let result = read_transfer_ack(&mut cursor).await;
         assert!(result.is_err());
     }
 }

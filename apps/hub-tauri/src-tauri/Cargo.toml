@@ -36,6 +36,7 @@ capydeploy-steamgriddb = { workspace = true }
 
 # Core
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

@@ -5,11 +5,11 @@
 	import { toast } from '$lib/stores/toast';
 	import type { GameSetup, UploadProgress, ArtworkSelection } from '$lib/types';
 	import { truncatePath } from '$lib/utils';
-	import { Folder, Upload, Pencil, Trash2, Plus, Image, Loader2 } from 'lucide-svelte';
+	import { Folder, Upload, Pencil, Trash2, Plus, Image, Loader2, X } from 'lucide-svelte';
 	import ArtworkSelector from './ArtworkSelector.svelte';
 	import {
 		GetGameSetups, AddGameSetup, UpdateGameSetup, RemoveGameSetup,
-		SelectFolder, UploadGame, EventsOn
+		SelectFolder, UploadGame, CancelUpload, EventsOn
 	} from '$lib/wailsjs';
 	import { browser } from '$app/environment';
 
@@ -17,6 +17,7 @@
 	let showArtworkSelector = $state(false);
 	let editingSetup: GameSetup | null = $state(null);
 	let uploading = $state<string | null>(null);
+	let cancelling = $state(false);
 
 	// Form state
 	let formName = $state('');
@@ -45,6 +46,7 @@
 			uploadProgress.set(data);
 			if (data.done) {
 				uploading = null;
+				cancelling = false;
 				if (!data.error) {
 					toast.success('Upload complete', data.status);
 				} else {
@@ -178,6 +180,17 @@
 		}
 	}
 
+	async function cancelUploadHandler() {
+		if (cancelling) return;
+		cancelling = true;
+		try {
+			await CancelUpload();
+		} catch (e) {
+			console.error('Failed to cancel upload:', e);
+			cancelling = false;
+		}
+	}
+
 	function countArtwork(setup: GameSetup): number {
 		let count = 0;
 		if (setup.grid_portrait) count++;
@@ -264,7 +277,21 @@
 		<div class="cd-section p-4 space-y-2">
 			<div class="flex justify-between text-sm">
 				<span class="cd-text-disabled">{$uploadProgress.status}</span>
-				<span class="cd-mono">{Math.round($uploadProgress.progress * 100)}%</span>
+				<div class="flex items-center gap-2">
+					<span class="cd-mono">{Math.round($uploadProgress.progress * 100)}%</span>
+					<Button
+						variant="ghost"
+						size="icon"
+						onclick={cancelUploadHandler}
+						disabled={cancelling}
+					>
+						{#if cancelling}
+							<Loader2 class="w-4 h-4 animate-spin" />
+						{:else}
+							<X class="w-4 h-4" />
+						{/if}
+					</Button>
+				</div>
 			</div>
 			<div class="cd-progress-bar">
 				<div class="cd-progress-fill" style="width: {$uploadProgress.progress * 100}%"></div>

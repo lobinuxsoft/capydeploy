@@ -225,12 +225,33 @@ pub async fn event_loop(handle: AppHandle, mgr: Arc<ConnectionManager>) {
                             .ok()
                             .flatten()
                         {
+                            let is_terminal = evt.status == "complete"
+                                || evt.status == "failed"
+                                || evt.status == "error";
+
+                            // If the agent reports failure/cancellation, cancel any
+                            // in-progress deploy so the Hub side stops sending data.
+                            if evt.status == "failed" || evt.status == "error" {
+                                let mut guard = state.deploy_cancel.lock().await;
+                                if let Some(token) = guard.take() {
+                                    token.cancel();
+                                    debug!(
+                                        "deploy cancelled: agent sent operation_event status={}",
+                                        evt.status
+                                    );
+                                }
+                            }
+
                             // Protocol uses 0-100 scale, frontend expects 0.0-1.0.
                             let dto = UploadProgressDto {
                                 progress: evt.progress / 100.0,
                                 status: evt.status.clone(),
-                                error: None,
-                                done: evt.status == "complete" || evt.status == "failed",
+                                error: if evt.message.is_empty() {
+                                    None
+                                } else {
+                                    Some(evt.message.clone())
+                                },
+                                done: is_terminal,
                             };
                             let _ = handle.emit("upload:progress", &dto);
                         }

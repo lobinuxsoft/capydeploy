@@ -5,14 +5,17 @@
 
 use std::path::{Path, PathBuf};
 
-use tokio::io::{AsyncReadExt, BufReader};
+use md5::{Digest, Md5};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 use crate::error::DataChannelError;
-use crate::wire::{read_file_header, read_token, write_auth_response};
+use crate::wire::{
+    read_file_checksum, read_file_header, read_token, write_auth_response, write_transfer_ack,
+};
 use crate::{TCP_AUTH_TIMEOUT, TCP_BUFFER_SIZE, TCP_CONNECT_TIMEOUT};
 
 /// Info returned after binding the listener (sent to Hub via WS).
@@ -132,6 +135,7 @@ impl TcpDataServer {
 
             let mut file = tokio::fs::File::create(&file_path).await?;
             let mut remaining = header.file_size;
+            let mut hasher = Md5::new();
 
             while remaining > 0 {
                 if self.cancel.is_cancelled() {
@@ -146,7 +150,8 @@ impl TcpDataServer {
                     ));
                 }
 
-                tokio::io::AsyncWriteExt::write_all(&mut file, &buf[..n]).await?;
+                hasher.update(&buf[..n]);
+                file.write_all(&buf[..n]).await?;
                 remaining -= n as u64;
                 total_bytes += n as i64;
 
@@ -154,14 +159,33 @@ impl TcpDataServer {
                 let _ = progress_tx.try_send((total_bytes, header.relative_path.clone()));
             }
 
+            // Flush and sync to guarantee data reaches disk before reporting success.
+            file.flush().await?;
+            file.sync_all().await?;
+
+            // Verify MD5 checksum.
+            let expected = read_file_checksum(&mut reader).await?;
+            let actual: [u8; 16] = hasher.finalize().into();
+            if expected != actual {
+                return Err(DataChannelError::ChecksumMismatch {
+                    file: header.relative_path.clone(),
+                    expected: hex::encode(expected),
+                    actual: hex::encode(actual),
+                });
+            }
+
             debug!(
                 path = %header.relative_path,
                 size = header.file_size,
-                "TCP data channel: file received"
+                md5 = hex::encode(actual),
+                "TCP data channel: file received, checksum OK"
             );
         }
 
-        info!(total_bytes, "TCP data channel: transfer complete");
+        // Send transfer ACK to Hub.
+        write_transfer_ack(&mut writer).await?;
+
+        info!(total_bytes, "TCP data channel: transfer complete, ACK sent");
         Ok(total_bytes)
     }
 }
@@ -274,6 +298,51 @@ mod tests {
         assert!(result.is_err());
     }
 
+    /// Verify byte-for-byte integrity on a multi-MB transfer (regression for flush/sync bug).
+    #[tokio::test]
+    async fn large_file_integrity() {
+        use crate::client::TcpDataClient;
+
+        let server_dir = tempfile::tempdir().unwrap();
+        let client_dir = tempfile::tempdir().unwrap();
+
+        // 10 MB file with a repeating pattern that's easy to verify.
+        let size = 10 * 1024 * 1024;
+        let original: Vec<u8> = (0..size).map(|i| (i % 251) as u8).collect();
+        let file_path = client_dir.path().join("large_game.bin");
+        std::fs::write(&file_path, &original).unwrap();
+
+        let files = vec![(file_path, "large_game.bin".to_string())];
+
+        let cancel = CancellationToken::new();
+        let server = TcpDataServer::new(server_dir.path().to_path_buf(), cancel.clone());
+        let (info, listener) = server.listen().await.unwrap();
+
+        let addr: std::net::SocketAddr = format!("127.0.0.1:{}", info.port).parse().unwrap();
+        let token = info.token.clone();
+        let (s_tx, _) = mpsc::channel(64);
+        let (c_tx, _) = mpsc::channel(64);
+
+        let server_handle =
+            tokio::spawn(async move { server.accept_and_receive(listener, &token, s_tx).await });
+
+        let client_bytes = TcpDataClient::connect_and_send(addr, &info.token, &files, cancel, c_tx)
+            .await
+            .unwrap();
+
+        let server_bytes = server_handle.await.unwrap().unwrap();
+
+        assert_eq!(client_bytes, size as i64);
+        assert_eq!(server_bytes, size as i64);
+
+        let received = std::fs::read(server_dir.path().join("large_game.bin")).unwrap();
+        assert_eq!(received.len(), original.len(), "file size mismatch");
+        assert_eq!(
+            received, original,
+            "file content mismatch — data corruption detected"
+        );
+    }
+
     #[tokio::test]
     async fn server_cancellation() {
         let dir = tempfile::tempdir().unwrap();
@@ -291,5 +360,109 @@ mod tests {
             .accept_and_receive(listener, "dummy_token_00000000000000000000", progress_tx)
             .await;
         assert!(matches!(result, Err(DataChannelError::Cancelled)));
+    }
+
+    /// Verify that a corrupt MD5 checksum is detected by the server.
+    #[tokio::test]
+    async fn checksum_mismatch_detected() {
+        use crate::wire;
+
+        let dir = tempfile::tempdir().unwrap();
+        let cancel = CancellationToken::new();
+        let server = TcpDataServer::new(dir.path().to_path_buf(), cancel.clone());
+        let (info, listener) = server.listen().await.unwrap();
+
+        let (progress_tx, _progress_rx) = mpsc::channel(16);
+        let addr = format!("127.0.0.1:{}", info.port);
+        let token = info.token.clone();
+
+        let server_task = tokio::spawn(async move {
+            server
+                .accept_and_receive(listener, &token, progress_tx)
+                .await
+        });
+
+        // Manual raw client: send token, get auth, send file with WRONG checksum.
+        let mut stream = tokio::net::TcpStream::connect(&addr).await.unwrap();
+
+        // Auth handshake.
+        tokio::io::AsyncWriteExt::write_all(&mut stream, info.token.as_bytes())
+            .await
+            .unwrap();
+        let mut resp = [0u8; 1];
+        tokio::io::AsyncReadExt::read_exact(&mut stream, &mut resp)
+            .await
+            .unwrap();
+        assert_eq!(resp[0], wire::AUTH_OK);
+
+        // Send a file header.
+        let path = b"test.bin";
+        let data = b"hello world";
+        tokio::io::AsyncWriteExt::write_u16(&mut stream, path.len() as u16)
+            .await
+            .unwrap();
+        tokio::io::AsyncWriteExt::write_all(&mut stream, path)
+            .await
+            .unwrap();
+        tokio::io::AsyncWriteExt::write_u64(&mut stream, data.len() as u64)
+            .await
+            .unwrap();
+        tokio::io::AsyncWriteExt::write_all(&mut stream, data)
+            .await
+            .unwrap();
+
+        // Send a WRONG MD5 checksum (all zeros).
+        let bad_md5 = [0u8; 16];
+        tokio::io::AsyncWriteExt::write_all(&mut stream, &bad_md5)
+            .await
+            .unwrap();
+        tokio::io::AsyncWriteExt::flush(&mut stream).await.unwrap();
+
+        let result = server_task.await.unwrap();
+        assert!(
+            matches!(result, Err(DataChannelError::ChecksumMismatch { .. })),
+            "expected ChecksumMismatch, got {result:?}"
+        );
+    }
+
+    /// Verify that a valid checksum + ACK flow works end-to-end for 1 MB.
+    #[tokio::test]
+    async fn checksum_valid_with_ack() {
+        use crate::client::TcpDataClient;
+
+        let server_dir = tempfile::tempdir().unwrap();
+        let client_dir = tempfile::tempdir().unwrap();
+
+        // 1 MB file.
+        let size = 1024 * 1024;
+        let original: Vec<u8> = (0..size).map(|i| (i % 199) as u8).collect();
+        let file_path = client_dir.path().join("data.bin");
+        std::fs::write(&file_path, &original).unwrap();
+
+        let files = vec![(file_path, "data.bin".to_string())];
+
+        let cancel = CancellationToken::new();
+        let server = TcpDataServer::new(server_dir.path().to_path_buf(), cancel.clone());
+        let (info, listener) = server.listen().await.unwrap();
+
+        let addr: std::net::SocketAddr = format!("127.0.0.1:{}", info.port).parse().unwrap();
+        let token = info.token.clone();
+        let (s_tx, _) = mpsc::channel(64);
+        let (c_tx, _) = mpsc::channel(64);
+
+        let server_handle =
+            tokio::spawn(async move { server.accept_and_receive(listener, &token, s_tx).await });
+
+        let client_bytes = TcpDataClient::connect_and_send(addr, &info.token, &files, cancel, c_tx)
+            .await
+            .unwrap();
+
+        let server_bytes = server_handle.await.unwrap().unwrap();
+
+        assert_eq!(client_bytes, size as i64);
+        assert_eq!(server_bytes, size as i64);
+
+        let received = std::fs::read(server_dir.path().join("data.bin")).unwrap();
+        assert_eq!(received, original);
     }
 }

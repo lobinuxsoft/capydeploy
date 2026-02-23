@@ -229,6 +229,59 @@ DESKTOP
         fi
     fi
 
+    # Bundle GStreamer plugins (loaded via dlopen, invisible to ldd)
+    # Required for WebM/VP8/VP9 video playback in WebKit
+    local gst_plugin_dir
+    gst_plugin_dir=$(pkg-config --variable=pluginsdir gstreamer-1.0 2>/dev/null)
+    if [ -z "$gst_plugin_dir" ] || [ ! -d "$gst_plugin_dir" ]; then
+        for candidate in /usr/lib64/gstreamer-1.0 /usr/lib/x86_64-linux-gnu/gstreamer-1.0; do
+            if [ -d "$candidate" ]; then
+                gst_plugin_dir="$candidate"
+                break
+            fi
+        done
+    fi
+    if [ -n "$gst_plugin_dir" ] && [ -d "$gst_plugin_dir" ]; then
+        echo "  Bundling GStreamer plugins from $gst_plugin_dir..."
+        mkdir -p "$appdir/usr/lib/gstreamer-1.0"
+        local gst_plugins=(
+            coreelements typefindfunctions app playback matroska vpx
+            opus vorbis ogg audioconvert audioresample videoconvertscale
+            autodetect volume opengl gio
+        )
+        for plugin in "${gst_plugins[@]}"; do
+            local found
+            found=$(compgen -G "$gst_plugin_dir/libgst${plugin}.*" 2>/dev/null | head -1)
+            if [ -n "$found" ]; then
+                cp "$found" "$appdir/usr/lib/gstreamer-1.0/"
+            else
+                echo -e "    ${YELLOW}[WARN]${NC} GStreamer plugin not found: $plugin"
+            fi
+        done
+
+        # Bundle GStreamer plugin scanner
+        # Path varies: Fedora=/usr/libexec/gstreamer-1.0/, Ubuntu=/usr/lib/.../gstreamer1.0/gstreamer-1.0/
+        local gst_scanner=""
+        local gst_scanner_dir
+        gst_scanner_dir=$(pkg-config --variable=pluginscannerdir gstreamer-1.0 2>/dev/null)
+        if [ -n "$gst_scanner_dir" ] && [ -x "$gst_scanner_dir/gst-plugin-scanner" ]; then
+            gst_scanner="$gst_scanner_dir/gst-plugin-scanner"
+        elif [ -x "/usr/libexec/gstreamer-1.0/gst-plugin-scanner" ]; then
+            gst_scanner="/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+        else
+            gst_scanner=$(find /usr -name "gst-plugin-scanner" -path "*/gstreamer-1.0/*" 2>/dev/null | head -1)
+        fi
+        if [ -n "$gst_scanner" ]; then
+            mkdir -p "$appdir/usr/libexec/gstreamer-1.0"
+            cp "$gst_scanner" "$appdir/usr/libexec/gstreamer-1.0/"
+            echo "  GStreamer scanner bundled from $gst_scanner"
+        else
+            echo -e "    ${YELLOW}[WARN]${NC} GStreamer plugin scanner not found"
+        fi
+    else
+        echo -e "  ${YELLOW}[WARN]${NC} GStreamer plugin directory not found, skipping"
+    fi
+
     echo -e "  ${GREEN}Libraries bundled${NC}"
 
     # Create AppRun with install/uninstall support
@@ -251,6 +304,12 @@ export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
 export GIO_MODULE_DIR="${HERE}/usr/lib/gio/modules"
 export GDK_PIXBUF_MODULE_FILE="${HERE}/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
 export GSETTINGS_SCHEMA_DIR="${HERE}/usr/share/glib-2.0/schemas"
+
+# GStreamer plugin paths (bundled for WebM/VP8/VP9 video playback)
+export GST_PLUGIN_PATH="${HERE}/usr/lib/gstreamer-1.0"
+export GST_PLUGIN_SYSTEM_PATH=""
+export GST_PLUGIN_SCANNER="${HERE}/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+export GST_REGISTRY="${HOME}/.cache/capydeploy/gst-registry-${BINARY_NAME}.bin"
 
 # WebKit helpers use paths patched to be relative (././ prefix),
 # so we must cd to the AppDir root for them to resolve correctly.

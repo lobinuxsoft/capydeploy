@@ -97,7 +97,8 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libgdk-pixbuf2.0-bin
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libgdk-pixbuf2.0-bin \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-gl libgstreamer1.0-dev
 
       - name: Download tools
         run: |
@@ -222,6 +223,62 @@ jobs:
             done
           fi
 
+      - name: Bundle GStreamer plugins
+        run: |
+          # GStreamer plugins are loaded via dlopen() — invisible to ldd.
+          # Required for WebM/VP8/VP9 video playback in WebKit.
+          GST_PLUGIN_DIR=$(pkg-config --variable=pluginsdir gstreamer-1.0 2>/dev/null)
+          if [ -z "$GST_PLUGIN_DIR" ] || [ ! -d "$GST_PLUGIN_DIR" ]; then
+            for candidate in /usr/lib/x86_64-linux-gnu/gstreamer-1.0 /usr/lib64/gstreamer-1.0; do
+              if [ -d "$candidate" ]; then
+                GST_PLUGIN_DIR="$candidate"
+                break
+              fi
+            done
+          fi
+          if [ -n "$GST_PLUGIN_DIR" ] && [ -d "$GST_PLUGIN_DIR" ]; then
+            echo "Bundling GStreamer plugins from $GST_PLUGIN_DIR..."
+            GST_PLUGINS=(
+              coreelements typefindfunctions app playback matroska vpx
+              opus vorbis ogg audioconvert audioresample videoconvertscale
+              autodetect volume opengl gio
+            )
+            for appdir in hub.AppDir agent.AppDir; do
+              mkdir -p "$appdir/usr/lib/gstreamer-1.0"
+              for plugin in "${GST_PLUGINS[@]}"; do
+                FOUND=$(compgen -G "$GST_PLUGIN_DIR/libgst${plugin}.*" 2>/dev/null | head -1)
+                if [ -n "$FOUND" ]; then
+                  cp "$FOUND" "$appdir/usr/lib/gstreamer-1.0/"
+                else
+                  echo "::warning::GStreamer plugin not found: $plugin"
+                fi
+              done
+            done
+
+            # Bundle GStreamer plugin scanner
+            # Path varies: Fedora=/usr/libexec/gstreamer-1.0/, Ubuntu=/usr/lib/.../gstreamer1.0/gstreamer-1.0/
+            GST_SCANNER=""
+            GST_SCANNER_DIR=$(pkg-config --variable=pluginscannerdir gstreamer-1.0 2>/dev/null)
+            if [ -n "$GST_SCANNER_DIR" ] && [ -x "$GST_SCANNER_DIR/gst-plugin-scanner" ]; then
+              GST_SCANNER="$GST_SCANNER_DIR/gst-plugin-scanner"
+            elif [ -x "/usr/libexec/gstreamer-1.0/gst-plugin-scanner" ]; then
+              GST_SCANNER="/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+            else
+              GST_SCANNER=$(find /usr -name "gst-plugin-scanner" -path "*/gstreamer-1.0/*" 2>/dev/null | head -1)
+            fi
+            if [ -n "$GST_SCANNER" ]; then
+              for appdir in hub.AppDir agent.AppDir; do
+                mkdir -p "$appdir/usr/libexec/gstreamer-1.0"
+                cp "$GST_SCANNER" "$appdir/usr/libexec/gstreamer-1.0/"
+              done
+              echo "GStreamer scanner bundled from $GST_SCANNER"
+            else
+              echo "::warning::GStreamer plugin scanner not found"
+            fi
+          else
+            echo "::warning::GStreamer plugin directory not found, skipping"
+          fi
+
       - name: Generate AppRun scripts
         run: |
           generate_apprun() {
@@ -249,6 +306,12 @@ jobs:
           export GIO_MODULE_DIR="\${HERE}/usr/lib/gio/modules"
           export GDK_PIXBUF_MODULE_FILE="\${HERE}/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
           export GSETTINGS_SCHEMA_DIR="\${HERE}/usr/share/glib-2.0/schemas"
+
+          # GStreamer plugin paths (bundled for WebM/VP8/VP9 video playback)
+          export GST_PLUGIN_PATH="\${HERE}/usr/lib/gstreamer-1.0"
+          export GST_PLUGIN_SYSTEM_PATH=""
+          export GST_PLUGIN_SCANNER="\${HERE}/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+          export GST_REGISTRY="\${HOME}/.cache/capydeploy/gst-registry-\${BINARY_NAME}.bin"
 
           # WebKit helpers use paths patched to be relative (././ prefix),
           # so we must cd to the AppDir root for them to resolve correctly.

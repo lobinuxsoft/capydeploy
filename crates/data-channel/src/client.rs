@@ -6,6 +6,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use md5::{Digest, Md5};
 use tokio::io::{AsyncReadExt, BufWriter};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
@@ -14,7 +15,8 @@ use tracing::{debug, info};
 
 use crate::error::DataChannelError;
 use crate::wire::{
-    FileHeader, read_auth_response, write_end_marker, write_file_header, write_token,
+    FileHeader, read_auth_response, read_transfer_ack, write_end_marker, write_file_checksum,
+    write_file_header, write_token,
 };
 use crate::{TCP_AUTH_TIMEOUT, TCP_BUFFER_SIZE, TCP_CONNECT_TIMEOUT};
 
@@ -100,6 +102,7 @@ impl TcpDataClient {
 
             let mut file = tokio::fs::File::open(local_path).await?;
             let mut remaining = file_size;
+            let mut hasher = Md5::new();
 
             while remaining > 0 {
                 if cancel.is_cancelled() {
@@ -114,6 +117,7 @@ impl TcpDataClient {
                     ));
                 }
 
+                hasher.update(&buf[..n]);
                 tokio::io::AsyncWriteExt::write_all(&mut writer, &buf[..n]).await?;
                 remaining -= n as u64;
                 total_bytes += n as i64;
@@ -122,9 +126,14 @@ impl TcpDataClient {
                 let _ = progress_tx.try_send((total_bytes, relative_path.clone()));
             }
 
+            // Write MD5 checksum after file data.
+            let digest: [u8; 16] = hasher.finalize().into();
+            write_file_checksum(&mut writer, &digest).await?;
+
             debug!(
                 path = %relative_path,
                 size = file_size,
+                md5 = hex::encode(digest),
                 "TCP data channel: file sent"
             );
         }
@@ -133,7 +142,21 @@ impl TcpDataClient {
         write_end_marker(&mut writer).await?;
         tokio::io::AsyncWriteExt::flush(&mut writer).await?;
 
-        info!(total_bytes, "TCP data channel: all files sent");
+        // Wait for transfer ACK from agent (no timeout — cancel button handles abort).
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(DataChannelError::Cancelled);
+            }
+            result = read_transfer_ack(&mut reader) => {
+                result?;
+            }
+        };
+
+        info!(
+            total_bytes,
+            "TCP data channel: all files sent, ACK received"
+        );
         Ok(total_bytes)
     }
 }
