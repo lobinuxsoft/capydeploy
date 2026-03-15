@@ -550,6 +550,7 @@ async fn get_remote_file_size(
 // Upload via TCP
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 async fn upload_single_file_tcp(
     app: &AppHandle,
     state: &State<'_, HubState>,
@@ -708,6 +709,7 @@ async fn upload_directory_recursive(
 // Download via TCP
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 async fn download_single_file(
     app: &AppHandle,
     state: &State<'_, HubState>,
