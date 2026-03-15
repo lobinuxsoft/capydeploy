@@ -129,7 +129,11 @@ impl TauriAgentHandler {
         let path = match resolve_home(raw) {
             Some(p) => p,
             None => {
-                let _ = sender.send_error(msg, constants::WS_ERR_CODE_INTERNAL, "cannot resolve home directory");
+                let _ = sender.send_error(
+                    msg,
+                    constants::WS_ERR_CODE_INTERNAL,
+                    "cannot resolve home directory",
+                );
                 return None;
             }
         };
@@ -148,7 +152,11 @@ impl TauriAgentHandler {
         let path = match resolve_home(raw) {
             Some(p) => p,
             None => {
-                let _ = sender.send_error(msg, constants::WS_ERR_CODE_INTERNAL, "cannot resolve home directory");
+                let _ = sender.send_error(
+                    msg,
+                    constants::WS_ERR_CODE_INTERNAL,
+                    "cannot resolve home directory",
+                );
                 return None;
             }
         };
@@ -168,7 +176,8 @@ impl TauriAgentHandler {
         let req: messages::FsListRequest = match msg.parse_payload() {
             Ok(Some(r)) => r,
             _ => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
+                let _ =
+                    sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
                 return;
             }
         };
@@ -179,11 +188,16 @@ impl TauriAgentHandler {
         };
 
         let show_hidden = req.show_hidden;
-        let result = tokio::task::spawn_blocking(move || read_dir_entries(&canonical, show_hidden)).await;
+        let result =
+            tokio::task::spawn_blocking(move || read_dir_entries(&canonical, show_hidden)).await;
 
         match result {
             Ok(Ok((entries, truncated))) => {
-                let resp = messages::FsListResponse { path: req.path, entries, truncated };
+                let resp = messages::FsListResponse {
+                    path: req.path,
+                    entries,
+                    truncated,
+                };
                 if let Ok(reply) = msg.reply(MessageType::FsListResponse, Some(&resp)) {
                     let _ = sender.send_msg(reply);
                 }
@@ -204,7 +218,8 @@ impl TauriAgentHandler {
         let req: messages::FsMkdirRequest = match msg.parse_payload() {
             Ok(Some(r)) => r,
             _ => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
+                let _ =
+                    sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
                 return;
             }
         };
@@ -215,13 +230,16 @@ impl TauriAgentHandler {
         };
 
         let result = tokio::task::spawn_blocking(move || {
-            std::fs::create_dir_all(&target)
-                .map_err(|e| format!("failed to create directory: {e}"))
-        }).await;
+            std::fs::create_dir_all(&target).map_err(|e| format!("failed to create directory: {e}"))
+        })
+        .await;
 
         match result {
             Ok(Ok(())) => {
-                let resp = messages::OperationResult { success: true, message: String::new() };
+                let resp = messages::OperationResult {
+                    success: true,
+                    message: String::new(),
+                };
                 if let Ok(reply) = msg.reply(MessageType::OperationResult, Some(&resp)) {
                     let _ = sender.send_msg(reply);
                 }
@@ -242,7 +260,8 @@ impl TauriAgentHandler {
         let req: messages::FsDeleteRequest = match msg.parse_payload() {
             Ok(Some(r)) => r,
             _ => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
+                let _ =
+                    sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
                 return;
             }
         };
@@ -259,11 +278,15 @@ impl TauriAgentHandler {
                 std::fs::remove_file(&canonical)
             }
             .map_err(|e| format!("failed to delete: {e}"))
-        }).await;
+        })
+        .await;
 
         match result {
             Ok(Ok(())) => {
-                let resp = messages::OperationResult { success: true, message: String::new() };
+                let resp = messages::OperationResult {
+                    success: true,
+                    message: String::new(),
+                };
                 if let Ok(reply) = msg.reply(MessageType::OperationResult, Some(&resp)) {
                     let _ = sender.send_msg(reply);
                 }
@@ -284,7 +307,8 @@ impl TauriAgentHandler {
         let req: messages::FsRenameRequest = match msg.parse_payload() {
             Ok(Some(r)) => r,
             _ => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
+                let _ =
+                    sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
                 return;
             }
         };
@@ -299,13 +323,16 @@ impl TauriAgentHandler {
         };
 
         let result = tokio::task::spawn_blocking(move || {
-            std::fs::rename(&old, &new)
-                .map_err(|e| format!("failed to rename: {e}"))
-        }).await;
+            std::fs::rename(&old, &new).map_err(|e| format!("failed to rename: {e}"))
+        })
+        .await;
 
         match result {
             Ok(Ok(())) => {
-                let resp = messages::OperationResult { success: true, message: String::new() };
+                let resp = messages::OperationResult {
+                    success: true,
+                    message: String::new(),
+                };
                 if let Ok(reply) = msg.reply(MessageType::OperationResult, Some(&resp)) {
                     let _ = sender.send_msg(reply);
                 }
@@ -326,7 +353,8 @@ impl TauriAgentHandler {
         let req: messages::FsDownloadRequest = match msg.parse_payload() {
             Ok(Some(r)) => r,
             _ => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
+                let _ =
+                    sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
                 return;
             }
         };
@@ -339,13 +367,21 @@ impl TauriAgentHandler {
         let meta = match tokio::fs::metadata(&canonical).await {
             Ok(m) => m,
             Err(e) => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, &format!("cannot stat file: {e}"));
+                let _ = sender.send_error(
+                    &msg,
+                    constants::WS_ERR_CODE_BAD_REQUEST,
+                    &format!("cannot stat file: {e}"),
+                );
                 return;
             }
         };
 
         if meta.is_dir() {
-            let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "cannot download a directory");
+            let _ = sender.send_error(
+                &msg,
+                constants::WS_ERR_CODE_BAD_REQUEST,
+                "cannot download a directory",
+            );
             return;
         }
 
@@ -355,7 +391,11 @@ impl TauriAgentHandler {
         let listener = match tokio::net::TcpListener::bind("0.0.0.0:0").await {
             Ok(l) => l,
             Err(e) => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_INTERNAL, &format!("failed to bind TCP: {e}"));
+                let _ = sender.send_error(
+                    &msg,
+                    constants::WS_ERR_CODE_INTERNAL,
+                    &format!("failed to bind TCP: {e}"),
+                );
                 return;
             }
         };
@@ -372,7 +412,8 @@ impl TauriAgentHandler {
             let _ = sender.send_msg(reply);
         }
 
-        let file_name = canonical.file_name()
+        let file_name = canonical
+            .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "download".to_string());
         let files = vec![(canonical, file_name)];
@@ -380,8 +421,14 @@ impl TauriAgentHandler {
 
         tokio::spawn(async move {
             match capydeploy_data_channel::server::TcpDataServer::accept_and_send(
-                listener, &tcp_token, &files, cancel, progress_tx,
-            ).await {
+                listener,
+                &tcp_token,
+                &files,
+                cancel,
+                progress_tx,
+            )
+            .await
+            {
                 Ok(bytes) => tracing::info!(bytes, "fs_download TCP complete"),
                 Err(e) => tracing::error!("fs_download TCP failed: {e}"),
             }
@@ -394,7 +441,8 @@ impl TauriAgentHandler {
         let req: messages::FsUploadRequest = match msg.parse_payload() {
             Ok(Some(r)) => r,
             _ => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
+                let _ =
+                    sender.send_error(&msg, constants::WS_ERR_CODE_BAD_REQUEST, "invalid payload");
                 return;
             }
         };
@@ -411,7 +459,11 @@ impl TauriAgentHandler {
         let (info, listener) = match tcp_server.listen().await {
             Ok(r) => r,
             Err(e) => {
-                let _ = sender.send_error(&msg, constants::WS_ERR_CODE_INTERNAL, &format!("failed to start TCP: {e}"));
+                let _ = sender.send_error(
+                    &msg,
+                    constants::WS_ERR_CODE_INTERNAL,
+                    &format!("failed to start TCP: {e}"),
+                );
                 return;
             }
         };
@@ -428,7 +480,10 @@ impl TauriAgentHandler {
         let (progress_tx, _) = tokio::sync::mpsc::channel(64);
 
         tokio::spawn(async move {
-            match tcp_server.accept_and_receive(listener, &token, progress_tx).await {
+            match tcp_server
+                .accept_and_receive(listener, &token, progress_tx)
+                .await
+            {
                 Ok(bytes) => tracing::info!(bytes, "fs_upload TCP complete"),
                 Err(e) => tracing::error!("fs_upload TCP failed: {e}"),
             }
@@ -474,16 +529,17 @@ fn read_dir_entries(
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
-        let is_symlink = entry
-            .file_type()
-            .map(|ft| ft.is_symlink())
-            .unwrap_or(false);
+        let is_symlink = entry.file_type().map(|ft| ft.is_symlink()).unwrap_or(false);
 
         entries.push(messages::FsEntry {
             name,
             path: entry.path().to_string_lossy().into_owned(),
             is_dir: metadata.is_dir(),
-            size: if metadata.is_dir() { 0 } else { metadata.len() as i64 },
+            size: if metadata.is_dir() {
+                0
+            } else {
+                metadata.len() as i64
+            },
             mod_time,
             is_symlink,
         });

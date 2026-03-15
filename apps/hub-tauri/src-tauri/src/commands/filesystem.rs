@@ -91,7 +91,12 @@ pub async fn fs_mkdir(state: State<'_, HubState>, path: String) -> Result<(), St
 
 #[tauri::command]
 pub async fn fs_delete(state: State<'_, HubState>, path: String) -> Result<(), String> {
-    send_and_check(&state, MessageType::FsDelete, Some(&FsDeleteRequest { path })).await
+    send_and_check(
+        &state,
+        MessageType::FsDelete,
+        Some(&FsDeleteRequest { path }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -147,8 +152,7 @@ pub async fn fs_download_path(
             .unwrap_or_else(|| "download".to_string());
 
         let dest = local_dir.join(&dir_name);
-        std::fs::create_dir_all(&dest)
-            .map_err(|e| format!("failed to create directory: {e}"))?;
+        std::fs::create_dir_all(&dest).map_err(|e| format!("failed to create directory: {e}"))?;
 
         emit_progress(&app, "Scanning directory...", 0.0, false, None);
         let total_bytes = count_remote_bytes(&state, &path).await.unwrap_or(0);
@@ -159,7 +163,13 @@ pub async fn fs_download_path(
         let transferred = Arc::new(AtomicI64::new(0));
 
         let result = download_directory_recursive(
-            &app, &state, &path, &dest, &transferred, total_bytes, &cancel,
+            &app,
+            &state,
+            &path,
+            &dest,
+            &transferred,
+            total_bytes,
+            &cancel,
         )
         .await;
 
@@ -194,7 +204,13 @@ pub async fn fs_download_path(
         let cancel = CancellationToken::new();
         *fs_state.cancel.lock().await = Some(cancel.clone());
 
-        emit_progress(&app, &format!("Downloading {filename}..."), 0.0, false, None);
+        emit_progress(
+            &app,
+            &format!("Downloading {filename}..."),
+            0.0,
+            false,
+            None,
+        );
         let result = download_single_file(&app, &state, &path, &save_path, 0, 0, &cancel).await;
 
         *fs_state.cancel.lock().await = None;
@@ -253,7 +269,13 @@ pub async fn fs_download_batch(
             std::fs::create_dir_all(&dest)
                 .map_err(|e| format!("failed to create directory: {e}"))?;
             downloaded += download_directory_recursive(
-                &app, &state, remote_path, &dest, &transferred, total_bytes, &cancel,
+                &app,
+                &state,
+                remote_path,
+                &dest,
+                &transferred,
+                total_bytes,
+                &cancel,
             )
             .await?;
         } else {
@@ -280,7 +302,13 @@ pub async fn fs_download_batch(
     }
 
     *fs_state.cancel.lock().await = None;
-    emit_progress(&app, &format!("{downloaded} file(s) downloaded"), 1.0, true, None);
+    emit_progress(
+        &app,
+        &format!("{downloaded} file(s) downloaded"),
+        1.0,
+        true,
+        None,
+    );
     Ok(downloaded)
 }
 
@@ -311,9 +339,17 @@ pub async fn fs_upload(
     *fs_state.cancel.lock().await = Some(cancel.clone());
 
     emit_progress(&app, &format!("Uploading {name}..."), 0.0, false, None);
-    let result =
-        upload_single_file_tcp(&app, &state, &file_path, &destination_dir, &name, 0, 0, &cancel)
-            .await;
+    let result = upload_single_file_tcp(
+        &app,
+        &state,
+        &file_path,
+        &destination_dir,
+        &name,
+        0,
+        0,
+        &cancel,
+    )
+    .await;
 
     *fs_state.cancel.lock().await = None;
     match &result {
@@ -362,7 +398,9 @@ pub async fn fs_upload_local(
                 &cancel,
             )
             .await?;
-            let size = std::fs::metadata(local_path).map(|m| m.len() as i64).unwrap_or(0);
+            let size = std::fs::metadata(local_path)
+                .map(|m| m.len() as i64)
+                .unwrap_or(0);
             transferred.fetch_add(size, Ordering::Relaxed);
             uploaded += 1;
         } else if local_path.is_dir() {
@@ -380,7 +418,13 @@ pub async fn fs_upload_local(
     }
 
     *fs_state.cancel.lock().await = None;
-    emit_progress(&app, &format!("{uploaded} file(s) uploaded"), 1.0, true, None);
+    emit_progress(
+        &app,
+        &format!("{uploaded} file(s) uploaded"),
+        1.0,
+        true,
+        None,
+    );
     Ok(uploaded)
 }
 
@@ -429,7 +473,9 @@ fn count_local_bytes(paths: &[String]) -> i64 {
         let path = std::path::Path::new(p);
         if path.is_file() {
             total += std::fs::metadata(path).map(|m| m.len() as i64).unwrap_or(0);
-        } else if path.is_dir() && let Ok(entries) = std::fs::read_dir(path) {
+        } else if path.is_dir()
+            && let Ok(entries) = std::fs::read_dir(path)
+        {
             let sub: Vec<String> = entries
                 .filter_map(|e| e.ok())
                 .map(|e| e.path().to_string_lossy().into_owned())
@@ -465,7 +511,10 @@ async fn count_remote_bytes(state: &State<'_, HubState>, remote_dir: &str) -> Re
     Ok(total)
 }
 
-async fn get_remote_file_size(state: &State<'_, HubState>, remote_path: &str) -> Result<i64, String> {
+async fn get_remote_file_size(
+    state: &State<'_, HubState>,
+    remote_path: &str,
+) -> Result<i64, String> {
     let mgr = state.connection_mgr.clone();
     let parent = std::path::Path::new(remote_path)
         .parent()
@@ -541,7 +590,11 @@ async fn upload_single_file_tcp(
 
     let app_clone = app.clone();
     let name_clone = name.to_string();
-    let total = if total_bytes > 0 { total_bytes } else { file_size };
+    let total = if total_bytes > 0 {
+        total_bytes
+    } else {
+        file_size
+    };
     let progress_task = tokio::spawn(async move {
         while let Some((bytes, _)) = progress_rx.recv().await {
             let done_bytes = base_transferred + bytes;
@@ -618,14 +671,31 @@ async fn upload_directory_recursive(
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default();
             let base = transferred.load(Ordering::Relaxed);
-            upload_single_file_tcp(app, state, &entry_path, &remote_dir, &name, base, total_bytes, cancel)
-                .await?;
-            let size = std::fs::metadata(&entry_path).map(|m| m.len() as i64).unwrap_or(0);
+            upload_single_file_tcp(
+                app,
+                state,
+                &entry_path,
+                &remote_dir,
+                &name,
+                base,
+                total_bytes,
+                cancel,
+            )
+            .await?;
+            let size = std::fs::metadata(&entry_path)
+                .map(|m| m.len() as i64)
+                .unwrap_or(0);
             transferred.fetch_add(size, Ordering::Relaxed);
             count += 1;
         } else if entry_path.is_dir() {
             count += Box::pin(upload_directory_recursive(
-                app, state, &entry_path, &remote_dir, transferred, total_bytes, cancel,
+                app,
+                state,
+                &entry_path,
+                &remote_dir,
+                transferred,
+                total_bytes,
+                cancel,
             ))
             .await?;
         }
@@ -666,7 +736,11 @@ async fn download_single_file(
         .ok_or_else(|| "empty download response".to_string())?;
 
     let file_size = download.size;
-    let total = if total_bytes > 0 { total_bytes } else { file_size };
+    let total = if total_bytes > 0 {
+        total_bytes
+    } else {
+        file_size
+    };
     let addr = agent_tcp_addr(state, download.tcp_port).await?;
     let output_dir = local_file
         .parent()
@@ -762,14 +836,28 @@ async fn download_directory_recursive(
             std::fs::create_dir_all(&sub_local)
                 .map_err(|e| format!("failed to create {}: {e}", sub_local.display()))?;
             count += Box::pin(download_directory_recursive(
-                app, state, &entry.path, &sub_local, transferred, total_bytes, cancel,
+                app,
+                state,
+                &entry.path,
+                &sub_local,
+                transferred,
+                total_bytes,
+                cancel,
             ))
             .await?;
         } else {
             let base = transferred.load(Ordering::Relaxed);
             let local_file = local_dir.join(&entry.name);
-            download_single_file(app, state, &entry.path, &local_file, base, total_bytes, cancel)
-                .await?;
+            download_single_file(
+                app,
+                state,
+                &entry.path,
+                &local_file,
+                base,
+                total_bytes,
+                cancel,
+            )
+            .await?;
             transferred.fetch_add(entry.size, Ordering::Relaxed);
             count += 1;
         }
