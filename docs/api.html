@@ -255,6 +255,93 @@ title: API Reference
         </div>
       </details>
 
+      <!-- File Browser (v1.0.0+) -->
+      <details class="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-800/50 transition">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-lg bg-capy-500/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-capy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold">File Browser</h3>
+              <p class="text-sm text-slate-400">Remote filesystem operations (v1.0.0+)</p>
+            </div>
+          </div>
+          <svg class="w-5 h-5 text-slate-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div class="px-6 pb-6 space-y-4">
+          <p class="text-sm text-slate-400">All file data transfers use TCP data channels with MD5 verification. WebSocket is only used for signaling (metadata + TCP port/token exchange). Requires <code>file_browser</code> capability.</p>
+
+          <div class="space-y-3">
+            <div class="border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="cd-badge cd-badge-hub">Hub &rarr; Agent</span>
+                <code class="text-sm font-mono text-slate-300">fs_list</code>
+              </div>
+              <p class="text-xs text-slate-500 mb-2">List directory contents.</p>
+              <pre class="cd-code-block"><code>{ "path": "/home/user/Games", "showHidden": false }</code></pre>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="cd-badge cd-badge-agent">Agent &rarr; Hub</span>
+                <code class="text-sm font-mono text-slate-300">fs_list_response</code>
+              </div>
+              <pre class="cd-code-block"><code>{ "path": "/home/user/Games", "entries": [
+  { "name": "game.exe", "path": "/home/user/Games/game.exe", "isDir": false, "size": 1048576, "modTime": 1700000000 }
+], "truncated": false }</code></pre>
+            </div>
+
+            <div class="border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="cd-badge cd-badge-hub">Hub &rarr; Agent</span>
+                <code class="text-sm font-mono text-slate-300">fs_mkdir</code> /
+                <code class="text-sm font-mono text-slate-300">fs_delete</code> /
+                <code class="text-sm font-mono text-slate-300">fs_rename</code>
+              </div>
+              <p class="text-xs text-slate-500 mb-2">Create, delete, or rename files and directories. Agent responds with <code>operation_result</code>.</p>
+              <pre class="cd-code-block"><code>// fs_mkdir
+{ "path": "/home/user/Games/NewFolder" }
+
+// fs_delete
+{ "path": "/home/user/Games/old_file.txt" }
+
+// fs_rename
+{ "oldPath": "/home/user/Games/old.txt", "newPath": "/home/user/Games/new.txt" }</code></pre>
+            </div>
+
+            <div class="border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="cd-badge cd-badge-hub">Hub &rarr; Agent</span>
+                <code class="text-sm font-mono text-slate-300">fs_download</code>
+              </div>
+              <p class="text-xs text-slate-500 mb-2">Request a file download. Agent opens a TCP server and responds with port/token.</p>
+              <pre class="cd-code-block"><code>{ "path": "/home/user/Games/save.dat" }</code></pre>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="cd-badge cd-badge-agent">Agent &rarr; Hub</span>
+                <code class="text-sm font-mono text-slate-300">fs_download_ready</code>
+              </div>
+              <pre class="cd-code-block"><code>{ "path": "/home/user/Games/save.dat", "size": 2048, "tcpPort": 54321, "tcpToken": "a1b2c3..." }</code></pre>
+              <p class="text-xs text-slate-500 mt-2">Hub connects to <code>agent_ip:tcpPort</code>, authenticates with token, and receives file data using the standard TCP wire format (same as game uploads but in reverse direction).</p>
+            </div>
+
+            <div class="border border-slate-800 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="cd-badge cd-badge-hub">Hub &rarr; Agent</span>
+                <code class="text-sm font-mono text-slate-300">fs_upload</code>
+              </div>
+              <p class="text-xs text-slate-500 mb-2">Request to upload a file. Agent opens a TCP server and responds with port/token.</p>
+              <pre class="cd-code-block"><code>{ "path": "/home/user/Games", "name": "patch.zip", "size": 1048576 }</code></pre>
+              <div class="flex items-center gap-2 mt-2">
+                <span class="cd-badge cd-badge-agent">Agent &rarr; Hub</span>
+                <code class="text-sm font-mono text-slate-300">fs_upload_ready</code>
+              </div>
+              <pre class="cd-code-block"><code>{ "tcpPort": 54322, "tcpToken": "d4e5f6..." }</code></pre>
+              <p class="text-xs text-slate-500 mt-2">Hub connects to <code>agent_ip:tcpPort</code>, authenticates, and sends file data using the standard TCP wire format with MD5 checksum verification.</p>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <!-- File Upload -->
       <details class="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-800/50 transition">
