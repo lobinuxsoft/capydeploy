@@ -119,16 +119,18 @@ pub fn run() {
             // File dialogs
             commands::files::select_folder,
             commands::files::select_artwork_file,
-            // Filesystem browser
-            commands::filesystem::fs_list,
-            commands::filesystem::fs_mkdir,
-            commands::filesystem::fs_delete,
-            commands::filesystem::fs_rename,
-            commands::filesystem::fs_download_path,
-            commands::filesystem::fs_download_batch,
-            commands::filesystem::fs_upload,
-            commands::filesystem::fs_upload_local,
-            commands::filesystem::fs_cancel_transfer,
+            // Filesystem browser — commands
+            commands::filesystem::commands::fs_list,
+            commands::filesystem::commands::fs_mkdir,
+            commands::filesystem::commands::fs_delete,
+            commands::filesystem::commands::fs_rename,
+            commands::filesystem::commands::fs_cancel_transfer,
+            // Filesystem browser — download
+            commands::filesystem::download::fs_download_path,
+            commands::filesystem::download::fs_download_batch,
+            // Filesystem browser — upload
+            commands::filesystem::upload::fs_upload,
+            commands::filesystem::upload::fs_upload_local,
         ])
         .build(tauri::generate_context!())
         .expect("error building tauri application");
