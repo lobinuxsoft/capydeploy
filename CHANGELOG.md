@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.13.0...v1.0.0) (2026-03-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* all file transfers now use TCP data channels with MD5 checksums instead of WebSocket. Protocol messages changed: FsUploadRequest no longer contains inline data, new FsUploadReady/FsDownloadReady responses include TCP port and token for data channel negotiation.
+
+### Features
+
+* **hub,agent:** remote file browser with TCP transfers ([7f93351](https://github.com/lobinuxsoft/capydeploy/commit/7f93351c0d9030059139cf2f062af08957e1a9fe)), closes [#49](https://github.com/lobinuxsoft/capydeploy/issues/49)
+* **hub:** detachable telemetry and console log windows ([4faed27](https://github.com/lobinuxsoft/capydeploy/commit/4faed2758171f68bee7a743b4179641eb28e6199))
+* **hub:** detachable telemetry and console log windows ([62f914f](https://github.com/lobinuxsoft/capydeploy/commit/62f914f1fa3f64f3ace2dd1d51d470fdef073d5a)), closes [#106](https://github.com/lobinuxsoft/capydeploy/issues/106)
+* remote file browser with TCP file transfers ([4956d5a](https://github.com/lobinuxsoft/capydeploy/commit/4956d5a52f92554e5f94fad0325d5c7609cc2759))
+
+
+### Bug Fixes
+
+* suppress clippy too_many_arguments for TCP transfer helpers ([6f64b35](https://github.com/lobinuxsoft/capydeploy/commit/6f64b35e8546e37ea39f5a8dc7095870b1daf784))
+
 ## [0.13.0](https://github.com/lobinuxsoft/capydeploy/compare/v0.12.0...v0.13.0) (2026-02-23)
 
 
