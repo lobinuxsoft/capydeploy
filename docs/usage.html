@@ -430,12 +430,90 @@ title: Usage Guide
             <div class="cd-glass-section">
               <div class="cd-section-title text-slate-400 mb-1">Version</div>
               <div class="text-xs text-slate-400 font-mono space-y-1">
-                <div>Version: <span class="text-slate-200">0.2.0</span></div>
+                <div>Version: <span class="text-slate-200">1.0.0</span></div>
                 <div>Commit: <span class="text-slate-200">3d4a0a0</span></div>
                 <div>Built: <span class="text-slate-200">2026-02-08</span></div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!-- SECTION: FILE BROWSER     -->
+    <!-- ========================= -->
+    <div class="mb-24">
+      <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-capy-500/20 to-capy-600/20 flex items-center justify-center border border-capy-500/20">
+          <svg class="w-6 h-6 text-capy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-2xl font-bold">Remote File Browser <span class="text-slate-500 font-normal text-lg">(v1.0.0+)</span></h3>
+          <p class="text-slate-400 text-sm">Browse, upload, and download files from the agent's filesystem — directly from the Hub.</p>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div>
+          <h4 class="text-lg font-semibold mb-3">Features</h4>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span>Opens as a <strong class="text-slate-200">detachable popout window</strong> (like Telemetry and Console Log)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span><strong class="text-slate-200">Browse directories</strong> with breadcrumb navigation, hidden files toggle</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span><strong class="text-slate-200">Upload files and folders</strong> via button, dialog, or drag &amp; drop from your desktop</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span><strong class="text-slate-200">Download files and folders</strong> recursively, with single-folder picker for batch downloads</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span><strong class="text-slate-200">Manage files</strong>: create folders, rename, delete (right-click context menu)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span><strong class="text-slate-200">Multi-select</strong> with Ctrl+click, Shift+click, or select all</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-green-400 mt-0.5">&#10003;</span>
+              <span><strong class="text-slate-200">Progress bar</strong> with byte-level tracking, percentage, and cancel button</span>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-lg font-semibold mb-3">Technical Details</h4>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li class="flex items-start gap-2">
+              <span class="text-water-400 mt-0.5">&#9654;</span>
+              <span>All file data transfers use <strong class="text-slate-200">TCP data channels</strong> with MD5 checksums (same wire format as game uploads)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-water-400 mt-0.5">&#9654;</span>
+              <span>WebSocket is used <strong class="text-slate-200">only for signaling</strong> (commands + TCP port/token exchange)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-water-400 mt-0.5">&#9654;</span>
+              <span><strong class="text-slate-200">Path sandbox</strong> restricts access to home directory and removable media</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-water-400 mt-0.5">&#9654;</span>
+              <span>Conditional on <code class="text-xs bg-slate-800 px-1 py-0.5 rounded">file_browser</code> capability — button only appears if agent supports it</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-water-400 mt-0.5">&#9654;</span>
+              <span>Cross-platform: works with both <strong class="text-slate-200">Tauri agent</strong> (Linux/Windows) and <strong class="text-slate-200">Decky plugin</strong> (SteamOS)</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
@@ -500,7 +578,7 @@ title: Usage Guide
                 <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
               </div>
               <div class="text-xs text-slate-400 font-mono space-y-1 pl-2 border-l-2 border-slate-700">
-                <div>Version: <span class="text-slate-300">0.2.0</span></div>
+                <div>Version: <span class="text-slate-300">1.0.0</span></div>
                 <div>Commit: <span class="text-slate-300">3d4a0a0</span></div>
                 <div>Built: <span class="text-slate-300">2026-02-08</span></div>
               </div>
@@ -714,7 +792,7 @@ title: Usage Guide
               </div>
               <div class="cd-glass-section flex items-center justify-between">
                 <span class="cd-section-title text-slate-400">Version</span>
-                <span class="text-xs text-slate-300 font-mono">0.2.0</span>
+                <span class="text-xs text-slate-300 font-mono">1.0.0</span>
               </div>
               <div class="cd-glass-section flex items-center justify-between">
                 <span class="cd-section-title text-slate-400">Install Path</span>
