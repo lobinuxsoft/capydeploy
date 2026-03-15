@@ -7,6 +7,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::auth::AuthManager;
 use crate::config::AgentConfig;
+use crate::handlers::filesystem::FsSandbox;
 
 /// Shared application state managed by Tauri.
 pub struct AgentState {
@@ -35,6 +36,8 @@ pub struct AgentState {
     /// App IDs deleted via CEF but possibly still in VDF (not flushed yet).
     /// Filtered out in get_shortcuts to avoid showing stale entries.
     pub deleted_app_ids: Arc<Mutex<HashSet<u32>>>,
+    /// Filesystem sandbox for remote file browser access control.
+    pub fs_sandbox: FsSandbox,
     /// Cancellation token for graceful shutdown of all background tasks.
     pub shutdown_token: CancellationToken,
 }

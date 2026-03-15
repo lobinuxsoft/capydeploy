@@ -159,6 +159,55 @@ pub trait Handler: Send + Sync + 'static {
         })
     }
 
+    /// Called for `fs_list`.
+    fn on_fs_list(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
+    /// Called for `fs_mkdir`.
+    fn on_fs_mkdir(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
+    /// Called for `fs_rename`.
+    fn on_fs_rename(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
+    /// Called for `fs_copy`.
+    fn on_fs_copy(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
+    /// Called for `fs_delete`.
+    fn on_fs_delete(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
+    /// Called for `fs_download`.
+    fn on_fs_download(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
+    /// Called for `fs_upload`.
+    fn on_fs_upload(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(async move {
+            let _ = sender.send_error(&msg, 501, "not implemented");
+        })
+    }
+
     /// Called for a binary upload chunk.
     fn on_binary_chunk(
         &self,

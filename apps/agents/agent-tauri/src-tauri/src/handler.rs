@@ -121,6 +121,30 @@ impl Handler for TauriAgentHandler {
         Box::pin(self.handle_set_game_log_wrapper(sender, msg))
     }
 
+    fn on_fs_list(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(self.handle_fs_list(sender, msg))
+    }
+
+    fn on_fs_mkdir(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(self.handle_fs_mkdir(sender, msg))
+    }
+
+    fn on_fs_delete(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(self.handle_fs_delete(sender, msg))
+    }
+
+    fn on_fs_rename(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(self.handle_fs_rename(sender, msg))
+    }
+
+    fn on_fs_download(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(self.handle_fs_download(sender, msg))
+    }
+
+    fn on_fs_upload(&self, sender: Sender, msg: Message) -> HandlerFuture<'_> {
+        Box::pin(self.handle_fs_upload(sender, msg))
+    }
+
     fn on_hub_disconnected(&self) -> HandlerFuture<'_> {
         Box::pin(self.handle_hub_disconnected())
     }

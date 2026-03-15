@@ -302,6 +302,13 @@ async fn dispatch_text<H: Handler>(handler: &Arc<H>, sender: &Sender, text: &str
         MessageType::SetConsoleLogFilter => handler.on_set_console_log_filter(s, msg).await,
         MessageType::SetConsoleLogEnabled => handler.on_set_console_log_enabled(s, msg).await,
         MessageType::SetGameLogWrapper => handler.on_set_game_log_wrapper(s, msg).await,
+        MessageType::FsList => handler.on_fs_list(s, msg).await,
+        MessageType::FsMkdir => handler.on_fs_mkdir(s, msg).await,
+        MessageType::FsRename => handler.on_fs_rename(s, msg).await,
+        MessageType::FsCopy => handler.on_fs_copy(s, msg).await,
+        MessageType::FsDelete => handler.on_fs_delete(s, msg).await,
+        MessageType::FsDownload => handler.on_fs_download(s, msg).await,
+        MessageType::FsUpload => handler.on_fs_upload(s, msg).await,
         _ => {
             tracing::warn!(msg_type = ?msg.msg_type, "unhandled message type");
             let _ = sender.send_error(&msg, 501, "unknown message type");

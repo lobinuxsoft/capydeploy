@@ -474,6 +474,109 @@ pub struct UploadProgressEvent {
 }
 
 // ---------------------------------------------------------------------------
+// Filesystem payloads
+// ---------------------------------------------------------------------------
+
+/// Requests a directory listing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsListRequest {
+    pub path: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub show_hidden: bool,
+}
+
+/// A single filesystem entry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub size: i64,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub mod_time: i64,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub is_symlink: bool,
+}
+
+/// Directory listing response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsListResponse {
+    pub path: String,
+    pub entries: Vec<FsEntry>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub truncated: bool,
+}
+
+/// Creates a directory.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsMkdirRequest {
+    pub path: String,
+}
+
+/// Renames a file or directory.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsRenameRequest {
+    pub old_path: String,
+    pub new_path: String,
+}
+
+/// Copies a file or directory.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsCopyRequest {
+    pub src_path: String,
+    pub dst_path: String,
+}
+
+/// Deletes a file or directory.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsDeleteRequest {
+    pub path: String,
+}
+
+/// Requests a file download from the agent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsDownloadRequest {
+    pub path: String,
+}
+
+/// Agent responds with TCP channel info for file download.
+/// All file data is transferred via TCP (never inline).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsDownloadReadyResponse {
+    pub path: String,
+    pub size: i64,
+    pub tcp_port: u16,
+    pub tcp_token: String,
+}
+
+/// Requests uploading a file to the agent (metadata only — data goes via TCP).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsUploadRequest {
+    pub path: String,
+    pub name: String,
+    pub size: i64,
+}
+
+/// Agent responds with TCP channel info for file upload.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsUploadReadyResponse {
+    pub tcp_port: u16,
+    pub tcp_token: String,
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -705,6 +808,104 @@ mod tests {
         };
         let json = serde_json::to_string(&f).unwrap();
         assert!(json.contains("\"type\":\"hero\""));
+    }
+
+    #[test]
+    fn fs_list_request_roundtrip() {
+        let req = FsListRequest {
+            path: "/home/user".into(),
+            show_hidden: false,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("showHidden"));
+        let parsed: FsListRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(req, parsed);
+    }
+
+    #[test]
+    fn fs_list_response_roundtrip() {
+        let resp = FsListResponse {
+            path: "/home/user".into(),
+            entries: vec![
+                FsEntry {
+                    name: "Documents".into(),
+                    path: "/home/user/Documents".into(),
+                    is_dir: true,
+                    size: 0,
+                    mod_time: 1700000000,
+                    is_symlink: false,
+                },
+                FsEntry {
+                    name: "readme.txt".into(),
+                    path: "/home/user/readme.txt".into(),
+                    is_dir: false,
+                    size: 1024,
+                    mod_time: 1700000001,
+                    is_symlink: false,
+                },
+            ],
+            truncated: false,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"isDir\":true"));
+        assert!(!json.contains("isSymlink"));
+        assert!(!json.contains("truncated"));
+        let parsed: FsListResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(resp, parsed);
+    }
+
+    #[test]
+    fn fs_entry_omit_empty() {
+        let entry = FsEntry {
+            name: "test".into(),
+            path: "/test".into(),
+            is_dir: false,
+            size: 0,
+            mod_time: 0,
+            is_symlink: false,
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(!json.contains("size"));
+        assert!(!json.contains("modTime"));
+        assert!(!json.contains("isSymlink"));
+    }
+
+    #[test]
+    fn fs_download_ready_roundtrip() {
+        let resp = FsDownloadReadyResponse {
+            path: "/home/user/file.zip".into(),
+            size: 100_000_000,
+            tcp_port: 54321,
+            tcp_token: "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"tcpPort\":54321"));
+        let parsed: FsDownloadReadyResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(resp, parsed);
+    }
+
+    #[test]
+    fn fs_upload_request_roundtrip() {
+        let req = FsUploadRequest {
+            path: "/home/user/Documents".into(),
+            name: "test.txt".into(),
+            size: 1024,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let parsed: FsUploadRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(req, parsed);
+    }
+
+    #[test]
+    fn fs_upload_ready_roundtrip() {
+        let resp = FsUploadReadyResponse {
+            tcp_port: 12345,
+            tcp_token: "abcdef01234567890abcdef012345678".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"tcpPort\":12345"));
+        let parsed: FsUploadReadyResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(resp, parsed);
     }
 
     #[test]

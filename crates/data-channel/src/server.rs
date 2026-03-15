@@ -188,6 +188,137 @@ impl TcpDataServer {
         info!(total_bytes, "TCP data channel: transfer complete, ACK sent");
         Ok(total_bytes)
     }
+
+    /// Accepts a single connection, validates the token, and SENDS files.
+    /// (Reverse direction: agent → hub, used by fs_download.)
+    pub async fn accept_and_send(
+        listener: TcpListener,
+        expected_token: &str,
+        files: &[(PathBuf, String)],
+        cancel: CancellationToken,
+        progress_tx: mpsc::Sender<(i64, String)>,
+    ) -> Result<i64, DataChannelError> {
+        // Wait for connection with timeout + cancellation.
+        let stream = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(DataChannelError::Cancelled);
+            }
+            result = tokio::time::timeout(TCP_CONNECT_TIMEOUT, listener.accept()) => {
+                match result {
+                    Ok(Ok((stream, addr))) => {
+                        info!(%addr, "TCP download channel: connection accepted");
+                        stream
+                    }
+                    Ok(Err(e)) => return Err(e.into()),
+                    Err(_) => return Err(DataChannelError::Timeout),
+                }
+            }
+        };
+
+        drop(listener);
+
+        let (reader, writer) = stream.into_split();
+        let mut reader = reader;
+        let mut writer = tokio::io::BufWriter::with_capacity(TCP_BUFFER_SIZE, writer);
+
+        // Authenticate with timeout.
+        let received_token = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(DataChannelError::Cancelled);
+            }
+            result = tokio::time::timeout(TCP_AUTH_TIMEOUT, read_token(&mut reader)) => {
+                match result {
+                    Ok(Ok(t)) => t,
+                    Ok(Err(e)) => return Err(e),
+                    Err(_) => return Err(DataChannelError::Timeout),
+                }
+            }
+        };
+
+        if !crate::token::validate_token(&received_token, expected_token) {
+            warn!("TCP download channel: invalid token");
+            write_auth_response(&mut writer, false).await?;
+            tokio::io::AsyncWriteExt::flush(&mut writer).await?;
+            return Err(DataChannelError::AuthFailed("invalid token".into()));
+        }
+
+        write_auth_response(&mut writer, true).await?;
+        tokio::io::AsyncWriteExt::flush(&mut writer).await?;
+        info!("TCP download channel: authenticated, sending files");
+
+        // Send files (same logic as TcpDataClient::connect_and_send).
+        let mut total_bytes: i64 = 0;
+        let mut buf = vec![0u8; TCP_BUFFER_SIZE];
+
+        for (local_path, relative_path) in files {
+            if cancel.is_cancelled() {
+                return Err(DataChannelError::Cancelled);
+            }
+
+            let metadata = tokio::fs::metadata(local_path).await?;
+            let file_size = metadata.len();
+
+            let header = crate::wire::FileHeader {
+                relative_path: relative_path.clone(),
+                file_size,
+            };
+            crate::wire::write_file_header(&mut writer, &header).await?;
+
+            let mut file = tokio::fs::File::open(local_path).await?;
+            let mut remaining = file_size;
+            let mut hasher = Md5::new();
+
+            while remaining > 0 {
+                if cancel.is_cancelled() {
+                    return Err(DataChannelError::Cancelled);
+                }
+
+                let to_read = (remaining as usize).min(buf.len());
+                let n = tokio::io::AsyncReadExt::read(&mut file, &mut buf[..to_read]).await?;
+                if n == 0 {
+                    return Err(DataChannelError::Protocol(
+                        "unexpected EOF reading local file".into(),
+                    ));
+                }
+
+                hasher.update(&buf[..n]);
+                tokio::io::AsyncWriteExt::write_all(&mut writer, &buf[..n]).await?;
+                remaining -= n as u64;
+                total_bytes += n as i64;
+
+                let _ = progress_tx.try_send((total_bytes, relative_path.clone()));
+            }
+
+            let digest: [u8; 16] = hasher.finalize_reset().into();
+            crate::wire::write_file_checksum(&mut writer, &digest).await?;
+
+            debug!(
+                path = %relative_path,
+                size = file_size,
+                "TCP download channel: file sent"
+            );
+        }
+
+        // End marker + flush.
+        crate::wire::write_end_marker(&mut writer).await?;
+        tokio::io::AsyncWriteExt::flush(&mut writer).await?;
+
+        // Wait for ACK.
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(DataChannelError::Cancelled);
+            }
+            result = crate::wire::read_transfer_ack(&mut reader) => {
+                result?;
+            }
+        };
+
+        info!(total_bytes, "TCP download channel: transfer complete");
+        Ok(total_bytes)
+    }
 }
 
 /// Validates a relative file path for safety (no traversal, no absolute paths).

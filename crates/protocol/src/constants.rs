@@ -114,6 +114,28 @@ pub enum MessageType {
     #[serde(rename = "error")]
     Error,
 
+    // Filesystem operations (Hub → Agent)
+    #[serde(rename = "fs_list")]
+    FsList,
+    #[serde(rename = "fs_list_response")]
+    FsListResponse,
+    #[serde(rename = "fs_mkdir")]
+    FsMkdir,
+    #[serde(rename = "fs_rename")]
+    FsRename,
+    #[serde(rename = "fs_copy")]
+    FsCopy,
+    #[serde(rename = "fs_delete")]
+    FsDelete,
+    #[serde(rename = "fs_download")]
+    FsDownload,
+    #[serde(rename = "fs_download_ready")]
+    FsDownloadReady,
+    #[serde(rename = "fs_upload")]
+    FsUpload,
+    #[serde(rename = "fs_upload_ready")]
+    FsUploadReady,
+
     // Events from Agent to Hub (push notifications)
     #[serde(rename = "data_channel_ready")]
     DataChannelReady,
@@ -136,6 +158,26 @@ pub enum MessageType {
     #[serde(other)]
     Unknown,
 }
+
+// ---------------------------------------------------------------------------
+// Capability identifiers
+// ---------------------------------------------------------------------------
+
+/// Capability: agent supports remote file browsing.
+pub const CAPABILITY_FILE_BROWSER: &str = "file_browser";
+
+// ---------------------------------------------------------------------------
+// Filesystem limits
+// ---------------------------------------------------------------------------
+
+/// Maximum number of entries returned by `fs_list`.
+pub const FS_MAX_LIST_ENTRIES: usize = 10_000;
+
+/// Maximum file size (in bytes) allowed for `fs_download` (2 GiB — future chunked).
+pub const FS_MAX_DOWNLOAD_SIZE: i64 = 2 * 1024 * 1024 * 1024;
+
+/// Maximum number of bytes to display in inline error messages.
+pub const FS_MAX_TRANSFER_SIZE: usize = 25 * 1024 * 1024;
 
 /// WebSocket close code: agent revoked the Hub's token (private-use range).
 ///
@@ -252,6 +294,22 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&MessageType::UploadProgress).unwrap(),
             "\"upload_progress\""
+        );
+    }
+
+    #[test]
+    fn fs_message_type_serialization() {
+        assert_eq!(
+            serde_json::to_string(&MessageType::FsList).unwrap(),
+            "\"fs_list\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MessageType::FsListResponse).unwrap(),
+            "\"fs_list_response\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MessageType::FsDownload).unwrap(),
+            "\"fs_download\""
         );
     }
 

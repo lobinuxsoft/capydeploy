@@ -159,6 +159,139 @@ impl TcpDataClient {
         );
         Ok(total_bytes)
     }
+
+    /// Connects to the agent, authenticates, and RECEIVES files.
+    /// (Reverse direction: agent → hub, used by fs_download.)
+    ///
+    /// Returns the total bytes received.
+    pub async fn connect_and_receive(
+        addr: SocketAddr,
+        token: &str,
+        output_dir: &std::path::Path,
+        cancel: CancellationToken,
+        progress_tx: mpsc::Sender<(i64, String)>,
+    ) -> Result<i64, DataChannelError> {
+        // Connect with timeout + cancellation.
+        let stream = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(DataChannelError::Cancelled);
+            }
+            result = tokio::time::timeout(TCP_CONNECT_TIMEOUT, TcpStream::connect(addr)) => {
+                match result {
+                    Ok(Ok(s)) => {
+                        info!(%addr, "TCP download client connected");
+                        s
+                    }
+                    Ok(Err(e)) => return Err(e.into()),
+                    Err(_) => return Err(DataChannelError::Timeout),
+                }
+            }
+        };
+
+        let (reader, writer) = stream.into_split();
+        let mut reader = tokio::io::BufReader::with_capacity(TCP_BUFFER_SIZE, reader);
+        let mut writer = BufWriter::with_capacity(TCP_BUFFER_SIZE, writer);
+
+        // Send token.
+        write_token(&mut writer, token).await?;
+        tokio::io::AsyncWriteExt::flush(&mut writer).await?;
+
+        // Wait for auth.
+        let accepted = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => {
+                return Err(DataChannelError::Cancelled);
+            }
+            result = tokio::time::timeout(TCP_AUTH_TIMEOUT, read_auth_response(&mut reader)) => {
+                match result {
+                    Ok(Ok(a)) => a,
+                    Ok(Err(e)) => return Err(e),
+                    Err(_) => return Err(DataChannelError::Timeout),
+                }
+            }
+        };
+
+        if !accepted {
+            return Err(DataChannelError::AuthFailed("agent rejected token".into()));
+        }
+
+        info!("TCP download client: authenticated, receiving files");
+
+        // Receive files (same logic as TcpDataServer::accept_and_receive).
+        let mut total_bytes: i64 = 0;
+        let mut buf = vec![0u8; TCP_BUFFER_SIZE];
+
+        loop {
+            if cancel.is_cancelled() {
+                return Err(DataChannelError::Cancelled);
+            }
+
+            let header = match crate::wire::read_file_header(&mut reader).await? {
+                Some(h) => h,
+                None => {
+                    debug!("TCP download client: end marker received");
+                    break;
+                }
+            };
+
+            let file_path = output_dir.join(&header.relative_path);
+            if let Some(parent) = file_path.parent() {
+                tokio::fs::create_dir_all(parent).await?;
+            }
+
+            let mut file = tokio::fs::File::create(&file_path).await?;
+            let mut remaining = header.file_size;
+            let mut hasher = Md5::new();
+
+            while remaining > 0 {
+                if cancel.is_cancelled() {
+                    return Err(DataChannelError::Cancelled);
+                }
+
+                let to_read = (remaining as usize).min(buf.len());
+                let n = reader.read(&mut buf[..to_read]).await?;
+                if n == 0 {
+                    return Err(DataChannelError::Protocol(
+                        "unexpected EOF during file data".into(),
+                    ));
+                }
+
+                hasher.update(&buf[..n]);
+                tokio::io::AsyncWriteExt::write_all(&mut file, &buf[..n]).await?;
+                remaining -= n as u64;
+                total_bytes += n as i64;
+
+                let _ = progress_tx.try_send((total_bytes, header.relative_path.clone()));
+            }
+
+            tokio::io::AsyncWriteExt::flush(&mut file).await?;
+            file.sync_all().await?;
+
+            let expected = crate::wire::read_file_checksum(&mut reader).await?;
+            let actual: [u8; 16] = hasher.finalize().into();
+            if expected != actual {
+                return Err(DataChannelError::ChecksumMismatch {
+                    file: header.relative_path.clone(),
+                    expected: hex::encode(expected),
+                    actual: hex::encode(actual),
+                });
+            }
+
+            debug!(
+                path = %header.relative_path,
+                size = header.file_size,
+                "TCP download client: file received, checksum OK"
+            );
+        }
+
+        // Send transfer ACK.
+        crate::wire::write_transfer_ack(&mut writer).await?;
+        tokio::io::AsyncWriteExt::flush(&mut writer).await?;
+
+        info!(total_bytes, "TCP download client: transfer complete");
+        Ok(total_bytes)
+    }
 }
 
 #[cfg(test)]

@@ -33,6 +33,7 @@ capydeploy-hub-telemetry = { workspace = true }
 capydeploy-hub-console-log = { workspace = true }
 capydeploy-hub-settings = { workspace = true }
 capydeploy-steamgriddb = { workspace = true }
+capydeploy-data-channel = { workspace = true }
 
 # Core
 tokio = { workspace = true }

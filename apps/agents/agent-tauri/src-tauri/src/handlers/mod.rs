@@ -1,5 +1,6 @@
 mod artwork;
 mod disconnect;
+pub(crate) mod filesystem;
 mod games;
 mod info;
 mod pairing;

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri-v2-nightly-schema/main/capability.json",
+  "identifier": "popout",
+  "description": "Capabilities for detachable windows (telemetry, console log, file browser)",
+  "windows": ["popout-telemetry", "popout-consolelog", "popout-filebrowser"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-focus",
+    "core:webview:allow-create-webview-window",
+    "dialog:allow-open",
+    "dialog:allow-save"
+  ]
+}

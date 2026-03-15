@@ -33,6 +33,23 @@ export interface ConnectionStatus {
 	port: number;
 	ips: string[];
 	supportedImageFormats: string[];
+	capabilities: string[];
+}
+
+// Filesystem types
+export interface FsEntry {
+	name: string;
+	path: string;
+	isDir: boolean;
+	size: number;
+	modTime: number;
+	isSymlink: boolean;
+}
+
+export interface FsListResponse {
+	path: string;
+	entries: FsEntry[];
+	truncated: boolean;
 }
 
 // Game setup types

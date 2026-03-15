@@ -55,10 +55,13 @@ pub fn run() {
         deploy_cancel: Arc::new(tokio::sync::Mutex::new(None)),
     };
 
+    let fs_transfer_state = commands::filesystem::FsTransferState::new();
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(hub_state)
+        .manage(fs_transfer_state)
         .setup(move |app| {
             let handle = app.handle().clone();
             let mgr_clone = mgr.clone();
@@ -116,6 +119,16 @@ pub fn run() {
             // File dialogs
             commands::files::select_folder,
             commands::files::select_artwork_file,
+            // Filesystem browser
+            commands::filesystem::fs_list,
+            commands::filesystem::fs_mkdir,
+            commands::filesystem::fs_delete,
+            commands::filesystem::fs_rename,
+            commands::filesystem::fs_download_path,
+            commands::filesystem::fs_download_batch,
+            commands::filesystem::fs_upload,
+            commands::filesystem::fs_upload_local,
+            commands::filesystem::fs_cancel_transfer,
         ])
         .build(tauri::generate_context!())
         .expect("error building tauri application");

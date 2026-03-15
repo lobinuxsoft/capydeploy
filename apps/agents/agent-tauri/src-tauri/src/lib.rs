@@ -117,6 +117,7 @@ pub fn run() {
         game_log_tailer,
         tracked_shortcuts: Arc::new(tokio::sync::Mutex::new(Vec::new())),
         deleted_app_ids: Arc::new(tokio::sync::Mutex::new(std::collections::HashSet::new())),
+        fs_sandbox: handlers::filesystem::FsSandbox::default_roots(),
         shutdown_token: shutdown_token.clone(),
     };
 

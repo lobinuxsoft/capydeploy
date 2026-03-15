@@ -59,6 +59,7 @@ pub struct ConnectionStatusDto {
     pub port: u16,
     pub ips: Vec<String>,
     pub supported_image_formats: Vec<String>,
+    pub capabilities: Vec<String>,
 }
 
 impl ConnectionStatusDto {
@@ -72,6 +73,7 @@ impl ConnectionStatusDto {
             port: 0,
             ips: Vec::new(),
             supported_image_formats: Vec::new(),
+            capabilities: Vec::new(),
         }
     }
 
@@ -85,6 +87,7 @@ impl ConnectionStatusDto {
             port: agent.agent.port,
             ips: agent.agent.ips.iter().map(|ip| ip.to_string()).collect(),
             supported_image_formats: agent.agent.info.supported_image_formats.clone(),
+            capabilities: agent.status.capabilities.clone(),
         }
     }
 }

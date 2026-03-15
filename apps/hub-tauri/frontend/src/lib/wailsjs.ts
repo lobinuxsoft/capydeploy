@@ -5,7 +5,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
 	DiscoveredAgent, ConnectionStatus, VersionInfo, HubInfo,
-	GameSetup, InstalledGame, SearchResult, ImageData, ArtworkFileResult
+	GameSetup, InstalledGame, SearchResult, ImageData, ArtworkFileResult,
+	FsListResponse
 } from '$lib/types';
 
 // ---------------------------------------------------------------------------
@@ -121,6 +122,27 @@ export const OpenCacheFolder = () => invoke<void>('open_cache_folder');
 export const GetImageCacheEnabled = () => invoke<boolean>('get_image_cache_enabled');
 export const SetImageCacheEnabled = (enabled: boolean) =>
 	invoke<void>('set_image_cache_enabled', { enabled });
+
+// ---------------------------------------------------------------------------
+// Filesystem browser
+// ---------------------------------------------------------------------------
+
+export const FsList = (path: string, showHidden: boolean) =>
+	invoke<FsListResponse>('fs_list', { path, showHidden });
+export const FsMkdir = (path: string) => invoke<void>('fs_mkdir', { path });
+export const FsDelete = (path: string) => invoke<void>('fs_delete', { path });
+export const FsRename = (oldPath: string, newPath: string) =>
+	invoke<void>('fs_rename', { oldPath, newPath });
+export const FsDownload = (path: string) => invoke<void>('fs_download', { path });
+export const FsDownloadPath = (path: string, isDir: boolean) =>
+	invoke<number>('fs_download_path', { path, isDir });
+export const FsDownloadBatch = (paths: [string, boolean][]) =>
+	invoke<number>('fs_download_batch', { paths });
+export const FsUpload = (destinationDir: string) =>
+	invoke<void>('fs_upload', { destinationDir });
+export const FsUploadLocal = (paths: string[], destinationDir: string) =>
+	invoke<number>('fs_upload_local', { paths, destinationDir });
+export const FsCancelTransfer = () => invoke<void>('fs_cancel_transfer');
 
 // ---------------------------------------------------------------------------
 // Artwork file selection
