@@ -203,7 +203,8 @@ impl CefClient {
         self.clear_custom_artwork(app_id, asset_type).await?;
 
         let js = format!(
-            r#"SteamClient.Apps.SetCustomArtworkForApp({app_id}, "{base64_data}", "png", {asset_type})"#,
+            "SteamClient.Apps.SetCustomArtworkForApp({app_id}, {}, \"png\", {asset_type})",
+            js_string(base64_data),
         );
         self.evaluate_void(&js).await
     }
