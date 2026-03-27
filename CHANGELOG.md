@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/lobinuxsoft/capydeploy/compare/v1.0.1...v1.0.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* escape base64 data in CEF JavaScript evaluation ([ab1c116](https://github.com/lobinuxsoft/capydeploy/commit/ab1c11681d77b16c87ec447e57248bc618e117b8))
+* escape base64 data in CEF JavaScript evaluation ([69a7003](https://github.com/lobinuxsoft/capydeploy/commit/69a70037274d0f0c5d4ee6469aeda2f78347aa21)), closes [#231](https://github.com/lobinuxsoft/capydeploy/issues/231)
+
 ## [1.0.1](https://github.com/lobinuxsoft/capydeploy/compare/v1.0.0...v1.0.1) (2026-03-15)
 
 
