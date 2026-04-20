@@ -56,7 +56,7 @@ pub fn list_directory(path: &Path) -> Result<Vec<DirEntry>, String> {
         })
         .collect();
 
-    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result.sort_by_key(|entry| entry.name.to_lowercase());
 
     Ok(result)
 }
