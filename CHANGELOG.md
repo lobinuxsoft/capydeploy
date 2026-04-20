@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/lobinuxsoft/capydeploy/compare/v1.0.2...v1.1.0) (2026-04-20)
+
+
+### Features
+
+* **decky:** bump plugin to v1.1.0 with persistent progress visibility ([694ef45](https://github.com/lobinuxsoft/capydeploy/commit/694ef45986ae5dfced43dcea0a71d4ad1bb10aa9))
+* **decky:** bump plugin to v1.1.0 with persistent progress visibility ([4ec8789](https://github.com/lobinuxsoft/capydeploy/commit/4ec8789284a629607948ac95b2bbdd24555609aa)), closes [#230](https://github.com/lobinuxsoft/capydeploy/issues/230)
+
+
+### Bug Fixes
+
+* **file-ops:** use sort_by_key to satisfy clippy 1.95 lint ([0ca3717](https://github.com/lobinuxsoft/capydeploy/commit/0ca371713a39760572af15150871dc1913d4cfdb))
+* **file-ops:** use sort_by_key to satisfy clippy 1.95 unnecessary_sort_by lint ([946da4b](https://github.com/lobinuxsoft/capydeploy/commit/946da4bb0f3a1e34548a577438a6f58533a918ce))
+
 ## [1.0.2](https://github.com/lobinuxsoft/capydeploy/compare/v1.0.1...v1.0.2) (2026-03-27)
 
 
