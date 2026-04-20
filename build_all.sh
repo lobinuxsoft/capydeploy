@@ -635,4 +635,20 @@ DECKY_ZIP=$(find "$DIST_DIR/decky" -name "*.zip" 2>/dev/null | head -1)
 check_artifact "Plugin" "$DECKY_ZIP" "${RESULTS[decky]}" KB
 
 echo
+
+# Propagate failures: exit non-zero so CI and shell callers catch the
+# failure. Previously the script always returned 0, even when steps like
+# the Decky plugin build were marked as failed in RESULTS.
+failed_steps=()
+for step in "${!RESULTS[@]}"; do
+    if [ "${RESULTS[$step]}" = "failed" ]; then
+        failed_steps+=("$step")
+    fi
+done
+
+if [ ${#failed_steps[@]} -gt 0 ]; then
+    echo -e "${RED}Build finished with ${#failed_steps[@]} failed step(s): ${failed_steps[*]}${NC}"
+    exit 1
+fi
+
 echo "Done!"
