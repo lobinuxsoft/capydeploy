@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/lobinuxsoft/capydeploy/compare/v1.1.0...v1.1.1) (2026-04-20)
+
+
+### Bug Fixes
+
+* **build:** exit build_all.sh with non-zero code when any step fails ([0eee609](https://github.com/lobinuxsoft/capydeploy/commit/0eee6093bf2db13e5da8a26db64e59208ab7cab9))
+* **build:** make build_all.sh fail honestly on errors ([80c5e8f](https://github.com/lobinuxsoft/capydeploy/commit/80c5e8f93bbdd5c0701c1f101d959e360ed8940b))
+* **build:** summary in build_all.sh trusts RESULTS instead of filesystem ([f2c02fd](https://github.com/lobinuxsoft/capydeploy/commit/f2c02fdeb46f3fbd7b43b767827a6a054b494c41))
+
 ## [1.1.0](https://github.com/lobinuxsoft/capydeploy/compare/v1.0.2...v1.1.0) (2026-04-20)
 
 
