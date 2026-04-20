@@ -581,40 +581,58 @@ echo
 echo "Output directory: $DIST_DIR"
 echo
 
-# Helper to print file size
-print_binary() {
+# Report a step's outcome. Trusts the RESULTS map first so stale artifacts
+# from earlier (successful) runs cannot mask a failure in the current run.
+#
+# Usage: check_artifact <label> <path> <status> [size_unit]
+#   status: "success" | "failed" | "skipped"
+#   size_unit: "MB" (default) or "KB"
+check_artifact() {
     local label="$1"
     local path="$2"
-    if [ -f "$path" ]; then
-        local size
-        size=$(stat -c%s "$path" 2>/dev/null || echo "0")
-        local size_mb=$((size / 1048576))
-        echo -e "  ${GREEN}✓${NC} $label: ${size_mb} MB"
-    else
-        echo -e "  ${RED}✗${NC} $label: NOT FOUND"
+    local status="$3"
+    local size_unit="${4:-MB}"
+
+    if [ "$status" = "failed" ]; then
+        echo -e "  ${RED}✗${NC} $label: BUILD FAILED"
+        return
     fi
+    if [ "$status" = "skipped" ]; then
+        echo -e "  ${YELLOW}⊘${NC} $label: skipped"
+        return
+    fi
+
+    # Status is "success" — verify the expected artifact actually exists.
+    if [ -z "$path" ] || [ ! -f "$path" ]; then
+        echo -e "  ${RED}✗${NC} $label: MISSING (reported success but artifact not found)"
+        return
+    fi
+
+    local size
+    size=$(stat -c%s "$path" 2>/dev/null || echo "0")
+    local display
+    if [ "$size_unit" = "KB" ]; then
+        display="$((size / 1024)) KB"
+    else
+        display="$((size / 1048576)) MB"
+    fi
+    echo -e "  ${GREEN}✓${NC} $label: $display"
 }
 
 # Linux
 echo -e "${YELLOW}Linux:${NC}"
-print_binary "Hub" "$DIST_DIR/linux/capydeploy-hub-tauri"
-print_binary "Agent" "$DIST_DIR/linux/capydeploy-agent-tauri"
+check_artifact "Hub" "$DIST_DIR/linux/capydeploy-hub-tauri" "${RESULTS[linux]}"
+check_artifact "Agent" "$DIST_DIR/linux/capydeploy-agent-tauri" "${RESULTS[linux]}"
 
 # AppImages
 echo -e "${YELLOW}AppImages:${NC}"
-print_binary "Hub" "$DIST_DIR/appimage/CapyDeploy_Hub.AppImage"
-print_binary "Agent" "$DIST_DIR/appimage/CapyDeploy_Agent.AppImage"
+check_artifact "Hub" "$DIST_DIR/appimage/CapyDeploy_Hub.AppImage" "${RESULTS[appimage_hub]}"
+check_artifact "Agent" "$DIST_DIR/appimage/CapyDeploy_Agent.AppImage" "${RESULTS[appimage_agent]}"
 
 # Decky
 echo -e "${YELLOW}Decky:${NC}"
 DECKY_ZIP=$(find "$DIST_DIR/decky" -name "*.zip" 2>/dev/null | head -1)
-if [ -n "$DECKY_ZIP" ] && [ -f "$DECKY_ZIP" ]; then
-    SIZE=$(stat -c%s "$DECKY_ZIP" 2>/dev/null || echo "0")
-    SIZE_KB=$((SIZE / 1024))
-    echo -e "  ${GREEN}✓${NC} Plugin: ${SIZE_KB} KB"
-else
-    echo -e "  ${RED}✗${NC} Plugin: NOT FOUND"
-fi
+check_artifact "Plugin" "$DECKY_ZIP" "${RESULTS[decky]}" KB
 
 echo
 echo "Done!"
