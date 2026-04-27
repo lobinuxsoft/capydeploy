@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/lobinuxsoft/capydeploy/compare/v1.1.1...v1.2.0) (2026-04-27)
+
+
+### Features
+
+* **decky:** bundle CapyDeploy plugin v1.2.0 with mDNS lifecycle fixes ([438aa82](https://github.com/lobinuxsoft/capydeploy/commit/438aa8245eee5b58e724b9f61b86132642551b61))
+* **decky:** bundle CapyDeploy plugin v1.2.0 with mDNS lifecycle fixes ([891c050](https://github.com/lobinuxsoft/capydeploy/commit/891c050e265e8bff0fac195f83753097bf699976))
+
 ## [1.1.1](https://github.com/lobinuxsoft/capydeploy/compare/v1.1.0...v1.1.1) (2026-04-20)
 
 
