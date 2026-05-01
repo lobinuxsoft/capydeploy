@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/lobinuxsoft/capydeploy/compare/v1.2.0...v1.2.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* **decky:** bump submodule to v1.2.1 ([6a2ad4f](https://github.com/lobinuxsoft/capydeploy/commit/6a2ad4fa111c36426ed6bca3aefefc9c18afd343))
+* **decky:** bump submodule to v1.2.1 ([0c2b0c0](https://github.com/lobinuxsoft/capydeploy/commit/0c2b0c0623ad49e695b6f7232e98e44ec707c466)), closes [#250](https://github.com/lobinuxsoft/capydeploy/issues/250)
+
 ## [1.2.0](https://github.com/lobinuxsoft/capydeploy/compare/v1.1.1...v1.2.0) (2026-04-27)
 
 
