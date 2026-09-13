@@ -166,7 +166,9 @@ impl<H: Handler> AgentServer<H> {
         let mut ws_config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
         ws_config.max_message_size = Some(WS_MAX_MESSAGE_SIZE);
         ws_config.max_frame_size = Some(WS_MAX_MESSAGE_SIZE);
-        let ws_stream = accept_async_with_config(stream, Some(ws_config)).await?;
+        let ws_stream = accept_async_with_config(stream, Some(ws_config))
+            .await
+            .map_err(Box::new)?;
         tracing::info!(%peer_addr, "WebSocket connection established");
 
         let meta = HubMeta {
