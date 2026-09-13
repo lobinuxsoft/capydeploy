@@ -23,7 +23,7 @@ use capydeploy_protocol::messages::{
 #[derive(Debug, thiserror::Error)]
 pub enum WsError {
     #[error("WebSocket error: {0}")]
-    Ws(#[from] tungstenite::Error),
+    Ws(#[from] Box<tungstenite::Error>),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
@@ -88,7 +88,9 @@ impl WsClient {
         ws_config.max_message_size = Some(WS_MAX_MESSAGE_SIZE);
         ws_config.max_frame_size = Some(WS_MAX_MESSAGE_SIZE);
         let (ws_stream, _) =
-            tokio_tungstenite::connect_async_with_config(url, Some(ws_config), false).await?;
+            tokio_tungstenite::connect_async_with_config(url, Some(ws_config), false)
+                .await
+                .map_err(Box::new)?;
         let (write, read) = ws_stream.split();
 
         let (write_tx, write_rx) = mpsc::channel::<tungstenite::Message>(256);
