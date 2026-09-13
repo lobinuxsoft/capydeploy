@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.2](https://github.com/lobinuxsoft/capydeploy/compare/v1.2.1...v1.2.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* **agent-server:** box ServerError::WebSocket, same result_large_err lint ([eca64e0](https://github.com/lobinuxsoft/capydeploy/commit/eca64e074611d08fe57d91ed539874e365594c24))
+* **agent:** resolve real HOME path before building shortcut paths ([931ef93](https://github.com/lobinuxsoft/capydeploy/commit/931ef93537e220bbc4983c19a53db5334236a436))
+* **agent:** resolve real HOME path before building shortcut paths ([38151ae](https://github.com/lobinuxsoft/capydeploy/commit/38151aec1bcdb58ddcbc36bb188f14dc68896432)), closes [#254](https://github.com/lobinuxsoft/capydeploy/issues/254)
+* **decky:** bump submodule to v1.2.2 ([95b4b90](https://github.com/lobinuxsoft/capydeploy/commit/95b4b90f198a8a2c223eef0ce7e790cee7f8091a))
+* **decky:** bump submodule to v1.2.2 ([82d3db2](https://github.com/lobinuxsoft/capydeploy/commit/82d3db2a59022ba2138b039186a34e65f73c32df)), closes [#256](https://github.com/lobinuxsoft/capydeploy/issues/256)
+* **hub-connection:** clear pre-existing clippy lint failures ([bbf1f2e](https://github.com/lobinuxsoft/capydeploy/commit/bbf1f2e2b8fd2cb4d324de6c3a7e3f41022b9fe3))
+* resolve real HOME path for Steam shortcuts on OSTree distros ([fca0d2f](https://github.com/lobinuxsoft/capydeploy/commit/fca0d2fe2d9064f8b172824d1de0f7a4f9a75eb5))
+
 ## [1.2.1](https://github.com/lobinuxsoft/capydeploy/compare/v1.2.0...v1.2.1) (2026-05-01)
 
 
