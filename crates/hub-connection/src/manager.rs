@@ -281,7 +281,7 @@ impl ConnectionManager {
         cancel_any_reconnect(&self.reconnect_cancel);
         // Set any Reconnecting agents to Disconnected.
         let mut states = self.state.write().await;
-        for (_, state) in states.iter_mut() {
+        for state in states.values_mut() {
             if matches!(state, ConnectionState::Reconnecting { .. }) {
                 *state = ConnectionState::Disconnected;
             }
